@@ -120,6 +120,23 @@
     check(!!document.querySelector('.frow'), '소식 탭 열림');
     check(!document.querySelector('#x1,#x2,#x3,#x4,#x5,#x6,#x7') && !window.__pwned, '이상한 값이 HTML로 실행되지 않음 (스크립트 삽입 차단)');
     $('.closebtn').click();
+    // 출석 체크
+    const U = window.UI, ST = U.state();
+    const p0 = num($('#pointsText').textContent), rp0 = st().rankPoints;
+    ST.attend = { last: '', streak: 0 };
+    check(U.openDaily(false) && !!$('#dailyClaim'), '출석: 오늘 처음 → 출석 창');
+    $('#dailyClaim').click(); await sleep(50);
+    check(num($('#pointsText').textContent) === p0 + C.DAILY_REWARDS[0] && ST.attend.streak === 1, '출석 1일차 보상');
+    check(U.openDaily(false) === false, '출석: 같은 날 두 번 안 뜸');
+    check(st().rankPoints === rp0, '출석 보상은 랭크 포인트 제외');
+    const yest = d => new Date(Date.parse(window.Rank.todayKST() + 'T00:00:00Z') - d * 86400000).toISOString().slice(0, 10);
+    ST.attend = { last: yest(1), streak: 6 };
+    U.openDaily(false); const p1 = num($('#pointsText').textContent); $('#dailyClaim').click(); await sleep(50);
+    check(num($('#pointsText').textContent) === p1 + C.DAILY_REWARDS[6] && ST.attend.streak === 7, '어제 6일차 → 오늘 7일차 큰 보상');
+    ST.attend = { last: yest(1), streak: 7 };
+    check(U.dailyInfo().idx === 0, '7일 다음은 다시 1일차');
+    ST.attend = { last: yest(3), streak: 4 };
+    check(U.dailyInfo().idx === 0 && U.dailyInfo().streak === 0, '하루 빠지면 1일차부터');
     // 저장 유지
     const saved = JSON.parse(localStorage.getItem('luckydig.v1'));
     check(saved.points === num($('#pointsText').textContent), '저장된 포인트 = 화면 포인트');

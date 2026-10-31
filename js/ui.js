@@ -9,7 +9,7 @@
 
   // ---------- 저장 ----------
   const S = { mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 } };
-  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, owner: null, savedAt: 0 });
+  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, attend: { last: '', streak: 0 }, owner: null, savedAt: 0 });
   // 불러온 저장 데이터를 기본 형식에 맞춰 정리 (빠진 칸·이상한 값·지금 없는 카드 제거)
   function applyState(d) {
     const base = DEFAULTS();
@@ -31,6 +31,8 @@
     for (const [k, v] of Object.entries(S.dex && typeof S.dex === 'object' ? S.dex : {})) if (valid.has(k)) dex[k] = { n: Math.max(1, +v.n | 0), at: +v.at || Date.now() };
     for (const x of S.inventory) { const k = C.cardKey(x); if (valid.has(k) && !dex[k]) dex[k] = { n: 1, at: Date.now() }; }
     S.dex = dex;
+    if (!S.attend || typeof S.attend !== 'object') S.attend = { last: '', streak: 0 };
+    S.attend = { last: String(S.attend.last || '').slice(0, 10), streak: Math.max(0, +S.attend.streak | 0) };
     Sound.setVolume('bgm', S.settings.bgm); Sound.setVolume('sfx', S.settings.sfx);
   }
   function load() {
@@ -49,9 +51,10 @@
     if (r.state) {
       const localNewer = S.owner === nick && (S.savedAt || 0) > (r.state.savedAt || 0);
       if (!localNewer) applyState(r.state);
-    } else if (S.owner && S.owner !== nick) {
-      const keep = { settings: S.settings, mode: S.mode };
-      applyState(keep);
+    } else {
+      // 새 계정: 이 기기에 남아 있던 기록과 상관없이 시작 포인트로 새로 시작 (소리 설정·모드만 유지)
+      applyState({ settings: S.settings, mode: S.mode });
+      if (r.created !== false) setTimeout(() => news(`🎉 가입 축하! ${fmt(C.START_POINTS)}pt를 드렸어요`), 600);
     }
     S.owner = nick;
     save(); refreshAll();
@@ -113,10 +116,12 @@
       <label class="slider"><span>🔊 BGM</span><input type="range" min="0" max="1" step="0.05" id="volBgm" value="${S.settings.bgm}"></label>
       <label class="slider"><span>🔊 효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
       ${Rank.isAdmin() ? '<button class="rowbtn gold" id="btnGrant">👑 포인트 지급 (관리자)</button>' : ''}
+      <button class="rowbtn" id="btnDaily">📅 출석 체크</button>
       <button class="rowbtn" id="btnTitle">🏠 타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
       <button class="rowbtn" id="btnReset">🗑 기록 초기화 (포인트 ${fmt(C.START_POINTS)}pt, 보관함 비움)</button>`, { title: '메뉴', cls: 'small' });
     m.el.querySelector('#volBgm').oninput = e => { S.settings.bgm = +e.target.value; Sound.setVolume('bgm', S.settings.bgm); save(); };
     m.el.querySelector('#volSfx').oninput = e => { S.settings.sfx = +e.target.value; Sound.setVolume('sfx', S.settings.sfx); save(); };
+    m.el.querySelector('#btnDaily').onclick = () => { m.close(); openDaily(true); };
     const gb = m.el.querySelector('#btnGrant'); if (gb) gb.onclick = () => { m.close(); openGrant(); };
     m.el.querySelector('#btnTitle').onclick = () => { if (busy) { toast('플레이 중에는 이동할 수 없습니다'); return; } m.close(); showTitle(); };
     m.el.querySelector('#btnReset').onclick = () => {
@@ -405,7 +410,7 @@
         const rows = await Rank.board(Rank.BOARDS[i].id);
         if (my !== seq) return;
         const medal = k => ['🥇', '🥈', '🥉'][k] || (k + 1);
-        el.innerHTML = note + (i === 0 ? '<p class="muted center">랭크 포인트 = 시작 10,000pt + 플레이로 얻은 순수익 (무료 충전 제외)</p>' : '') +
+        el.innerHTML = note + (i === 0 ? '<p class="muted center">랭크 포인트 = 시작 ' + fmt(C.START_POINTS) + 'pt + 플레이로 얻은 순수익 (충전·지급 제외)</p>' : '') +
           `<div class="rlist">${rows.map((r, k) => `<div class="rrow2 ${Rank.me && r.nickname === Rank.me.nickname ? 'me' : ''}">
             <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${esc(r.sub)}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
       } else {
@@ -485,6 +490,38 @@
       if (got.length) { save(); showPoints(); showBet(); Sound.play('coin'); }
     } catch (e) { /* 지급 테이블이 없거나 연결 실패 → 조용히 넘어감 */ }
     grantBusy = false;
+  }
+
+  // ---------- 출석 체크 ----------
+  const dayNum = d => Math.floor(Date.parse(d + 'T00:00:00Z') / 86400000);
+  // 오늘 받을 차례(0~6)와 이미 받았는지
+  function dailyInfo() {
+    const today = Rank.todayKST(), a = S.attend, R7 = C.DAILY_REWARDS.length;
+    const claimed = a.last === today;
+    const cont = a.last && dayNum(today) - dayNum(a.last) === 1;      // 어제 받았으면 연속
+    const streakNow = claimed ? a.streak : (cont ? a.streak : 0);       // 지금까지 연속 일수
+    const idx = claimed ? (a.streak - 1) % R7 : streakNow % R7;          // 오늘 칸 (0~6)
+    return { today, claimed, idx, streak: streakNow };
+  }
+  function openDaily(force) {
+    const d = dailyInfo();
+    if (d.claimed && !force) return false;
+    const R = C.DAILY_REWARDS;
+    const m = modal(`<p class="muted center">${d.claimed ? '오늘 출석 완료! 내일 또 와요' : '하루 한 번 출석하고 포인트 받아 가세요'}<br><small>연속 ${d.claimed ? d.streak : d.streak + 1}일째 · 하루라도 빠지면 1일차부터</small></p>
+      <div class="daily">${R.map((r, i) => `<div class="dday ${i < d.idx || (d.claimed && i === d.idx) ? 'got' : ''} ${i === d.idx && !d.claimed ? 'today' : ''} ${i === R.length - 1 ? 'big' : ''}">
+        <small>${i + 1}일차</small><span class="coin"></span><b>${fmt(r)}</b>${i < d.idx || (d.claimed && i === d.idx) ? '<i>✔</i>' : ''}</div>`).join('')}</div>
+      ${d.claimed ? '' : `<button id="dailyClaim" class="rowbtn gold big">🎁 ${fmt(R[d.idx])}pt 받기</button>`}`, { title: '출석 체크', cls: 'small' });
+    const b = m.el.querySelector('#dailyClaim');
+    if (b) b.onclick = () => {
+      const cur = dailyInfo();
+      if (cur.claimed) { m.close(); return; }                 // 다른 창에서 이미 받은 경우
+      const amt = C.DAILY_REWARDS[cur.idx];
+      S.attend = { last: cur.today, streak: cur.streak + 1 };
+      S.points += amt; Rank.noteCharge(amt);                  // 지갑에만 더함 (랭크 포인트 제외)
+      save(); showPoints(); showBet(); Sound.play('coin');
+      m.close(); news(`📅 출석 ${S.attend.streak}일째! ${fmt(amt)}pt 획득`);
+    };
+    return true;
   }
 
   function showWho() { const w = $('#btnWho'); if (w) w.innerHTML = Rank.me ? `👤 <b>${esc(Rank.me.nickname)}</b> · 변경` : '👤 닉네임 설정'; }
@@ -588,6 +625,7 @@
         title.classList.add('out');
         setTimeout(() => { title.hidden = true; title.classList.remove('out'); }, 600);
         toast(`${C.MODES[S.mode].name} 모드로 시작합니다`);
+        setTimeout(() => { if (!busy) openDaily(false); }, 900);
       };
       title.addEventListener('click', start);
     }
@@ -604,5 +642,6 @@
     d.textContent = 'JS 오류: ' + e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno;
     document.body.appendChild(d);
   });
+  root.UI = { openDaily, dailyInfo, state: () => S }; // 테스트용
   document.addEventListener('DOMContentLoaded', init);
 })(window);

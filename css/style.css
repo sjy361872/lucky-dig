@@ -516,3 +516,16 @@ body > #toast { position: fixed; bottom: 18vh; z-index: 160; }
 /* 충전 + 버튼은 관리자에게만 보임 */
 body:not(.admin) .pill .plus { display: none; }
 #gNick { background: #fff; }
+
+/* ---------- 출석 체크 ---------- */
+.daily { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+.dday { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 10px; background: #fff; border: 2px solid #eadbc0; font-size: 12px; }
+.dday small { font-size: 10px; color: #8a6a3a; font-weight: 800; }
+.dday .coin { width: 26px; height: 26px; background: url('../assets/ui/coin.png') center / contain no-repeat; }
+.dday b { font-size: 12px; }
+.dday.big { grid-column: span 2; background: linear-gradient(#fff6d0, #ffe18a); border-color: #e0a92b; }
+.dday.big .coin { width: 36px; height: 36px; }
+.dday.today { border-color: #f5c518; box-shadow: 0 0 0 3px #f5c51866, 0 0 12px #f5c518; animation: pulse 1.2s ease-in-out infinite; }
+.dday.got { opacity: .55; }
+.dday i { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; color: #2f8a1a; font-style: normal; font-weight: 900; }
+.rowbtn.big { font-size: 17px; padding: 14px; }
