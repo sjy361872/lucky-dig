@@ -224,10 +224,10 @@
   function drawGradeIndex(rng, mode = 'mild') {
     return pickWeighted(rng, C.GRADES.map((g, i) => [i, rateOf(g, mode)]));
   }
-  function drawCard(gradeId, rng) {
-    const list = C.CARDS[gradeId];
+  function drawCard(gradeId, rng, bet) {
+    const list = C.cardsFor(bet, gradeId);
     const idx = pickWeighted(rng, list.map((c, i) => [i, c.w]));
-    return { ...list[idx], grade: gradeId, idx };
+    return { ...list[idx], grade: gradeId, idx, tier: gradeId === 'G' ? 'G' : C.tierOf(bet) };
   }
 
   // 정해진 등급의 스코어 구간에 들어가는 판을 찾을 때까지 생성
@@ -254,7 +254,7 @@
     const rng = makeRng(seed);
     const gi = drawGradeIndex(rng, mode);
     const g = C.GRADES[gi];
-    const card = drawCard(g.id, rng);
+    const card = drawCard(g.id, rng, bet);
     const sim = findRound(gi, bet, rng);
     return { grade: g.id, gradeIndex: gi, card, payout: cardValue(g, card, bet), sim };
   }

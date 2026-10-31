@@ -178,21 +178,21 @@
     const g = root.CONFIG.GRADES.find(x => x.id === c.grade) || root.CONFIG.GRADES[root.CONFIG.GRADES.length - 1];
     const stars = '★'.repeat(Math.max(1, 8 - root.CONFIG.GRADES.indexOf(g)));
     if (c.grade === 'S') return `<div class="card full ${opts.cls || ''} grade-S" style="--l:${l};--m:${m};--d:${d}">
-      <img class="card-full" src="assets/cards/S${c.idx || 0}.jpg" alt="" draggable="false">
+      <img class="card-full" src="${root.CONFIG.cardImg(c)}" alt="" draggable="false">
       <div class="card-in">
         <div class="card-top"><span class="card-grade" style="background:${g.color}">S상</span><span class="card-stars">${stars}</span></div>
-        <div class="card-namebar"><div class="card-name">${esc(c.name)}</div><div class="card-foot">LUCKY DIG · No.${String((c.idx || 0) + 1).padStart(2, '0')} · LEGEND</div></div>
+        <div class="card-namebar"><div class="card-name">${esc(c.name)}</div><div class="card-foot">${esc(c.tier && root.CONFIG.TIERS[c.tier] ? root.CONFIG.TIERS[c.tier].name : '')} · LEGEND</div></div>
       </div>
       <div class="card-holo"></div>
     </div>`;
     return `<div class="card ${opts.cls || ''} grade-${c.grade}" style="--l:${l};--m:${m};--d:${d}">
       <div class="card-in">
         <div class="card-top"><span class="card-grade" style="background:${g.color}">${c.grade}상</span><span class="card-stars">${stars}</span></div>
-        <div class="card-art"><img src="assets/cards/${c.grade}${c.idx || 0}.jpg" alt="" draggable="false" onerror="this.style.visibility='hidden'"></div>
+        <div class="card-art"><img src="${root.CONFIG.cardImg(c)}" alt="" draggable="false" onerror="this.style.visibility='hidden'"></div>
         <div class="card-name">${esc(c.name)}</div>
-        <div class="card-foot">LUCKY DIG · No.${String('SABCDEFG'.indexOf(c.grade) * 6 + (c.idx || 0) + 1).padStart(2, '0')}</div>
+        <div class="card-foot">${c.grade === 'G' ? '공통' : esc(c.tier && root.CONFIG.TIERS[c.tier] ? root.CONFIG.TIERS[c.tier].name : '')} · No.${(c.idx | 0) + 1}</div>
       </div>
-      ${'SAB'.includes(c.grade) ? '<div class="card-holo"></div>' : ''}
+      ${'AB'.includes(c.grade) ? '<div class="card-holo"></div>' : ''}
     </div>`;
   }
 

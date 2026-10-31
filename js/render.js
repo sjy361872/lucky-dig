@@ -408,26 +408,29 @@
           break;
         }
         case 'swing': {
+          // 공처럼 자연스럽게: 지금 위치(슬롯 칸 또는 튕겨 오른 꼭대기)에서 중력처럼 떨어져 블록을 치고,
+          // 반동으로 위로 튕겨 올랐다가 다음 타격 때 다시 떨어짐
           inExplosion = false;
           if (!pickEl) break;
           const p = pos(ev.r, ev.c, true);
-          const tx = p.x + 8, ty = p.y - CELL * 0.6;   // 블록 바로 위 (내려찍는 위치)
-          const lift = 70 + Math.min(4, pickEl._hits || 0) * 18; // 칠수록 더 높이 들어 올림 (70 → 최대 142px)
-          const bounce = 150 + Math.min(4, pickEl._hits || 0) * 25; // 맞고 튕겨 오르는 높이 (150 → 최대 250px)
+          const tx = p.x + 6, ty = p.y - CELL * 0.6;              // 블록에 닿는 위치
+          const h = 115 + Math.min(4, pickEl._hits || 0) * 20;   // 튕겨 오르는 높이 (115 → 최대 195px)
+          if (pickEl._up) await pickEl._up;                   // 앞에서 튕겨 오르는 중이면 꼭대기까지 다 올라간 뒤에 떨어짐
           pickEl._hits = (pickEl._hits || 0) + 1;
           pickEl.querySelector('.badge').textContent = ev.power;
-          // 이동 + 들어 올리기
-          await anim(pickEl, [{ transform: getComputedStyle(pickEl).transform },
-            { transform: `translate(${tx - 6}px,${ty - lift}px) rotate(-70deg)` }], 170, { easing: 'ease-out' });
-          // 내려찍기
-          await anim(pickEl, [{ transform: `translate(${tx - 6}px,${ty - lift}px) rotate(-70deg)` },
-            { transform: `translate(${tx}px,${ty + 12}px) rotate(30deg)` }], 90, { easing: 'cubic-bezier(.6,0,1,1)' });
-          pickEl._contact = { x: p.x + CELL / 2, y: p.y + 6 };
-          // 튕겨 오름 (다음 타격 전까지 공중에 머묾)
-          // 맞고 나서 높이 튕겨 오름 (거의 들어 올린 높이까지)
-          anim(pickEl, [{ transform: `translate(${tx}px,${ty + 12}px) rotate(30deg)` },
-            { transform: `translate(${tx - 6}px,${ty - bounce}px) rotate(-200deg)` }], 300, { easing: 'cubic-bezier(.15,.85,.35,1)' });
-          pickEl.style.transform = `translate(${tx - 6}px,${ty - bounce}px) rotate(-200deg)`;
+          const from = getComputedStyle(pickEl).transform;
+          pickEl.getAnimations().forEach(a => a.cancel());
+          const m = new DOMMatrix(from === 'none' ? undefined : from);
+          const dist = Math.max(30, ty - m.f);                    // 떨어지는 거리
+          const fallMs = 170 * Math.sqrt(dist / 150);              // 높이 떨어질수록 오래 (중력 느낌)
+          const at = (x, y, r) => `translate(${x}px,${y}px) rotate(${r}deg)`;
+          // 떨어지기: 점점 빨라짐, 날이 아래로 기울며 꽂힘
+          await anim(pickEl, [{ transform: from === 'none' ? at(tx, ty - h, -15) : from }, { transform: at(tx, ty, 18) }], fallMs,
+            { easing: 'cubic-bezier(.45,0,.9,.55)' });
+          // 튕겨 오르기: 처음엔 빠르고 꼭대기에서 느려짐
+          const upMs = 170 * Math.sqrt(h / 150) * 1.15;
+          pickEl._up = anim(pickEl, [{ transform: at(tx, ty, 18) }, { transform: at(tx - 4, ty - h, -15) }], upMs, { easing: 'cubic-bezier(.15,.6,.4,1)' });
+          pickEl.style.transform = at(tx - 4, ty - h, -15);
           break;
         }
         case 'hit': {

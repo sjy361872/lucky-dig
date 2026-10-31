@@ -9,7 +9,7 @@
 
   // ---------- 저장 ----------
   const S = { mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 } };
-  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, owner: null, savedAt: 0 });
+  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, owner: null, savedAt: 0 });
   // 불러온 저장 데이터를 기본 형식에 맞춰 정리 (빠진 칸·이상한 값·지금 없는 카드 제거)
   function applyState(d) {
     const base = DEFAULTS();
@@ -21,9 +21,16 @@
     if (!C.MODES[S.mode]) S.mode = 'mild';
     if (!C.BETS.includes(S.bet)) S.bet = C.DEFAULT_BET;
     S.points = Math.max(0, Number.isFinite(+S.points) ? Math.round(+S.points) : C.START_POINTS);
-    S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).filter(x => x && C.CARDS[x.grade] && C.CARDS[x.grade][x.idx | 0])
-      .map(x => ({ ...x, idx: x.idx | 0, value: Math.max(0, Math.round(+x.value || 0)), name: String(x.name || C.CARDS[x.grade][x.idx | 0].name).slice(0, 20) }));
+    // 보관함 카드: 광산(tier) 정보가 없으면 소비 포인트로 계산, 지금 없는 카드는 제거
+    S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).map(x => x && ({ ...x, tier: x.grade === 'G' ? 'G' : (C.TIERS[x.tier] ? String(x.tier) : C.tierOf(+x.bet || C.DEFAULT_BET)), idx: x.idx | 0 }))
+      .filter(x => x && (x.grade === 'G' ? C.G_CARDS[x.idx] : (C.TIERS[x.tier] && (C.TIERS[x.tier].cards[x.grade] || [])[x.idx])))
+      .map(x => ({ ...x, value: Math.max(0, Math.round(+x.value || 0)), name: String(x.name || (x.grade === 'G' ? C.G_CARDS[x.idx] : C.TIERS[x.tier].cards[x.grade][x.idx]).name).slice(0, 20) }));
     S.nextId = Math.max(+S.nextId || 1, ...S.inventory.map(x => (+x.id || 0) + 1), 1);
+    // 도감: 형식이 맞는 기록만 남기고, 보관함에 있는 카드는 도감에도 등록
+    const valid = new Set(C.allCards().map(C.cardKey)), dex = {};
+    for (const [k, v] of Object.entries(S.dex && typeof S.dex === 'object' ? S.dex : {})) if (valid.has(k)) dex[k] = { n: Math.max(1, +v.n | 0), at: +v.at || Date.now() };
+    for (const x of S.inventory) { const k = C.cardKey(x); if (valid.has(k) && !dex[k]) dex[k] = { n: 1, at: Date.now() }; }
+    S.dex = dex;
     Sound.setVolume('bgm', S.settings.bgm); Sound.setVolume('sfx', S.settings.sfx);
   }
   function load() {
@@ -32,7 +39,8 @@
     applyState(d);
   }
   function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
-  function refreshAll() { showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho(); }
+  function refreshAll() { showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho(); showAdmin(); }
+  function showAdmin() { document.body.classList.toggle('admin', Rank.isAdmin()); }
   // 로그인 결과를 지갑·보관함에 반영
   //  - 서버에 이 계정 기록이 있으면: 이 기기 기록이 같은 계정이고 더 최신이면 그대로, 아니면 서버 기록으로
   //  - 서버 기록이 없는 새 계정: 처음 로그인이면 지금 기기 기록을 가져가고, 다른 계정에서 바꾼 거면 새로 시작
@@ -47,6 +55,7 @@
     }
     S.owner = nick;
     save(); refreshAll();
+    setTimeout(checkGrants, 500);
   }
 
   let busy = false, loginSeq = 0;
@@ -103,10 +112,12 @@
     const m = modal(`
       <label class="slider"><span>🔊 BGM</span><input type="range" min="0" max="1" step="0.05" id="volBgm" value="${S.settings.bgm}"></label>
       <label class="slider"><span>🔊 효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
+      ${Rank.isAdmin() ? '<button class="rowbtn gold" id="btnGrant">👑 포인트 지급 (관리자)</button>' : ''}
       <button class="rowbtn" id="btnTitle">🏠 타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
       <button class="rowbtn" id="btnReset">🗑 기록 초기화 (포인트 ${fmt(C.START_POINTS)}pt, 보관함 비움)</button>`, { title: '메뉴', cls: 'small' });
     m.el.querySelector('#volBgm').oninput = e => { S.settings.bgm = +e.target.value; Sound.setVolume('bgm', S.settings.bgm); save(); };
     m.el.querySelector('#volSfx').oninput = e => { S.settings.sfx = +e.target.value; Sound.setVolume('sfx', S.settings.sfx); save(); };
+    const gb = m.el.querySelector('#btnGrant'); if (gb) gb.onclick = () => { m.close(); openGrant(); };
     m.el.querySelector('#btnTitle').onclick = () => { if (busy) { toast('플레이 중에는 이동할 수 없습니다'); return; } m.close(); showTitle(); };
     m.el.querySelector('#btnReset').onclick = () => {
       if (busy) { toast('플레이 중에는 초기화할 수 없습니다'); return; }
@@ -139,7 +150,7 @@
         <p>상자 색은 최소 배율을 나타냅니다. 실제 배율은 열어야 알 수 있습니다.</p>
         <div class="icrow wrap">${C.CHESTS.map(ch => ic(Art.chest(ch, false), ch.min === 10 ? '10배 확정' : ch.min + '배 이상')).join('')}</div>`;
       return `<div class="steps2">
-        <p><b>보유 포인트 +</b> 테스트용 무료 충전</p>
+        <p><b>포인트가 부족하면</b> 관리자에게 요청 (관리자가 보내 주면 자동으로 들어와요)</p>
         <p><b>소비 포인트 −/+</b> 소비 포인트 변경 (숫자를 누르면 목록)</p>
         <p><b>플레이</b> 포인트를 쓰고 스핀 시작</p>
         <p><b>상품</b> 소비 포인트별 등급 기준·출현율·카드 목록</p>
@@ -154,16 +165,16 @@
     const box = m.el.querySelector('#prizeTabs');
     tabs(box, C.BETS.map(b => fmt(b)), i => {
       const bet = C.BETS[i];
-      return `<p class="muted center"><b class="modetag ${S.mode}">${C.MODES[S.mode].name}</b> 소비 포인트 ${fmt(bet)}pt 기준</p><div class="plist">${C.GRADES.map(g => `
+      return `<p class="muted center"><b class="modetag ${S.mode}">${C.MODES[S.mode].name}</b> <b>${C.tierName(bet)}</b> · 소비 포인트 ${fmt(bet)}pt 기준</p><div class="plist">${C.GRADES.map(g => `
         <details class="prow"><summary><span class="chip" style="background:${g.color}">${g.id}상</span>
           <span class="need">스코어 <b>${fmt(g.need * bet)}</b> 이상</span><span class="rate">출현율 <b>${E.rateOf(g, S.mode).toFixed(1)}%</b></span></summary>
-          <div class="pcards">${C.CARDS[g.id].map((c, idx) => `<div class="pcard" data-g="${g.id}" data-i="${idx}">${Art.card({ ...c, grade: g.id, idx })}<small>${c.name}<br>환원 <b>${fmt(E.cardValue(g, c, bet))}</b>pt<br>등급 내 ${(c.w / C.CARDS[g.id].reduce((a, x) => a + x.w, 0) * 100).toFixed(0)}%</small></div>`).join('')}</div>
+          <div class="pcards">${C.cardsFor(bet, g.id).map((c, idx) => `<div class="pcard" data-g="${g.id}" data-i="${idx}" data-b="${bet}">${Art.card({ ...c, grade: g.id, idx, tier: g.id === 'G' ? 'G' : C.tierOf(bet) })}<small>${c.name}<br>환원 <b>${fmt(E.cardValue(g, c, bet))}</b>pt<br>등급 내 ${(c.w / C.cardsFor(bet, g.id).reduce((a, x) => a + x.w, 0) * 100).toFixed(0)}%</small></div>`).join('')}</div>
         </details>`).join('')}</div>`;
     });
     box.addEventListener('click', e => {
       const pc = e.target.closest('.pcard');
       if (!pc) return;
-      const c = C.CARDS[pc.dataset.g][+pc.dataset.i];
+      const bet = +pc.dataset.b, c = { ...C.cardsFor(bet, pc.dataset.g)[+pc.dataset.i], tier: pc.dataset.g === 'G' ? 'G' : C.tierOf(bet) };
       zoomCard({ ...c, grade: pc.dataset.g, idx: +pc.dataset.i });
     });
   }
@@ -175,32 +186,73 @@
     z.onclick = () => z.remove();
   }
 
-  function openBag() {
-    const render = () => {
+  // ---------- 보관함 + 도감 ----------
+  function openBag(startTab = 0) {
+    const m = modal('<div id="bagTabs"></div>', { title: '카드', cls: 'tall' });
+    const box = m.el.querySelector('#bagTabs');
+    let dexTier = null;
+    const bagHtml = () => {
       const inv = S.inventory;
       const total = inv.reduce((a, x) => a + x.value, 0);
       return inv.length === 0 ? '<p class="muted center">보관한 카드가 없습니다.</p>' :
         `<p class="muted center">${inv.length}장 · 전부 교환 시 ${fmt(total)}pt</p>
-        <div class="bag">${inv.slice().reverse().map(x => `<div class="bagitem">${Art.card(x)}<small>${x.name}<br>${fmt(x.value)}pt</small><button data-id="${x.id}">교환</button></div>`).join('')}</div>
+        <div class="bag">${inv.slice().reverse().map(x => `<div class="bagitem" data-item="${x.id}">${Art.card(x)}<small>${esc(x.name)}<br>${fmt(x.value)}pt</small><button data-id="${x.id}">교환</button></div>`).join('')}</div>
         <button class="rowbtn" id="sellAll">전부 포인트로 교환</button>`;
     };
-    const m = modal(`<div id="bagBody">${render()}</div>`, { title: '보관함', cls: 'tall' });
-    const body = m.el.querySelector('#bagBody');
-    const rerender = () => { body.innerHTML = render(); };
-    body.addEventListener('click', e => {
+    const dexHtml = () => {
+      const all = C.allCards();
+      const tiers = Object.keys(C.TIERS).sort((a, b) => a - b).concat(['G']);
+      if (!dexTier || !tiers.includes(dexTier)) dexTier = C.tierOf(S.bet);
+      const owned = c => S.dex[C.cardKey(c)];
+      const have = all.filter(owned).length;
+      const tierCards = t => all.filter(c => c.tier === t);
+      const tierLabel = t => (t === 'G' ? '공통 G상' : C.TIERS[t].name);
+      const list = tierCards(dexTier), got = list.filter(owned).length;
+      const pct = n => Math.floor(n * 100);
+      return `<div class="dex-total"><b>${have}</b> / ${all.length}장 <small>(${pct(have / all.length)}%)</small><div class="bar"><i style="width:${have / all.length * 100}%"></i></div></div>
+        <div class="dex-tiers">${tiers.map(t => { const tc = tierCards(t), g = tc.filter(owned).length;
+          return `<button data-tier="${t}" class="${t === dexTier ? 'on' : ''} ${g === tc.length ? 'done' : ''}">${t === 'G' ? '공통' : fmt(+t)}<small>${g}/${tc.length}</small></button>`; }).join('')}</div>
+        <h4 class="dex-title">${esc(tierLabel(dexTier))} ${got === list.length ? '<span class="dex-done">🏆 완성!</span>' : `<small>${got}/${list.length}</small>`}</h4>
+        ${(dexTier === 'G' ? ['G'] : 'SABCDEF'.split('')).map(g => {
+          const cs = list.filter(c => c.grade === g); if (!cs.length) return '';
+          const col = C.GRADES.find(x => x.id === g).color;
+          return `<div class="dex-row"><span class="chip" style="background:${col}">${g}상</span><div class="dex-grid">${cs.map(c => {
+            const o = owned(c);
+            return o ? `<div class="dexcard" data-key="${C.cardKey(c)}">${Art.card(c)}<small>${esc(c.name)}<br>×${o.n}</small></div>`
+                     : `<div class="dexcard none"><div class="card-back" style="--gc:${col}"><b>?</b><span>${g}상</span></div><small>???</small></div>`;
+          }).join('')}</div></div>`; }).join('')}`;
+    };
+    const show = tabs(box, ['보관함', '도감'], i => (i === 0 ? bagHtml() : dexHtml()));
+    let cur = 0;
+    box.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; }));
+    const rerender = () => show(cur);
+    if (startTab) { cur = startTab; show(startTab); }
+    box.addEventListener('click', e => {
+      const t = e.target.closest('[data-tier]');
+      if (t) { dexTier = t.dataset.tier; Sound.play('click'); rerender(); return; }
+      const dc = e.target.closest('.dexcard[data-key]');
+      if (dc) { const c = C.allCards().find(x => C.cardKey(x) === dc.dataset.key); if (c) zoomCard(c); return; }
       const b = e.target.closest('[data-id]');
       if (b) {
         const i = S.inventory.findIndex(x => x.id === +b.dataset.id);
         if (i >= 0) { S.points += S.inventory[i].value; toast(`${fmt(S.inventory[i].value)} pt 환원했습니다`); S.inventory.splice(i, 1); }
       } else if (e.target.id === 'sellAll') {
-        const t = S.inventory.reduce((a, x) => a + x.value, 0);
-        if (!confirm(`${S.inventory.length}장을 ${fmt(t)}pt로 교환할까요?`)) return;
-        S.points += t; S.inventory = []; toast(`${fmt(t)} pt 환원했습니다`);
-      } else return;
+        const t2 = S.inventory.reduce((a, x) => a + x.value, 0);
+        if (!confirm(`${S.inventory.length}장을 ${fmt(t2)}pt로 교환할까요?`)) return;
+        S.points += t2; S.inventory = []; toast(`${fmt(t2)} pt 환원했습니다`);
+      } else {
+        const bi = e.target.closest('.bagitem .card');
+        if (bi) { const x = S.inventory.find(v => v.id === +bi.closest('.bagitem').dataset.item); if (x) zoomCard(x); }
+        return;
+      }
       Sound.play('coin'); save(); showPoints(); showBet(); rerender();
     });
-    const zoomHandler = e => { const card = e.target.closest('.bagitem .card'); if (card) { const id = +card.closest('.bagitem').querySelector('[data-id]').dataset.id; const x = S.inventory.find(v => v.id === id); if (x) zoomCard(x); } };
-    body.addEventListener('click', zoomHandler);
+  }
+  // 도감 기록: 처음 얻은 카드면 true
+  function recordDex(card) {
+    const key = C.cardKey(card), d = S.dex[key];
+    S.dex[key] = { n: (d ? d.n : 0) + 1, at: d ? d.at : Date.now() };
+    return !d;
   }
 
   function openBetList() {
@@ -216,7 +268,7 @@
   // ---------- 플레이 ----------
   async function play() {
     if (busy) return;
-    if (S.points < S.bet) { toast('포인트가 부족합니다'); openCharge(); return; }
+    if (S.points < S.bet) { if (Rank.isAdmin()) { toast('포인트가 부족합니다'); openCharge(); } else toast('포인트가 부족합니다. 관리자에게 요청하세요'); return; }
     busy = true;
     try {
       Sound.unlock();
@@ -224,9 +276,10 @@
       const round = E.playRound(S.bet, undefined, S.mode);
       // 결과는 이 순간 확정 → 포인트 차감 + 카드 보관함에 먼저 넣어 둠 (창을 닫아도 보관 처리)
       S.points -= S.bet;
-      const item = { id: S.nextId++, name: round.card.name, elem: round.card.elem, idx: round.card.idx, grade: round.grade, value: round.payout, bet: S.bet };
+      const item = { id: S.nextId++, name: round.card.name, elem: round.card.elem, idx: round.card.idx, tier: round.card.tier, grade: round.grade, value: round.payout, bet: S.bet };
       S.inventory.push(item);
-      const rec = Rank.recordPlay({ mode: S.mode, bet: S.bet, grade: round.grade, cardIdx: round.card.idx, card: round.card.name, value: round.payout });
+      const newDex = recordDex(round.card);
+      const rec = Rank.recordPlay({ mode: S.mode, bet: S.bet, grade: round.grade, cardIdx: round.card.idx, key: C.cardKey(round.card), card: round.card.name, value: round.payout });
       save(); showPoints();
 
       $('#panelIdle').hidden = true; $('#panelPlay').hidden = false;
@@ -238,7 +291,7 @@
       await R.replay(round.sim);
       await finale(round, item);
       if (rec.newBest) setTimeout(() => news(`🏆 최고 배율 갱신! ×${(round.payout / round.sim.bet).toFixed(2)}`), 300);
-      else if (rec.newCard) setTimeout(() => news(`📖 도감 등록: ${round.card.name}`), 300);
+      else if (newDex) setTimeout(() => news(`📖 도감 등록: ${round.card.name}`), 300);
     } catch (e) {
       // 연출 중 오류가 나도 결과(포인트·카드)는 이미 저장돼 있으므로 화면만 원래대로
       console.error(e);
@@ -281,8 +334,8 @@
     const pool = [];
     for (let i = 0; i < 26; i++) {
       const gid = C.GRADES[Math.floor(Math.random() * C.GRADES.length)].id;
-      const idx = Math.floor(Math.random() * C.CARDS[gid].length);
-      pool.push({ ...C.CARDS[gid][idx], grade: gid, idx });
+      const list = C.cardsFor(bet, gid), idx = Math.floor(Math.random() * list.length);
+      pool.push({ ...list[idx], grade: gid, idx, tier: gid === 'G' ? 'G' : C.tierOf(bet) });
     }
     const target = 22;
     pool[target] = { ...round.card, grade: g.id };
@@ -395,6 +448,45 @@
       setTimeout(() => m.el.querySelector('#inNick').focus(), 50);
     });
   }
+  // ---------- 관리자: 포인트 지급 ----------
+  async function openGrant() {
+    const m = modal(`<p class="muted">지급한 포인트는 받는 사람의 보유 포인트에만 더해지고 랭킹에는 반영되지 않아요.</p>
+      <select id="gNick" class="inp"><option value="">불러오는 중…</option></select>
+      <input id="gAmt" class="inp" inputmode="numeric" placeholder="금액 (pt)">
+      <div class="chargegrid">${[10000, 50000, 100000, 1000000].map(a => `<button data-a="${a}">${fmt(a)}</button>`).join('')}</div>
+      <p id="gErr" class="note"></p><button id="gSend" class="rowbtn gold">지급하기</button>`, { title: '포인트 지급', cls: 'small' });
+    try {
+      const list = await Rank.players();
+      m.el.querySelector('#gNick').innerHTML = list.filter(n => !n.startsWith('__')).map(n => `<option value="${esc(n)}">${esc(n)}${Rank.me && n === Rank.me.nickname ? ' (나)' : ''}</option>`).join('');
+    } catch (e) { m.el.querySelector('#gErr').textContent = '목록을 못 불러왔어요: ' + e.message; }
+    m.el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { m.el.querySelector('#gAmt').value = b.dataset.a; });
+    let sending = false;
+    m.el.querySelector('#gSend').onclick = async () => {
+      if (sending) return; sending = true;
+      const nick = m.el.querySelector('#gNick').value, amt = +m.el.querySelector('#gAmt').value.replace(/[^0-9]/g, '');
+      try {
+        await Rank.grant(nick, amt);
+        toast(`${nick}님에게 ${fmt(amt)}pt 지급했습니다`); Sound.play('coin'); m.close();
+        if (Rank.me && nick === Rank.me.nickname) checkGrants();
+      } catch (e) {
+        m.el.querySelector('#gErr').textContent = /grants/.test(e.message) ? '서버에 지급 테이블이 아직 없어요 (SQL 실행 필요)' : e.message;
+      }
+      sending = false;
+    };
+  }
+  // 나에게 온 지급 받기 (로그인할 때 + 20초마다)
+  let grantBusy = false;
+  async function checkGrants() {
+    if (!Rank.me || grantBusy) return;
+    grantBusy = true;
+    try {
+      const got = await Rank.claimGrants();
+      for (const g of got) { S.points += g.amount; Rank.noteCharge(g.amount); news(`🎁 ${g.by}님이 ${fmt(g.amount)}pt를 보냈어요!`); }
+      if (got.length) { save(); showPoints(); showBet(); Sound.play('coin'); }
+    } catch (e) { /* 지급 테이블이 없거나 연결 실패 → 조용히 넘어감 */ }
+    grantBusy = false;
+  }
+
   function showWho() { const w = $('#btnWho'); if (w) w.innerHTML = Rank.me ? `👤 <b>${esc(Rank.me.nickname)}</b> · 변경` : '👤 닉네임 설정'; }
   // 다른 사람의 큰 당첨 소식 확인 (온라인일 때 20초마다)
   let lastFeedId = null;
@@ -429,6 +521,7 @@
     const ov = $('#overlay');
     new MutationObserver(() => { const open = !ov.hidden; $('#app').inert = open; $('#title').inert = open; }).observe(ov, { attributes: true, attributeFilter: ['hidden'] });
     load();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 정리된 저장 데이터를 바로 기록 */ }
     R.init();
     showPoints(); showBet();
     R.setBet(S.bet);
@@ -436,7 +529,7 @@
     R.drawBoard(preview.board, preview.chests);
     $('#scoreText').textContent = '0';
 
-    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click'); openCharge(); };
+    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click'); if (Rank.isAdmin()) openCharge(); else toast('포인트 충전은 관리자에게 요청하세요'); };
     $('#btnRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(); };
     $('#btnMenu').onclick = () => { Sound.unlock(); Sound.play('click'); openMenu(); };
     $('#btnHelp').onclick = () => { Sound.unlock(); Sound.play('click'); openHelp(); };
@@ -465,6 +558,8 @@
     }
     showWho();
     if (Rank.store.online) { pollFeed(); setInterval(pollFeed, 20000); }
+    setInterval(checkGrants, 20000);
+    showAdmin();
     // 시작 화면: GAME START 를 누르면 사라지면서 BGM 시작 (테스트용 주소(#...)로 열면 건너뜀)
     const title = $('#title');
     if (!C.MODES[S.mode]) S.mode = 'mild';
@@ -499,6 +594,7 @@
     // 테스트용: 주소 끝에 #auto 를 붙이면 자동으로 한 판 플레이
     if (location.hash.includes('auto')) setTimeout(play, 300);
     if (location.hash.includes('help')) openHelp();
+    if (location.hash.includes('dex')) openBag(1);
     if (location.hash.includes('ranking')) setTimeout(openRanking, 200);
     if (location.hash.includes('prizes')) { openPrizes(); if (location.hash.includes('open')) document.querySelector('.prow').open = true; }
   }

@@ -30,7 +30,7 @@
       const gi = C.GRADES.findIndex(g => g.id === grade);
       const lo = C.GRADES[gi].need * B, hi = (gi === 0 ? C.S_CAP : C.GRADES[gi - 1].need) * B;
       check(score >= lo && score < hi, `[${i}] ${grade}상, 화면 스코어 ${score}가 구간 [${lo}, ${hi}) 안`);
-      check(C.CARDS[grade].some(c => value === window.Engine.cardValue(C.GRADES[gi], c, B)), `[${i}] 환원 값 ${value}이 ${grade}상 카드 값 중 하나`);
+      check(C.cardsFor(B, grade).some(c => value === window.Engine.cardValue(C.GRADES[gi], c, B)), `[${i}] 환원 값 ${value}이 ${grade}상 카드 값 중 하나`);
       const sell = i % 2 === 0;
       if (sell) { $('#sell').click(); await until(() => $('#ok')); $('#ok').click(); }
       else $('#keep').click();
@@ -41,8 +41,14 @@
     check(st().plays === ROUNDS, `랭킹 플레이 수 ${st().plays}`);
     check(st().rankPoints === C.START_POINTS + st().earned - st().spent, `랭크 포인트 ${st().rankPoints} = 10,000 + ${st().earned} − ${st().spent}`);
     check(st().best && st().best.mult > 0, '최고 배율 기록됨');
+    // 도감: 뽑은 카드 종류 수만큼 등록
+    const saved0 = JSON.parse(localStorage.getItem('luckydig.v1'));
+    check(Object.keys(saved0.dex).length >= 1 && Object.values(saved0.dex).reduce((a, d) => a + d.n, 0) === ROUNDS, `도감 등록 ${Object.keys(saved0.dex).length}종, 합계 ${ROUNDS}회`);
     // 보관함
     $('#btnBag').click();
+    document.querySelectorAll('.tabs button')[1].click(); await sleep(100);
+    check(document.querySelectorAll('.dexcard').length > 0 && document.querySelectorAll('.dexcard:not(.none)').length >= 1, '도감 화면: 얻은 카드 표시');
+    document.querySelectorAll('.tabs button')[0].click(); await sleep(100);
     const n = document.querySelectorAll('.bagitem').length;
     check(n === ROUNDS / 2, `보관함 ${n}장 (기대 ${ROUNDS / 2})`);
     const P1 = num($('#pointsText').textContent);
@@ -58,12 +64,30 @@
     check(num($('#betText').textContent) === C.BETS[C.BETS.length - 1], '+ 끝까지 500,000pt');
     $('#btnPlay').click();
     await sleep(50);
-    check(!!document.querySelector('.chargegrid'), '포인트 부족 → 충전 팝업');
+    check(!document.querySelector('.chargegrid') && !$('#overlay').hidden === false, '일반 계정: 포인트 부족해도 충전 창 안 뜸');
+    $('#pointsPill').click(); await sleep(50);
+    check(!document.querySelector('.chargegrid'), '일반 계정: + 눌러도 충전 불가');
+    check(getComputedStyle(document.querySelector('.pill .plus')).display === 'none', '일반 계정: + 버튼 숨김');
+    // 관리자 지급: 관리자(관리자1)로 바꿔서 테스터에게 지급 → 테스터로 돌아와서 받기
+    C.ADMINS.push('관리자1');
     const P2 = num($('#pointsText').textContent);
     const rpBefore = st().rankPoints;
+    await window.Rank.login('관리자1');
+    await window.Rank.grant('테스터', 500000);
+    let gerr = ''; try { await window.Rank.grant('없는사람', 1000); } catch (e) { gerr = e.message; }
+    check(gerr.includes('닉네임'), '없는 닉네임에는 지급 불가');
+    await window.Rank.login('테스터');
+    const got = await window.Rank.claimGrants();
+    check(got.length === 1 && got[0].amount === 500000 && got[0].by === '관리자1', '관리자 지급 받기');
+    check((await window.Rank.claimGrants()).length === 0, '같은 지급을 두 번 받지 않음');
+    check(st().rankPoints === rpBefore, '지급 포인트는 랭크 포인트에 반영 안 됨');
+    // 관리자는 직접 충전 가능 (테스터를 관리자로)
+    C.ADMINS.push('테스터'); document.body.classList.add('admin');
+    $('#btnPlay').click(); await sleep(50);
+    check(!!document.querySelector('.chargegrid'), '관리자: 포인트 부족 → 충전 창');
     document.querySelector('.chargegrid button:last-child').click();
-    check(num($('#pointsText').textContent) === P2 + C.CHARGE_AMOUNTS[C.CHARGE_AMOUNTS.length - 1], '충전');
-    check(st().rankPoints === rpBefore, '무료 충전은 랭크 포인트에 반영 안 됨');
+    check(num($('#pointsText').textContent) === P2 + C.CHARGE_AMOUNTS[C.CHARGE_AMOUNTS.length - 1], '관리자: 충전');
+    check(st().rankPoints === rpBefore, '충전은 랭크 포인트에 반영 안 됨');
     $('.closebtn').click();
     // 고액 1판
     $('#btnPlay').click();

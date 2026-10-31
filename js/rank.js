@@ -40,7 +40,7 @@
     const b = st.best;
     out.best = b && typeof b === 'object' ? { mult: num(b.mult), grade: okGrade(b.grade), mode: okMode(b.mode), bet: num(b.bet), card: String(b.card || '').slice(0, 20), value: num(b.value), at: num(b.at) } : null;
     for (const m of ['mild', 'hard']) { out.grades[m] = {}; const src = (st.grades && st.grades[m]) || {}; for (const g of GRADE_IDS) if (src[g]) out.grades[m][g] = num(src[g]); }
-    out.collection = Array.isArray(st.collection) ? st.collection.filter(k => /^[SABCDEFG]:\d+$/.test(k)) : [];
+    out.collection = Array.isArray(st.collection) ? st.collection.filter(k => /^(\d+:[SABCDEF]|G):\d+$/.test(k)) : [];
     out.daily = st.daily && typeof st.daily === 'object' ? { date: String(st.daily.date || ''), net: num(st.daily.net), plays: num(st.daily.plays) } : d.daily;
     return out;
   }
@@ -56,7 +56,7 @@
     if (!st.best || mult > st.best.mult) { st.best = { mult, grade: p.grade, mode: p.mode, bet: p.bet, card: p.card, value: p.value, at: Date.now() }; newBest = true; }
     const gm = st.grades[p.mode] || (st.grades[p.mode] = {});
     gm[p.grade] = (gm[p.grade] || 0) + 1;
-    const key = p.grade + ':' + p.cardIdx;
+    const key = p.key || (p.grade + ':' + p.cardIdx);
     const newCard = !st.collection.includes(key);
     if (newCard) st.collection.push(key);
     if (st.daily.date !== todayKST()) st.daily = { date: todayKST(), net: 0, plays: 0 };
@@ -65,7 +65,7 @@
   }
   const sCount = st => (st.grades.mild.S || 0) + (st.grades.hard.S || 0);
   const todayNet = st => (st.daily && st.daily.date === todayKST() ? st.daily.net : 0);
-  const totalCards = () => Object.values(C.CARDS).reduce((a, l) => a + l.length, 0);
+  const totalCards = () => C.allCards().length;
 
   // 랭킹 보드 정의: 점수 계산 + 표시
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
@@ -99,6 +99,10 @@
     async leaderboard() { return Object.values(this._db().players); },
     async addFeed(item) { const db = this._db(); item.id = Date.now(); db.feed.unshift(item); db.feed = db.feed.slice(0, 50); this._put(db); },
     async feed() { return this._db().feed; },
+    async players() { return Object.keys(this._db().players); },
+    async addGrant(nickname, amount, by) { const db = this._db(); db.grants = db.grants || []; db.grants.push({ id: Date.now() + Math.random(), nickname, amount, by, claimed: false, at: new Date().toISOString() }); this._put(db); },
+    async pendingGrants(nickname) { return (this._db().grants || []).filter(g => g.nickname === nickname && !g.claimed); },
+    async claimGrant(id) { const db = this._db(); const g = (db.grants || []).find(x => x.id === id && !x.claimed); if (!g) return null; g.claimed = true; this._put(db); return g; },
   };
 
   // ---------- 저장소: Supabase (PostgREST) ----------
@@ -142,12 +146,20 @@
       async leaderboard() { return req('players?select=nickname,stats,updated_at'); },
       async addFeed(item) { await req('feed', { method: 'POST', body: JSON.stringify(item) }); },
       async feed() { return req('feed?select=*&order=id.desc&limit=30'); },
+      async players() { return (await req('players?select=nickname')).map(r => r.nickname); },
+      async addGrant(nickname, amount, by) { await req('grants', { method: 'POST', body: JSON.stringify({ nickname, amount, by }) }); },
+      async pendingGrants(nickname) { return req(`grants?nickname=eq.${enc(nickname)}&claimed=eq.false&select=id,amount,by`); },
+      // 두 기기가 동시에 받아도 한 번만 받도록: 아직 안 받은 것만 '받음'으로 바꾸고, 바뀐 행이 있을 때만 지급
+      async claimGrant(id) {
+        const rows = await req(`grants?id=eq.${+id}&claimed=eq.false`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ claimed: true }) });
+        return rows && rows[0] ? rows[0] : null;
+      },
     };
   }
 
   const cfg = root.ONLINE || {};
   // 테스트용 주소(#uitest 등)로 열면 실제 랭킹을 건드리지 않도록 항상 오프라인
-  const testMode = root.location && /uitest|auto|fx\d|picktest|ranking|prizes|help|hard|title/.test(root.location.hash || '');
+  const testMode = root.location && /uitest|auto|fx\d|picktest|ranking|prizes|help|hard|title|dex|migrate/.test(root.location.hash || '');
   const store = !testMode && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY ? makeSupabaseStore(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : LocalStore;
 
   // ---------- 세션: 현재 플레이어 ----------
@@ -179,6 +191,26 @@
           .catch(e => console.warn('feed', e));
       }
       return r;
+    },
+    isAdmin() { return !!(Rank.me && (C.ADMINS || []).includes(Rank.me.nickname)); },
+    async grant(nickname, amount) {
+      if (!Rank.isAdmin()) throw new Error('관리자만 지급할 수 있습니다');
+      nickname = String(nickname || '').trim(); amount = Math.round(+amount);
+      if (!(amount > 0 && amount <= 100000000)) throw new Error('금액을 확인하세요');
+      const list = await store.players();
+      if (!list.includes(nickname)) throw new Error('그런 닉네임이 없습니다');
+      await store.addGrant(nickname, amount, Rank.me.nickname);
+    },
+    players: () => store.players(),
+    // 나에게 온 지급을 받아서 합계를 돌려줌 (받은 건 '받음' 처리)
+    async claimGrants() {
+      if (!Rank.me) return [];
+      const got = [];
+      for (const g of await store.pendingGrants(Rank.me.nickname)) {
+        const ok = await store.claimGrant(g.id);
+        if (ok) got.push({ amount: Math.max(0, Math.round(+ok.amount || +g.amount || 0)), by: String(ok.by || g.by || '관리자').slice(0, 10) });
+      }
+      return got;
     },
     noteCharge(amount) { if (Rank.me) Rank.me.stats.charged = (Rank.me.stats.charged || 0) + amount; },
     // 게임 상태(포인트·보관함 등) + 기록을 저장소에 저장 (잦은 저장은 묶어서 1초 뒤 한 번)
