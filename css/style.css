@@ -456,3 +456,9 @@ button { font-family: inherit; cursor: pointer; border: 0; color: inherit; }
 .news-item.out { opacity: 0; transform: translateY(-12px); }
 @keyframes newsIn { from { transform: translateY(-20px); opacity: 0; } }
 #btnStart span { white-space: nowrap; font-size: clamp(26px, 9vw, 38px); }
+/* 팝업은 시작 화면보다 위에 (닉네임 입력 창이 시작 화면 뒤에 가려지던 문제) */
+#overlay { z-index: 120; }
+.zoom { z-index: 140; }
+#news { z-index: 150; }
+/* 입력 창이 있는 작은 팝업은 위쪽에 띄워서 휴대폰 키보드에 가리지 않게 */
+#overlay:has(.inp) { align-items: flex-start; padding-top: 8vh; }
