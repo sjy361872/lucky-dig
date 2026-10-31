@@ -24,7 +24,7 @@
     // 보관함 카드: 광산(tier) 정보가 없으면 소비 포인트로 계산, 지금 없는 카드는 제거
     S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).map(x => x && ({ ...x, tier: x.grade === 'G' ? 'G' : (C.TIERS[x.tier] ? String(x.tier) : C.tierOf(+x.bet || C.DEFAULT_BET)), idx: x.idx | 0 }))
       .filter(x => x && (x.grade === 'G' ? C.G_CARDS[x.idx] : (C.TIERS[x.tier] && (C.TIERS[x.tier].cards[x.grade] || [])[x.idx])))
-      .map(x => ({ ...x, value: Math.max(0, Math.round(+x.value || 0)), name: String(x.name || (x.grade === 'G' ? C.G_CARDS[x.idx] : C.TIERS[x.tier].cards[x.grade][x.idx]).name).slice(0, 20) }));
+      .map(x => ({ ...x, value: Math.max(0, Math.round(+x.value || 0)), name: String((x.grade === 'G' ? C.G_CARDS[x.idx] : C.TIERS[x.tier].cards[x.grade][x.idx]).name).slice(0, 20) })); // 이름은 항상 지금 카드 목록 기준 (그림과 일치)
     S.nextId = Math.max(+S.nextId || 1, ...S.inventory.map(x => (+x.id || 0) + 1), 1);
     // 도감: 형식이 맞는 기록만 남기고, 보관함에 있는 카드는 도감에도 등록
     const valid = new Set(C.allCards().map(C.cardKey)), dex = {};
