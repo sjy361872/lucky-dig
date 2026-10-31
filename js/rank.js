@@ -26,6 +26,27 @@
       charged: 0,                       // 참고용: 무료 충전 합계 (랭킹에는 안 씀)
     };
   }
+  const GRADE_IDS = 'SABCDEFG'.split('');
+  const okGrade = g => (GRADE_IDS.includes(g) ? g : 'G');
+  const okMode = m => (m === 'hard' ? 'hard' : 'mild');
+  const num = v => (Number.isFinite(+v) ? +v : 0);
+  // 서버/저장소에서 읽은 기록을 기본 형식에 맞춰 정리 (빠진 칸 채우기, 이상한 값 제거)
+  function normStats(st) {
+    const d = emptyStats();
+    if (!st || typeof st !== 'object') return d;
+    const out = { ...d };
+    for (const k of ['plays', 'spent', 'earned', 'charged']) out[k] = num(st[k]);
+    out.rankPoints = C.START_POINTS + out.earned - out.spent;
+    const b = st.best;
+    out.best = b && typeof b === 'object' ? { mult: num(b.mult), grade: okGrade(b.grade), mode: okMode(b.mode), bet: num(b.bet), card: String(b.card || '').slice(0, 20), value: num(b.value), at: num(b.at) } : null;
+    for (const m of ['mild', 'hard']) { out.grades[m] = {}; const src = (st.grades && st.grades[m]) || {}; for (const g of GRADE_IDS) if (src[g]) out.grades[m][g] = num(src[g]); }
+    out.collection = Array.isArray(st.collection) ? st.collection.filter(k => /^[SABCDEFG]:\d+$/.test(k)) : [];
+    out.daily = st.daily && typeof st.daily === 'object' ? { date: String(st.daily.date || ''), net: num(st.daily.net), plays: num(st.daily.plays) } : d.daily;
+    return out;
+  }
+  function cleanFeed(f) {
+    return { id: num(f.id), nickname: String(f.nickname || '').slice(0, 10), mode: okMode(f.mode), grade: okGrade(f.grade), card: String(f.card || '').slice(0, 20), bet: num(f.bet), value: num(f.value), at: f.at };
+  }
   function applyPlay(st, p) {
     // p = { mode, bet, grade, cardIdx, card, value }
     st.plays++; st.spent += p.bet; st.earned += p.value;
@@ -70,7 +91,7 @@
       this._put(db);
       return { nickname, stats: p.stats, state: p.state, created: !p.state };
     },
-    async save(nickname, _pin, state, stats) {
+    async save(nickname, _pin, state, stats) { // eslint-disable-line no-unused-vars
       const db = this._db();
       db.players[nickname] = { nickname, stats, state, updated_at: Date.now() };
       this._put(db);
@@ -103,8 +124,8 @@
     return {
       online: true,
       // 닉네임이 없으면 새로 만들고, 있으면 PIN이 맞는지 확인
-      async login(nickname, pin) {
-        const pin_hash = await sha256('luckydig:' + nickname + ':' + pin);
+      async login(nickname, pin, savedHash) {
+        const pin_hash = savedHash || await sha256('luckydig:' + nickname + ':' + pin);
         const rows = await req(`players?nickname=eq.${enc(nickname)}&select=nickname,pin_hash,stats,state`);
         if (rows.length) {
           if (rows[0].pin_hash !== pin_hash) throw new Error('PIN이 맞지 않습니다');
@@ -114,9 +135,9 @@
         await req('players', { method: 'POST', body: JSON.stringify({ nickname, pin_hash, stats, state: null }) });
         return { nickname, stats, state: null, created: true, pin_hash };
       },
-      async save(nickname, pin_hash, state, stats) {
-        await req(`players?nickname=eq.${enc(nickname)}&pin_hash=eq.${pin_hash}`, {
-          method: 'PATCH', body: JSON.stringify({ state, stats, updated_at: new Date().toISOString() }) });
+      async save(nickname, pin_hash, state, stats, keepalive) {
+        await req(`players?nickname=eq.${enc(nickname)}&pin_hash=eq.${enc(pin_hash)}`, {
+          method: 'PATCH', keepalive: !!keepalive, body: JSON.stringify({ state, stats, updated_at: new Date().toISOString() }) });
       },
       async leaderboard() { return req('players?select=nickname,stats,updated_at'); },
       async addFeed(item) { await req('feed', { method: 'POST', body: JSON.stringify(item) }); },
@@ -126,29 +147,33 @@
 
   const cfg = root.ONLINE || {};
   // 테스트용 주소(#uitest 등)로 열면 실제 랭킹을 건드리지 않도록 항상 오프라인
-  const testMode = root.location && /uitest|auto|fx\d|picktest|ranking|prizes|help/.test(root.location.hash || '');
+  const testMode = root.location && /uitest|auto|fx\d|picktest|ranking|prizes|help|hard|title/.test(root.location.hash || '');
   const store = !testMode && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY ? makeSupabaseStore(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : LocalStore;
 
   // ---------- 세션: 현재 플레이어 ----------
   const PKEY = 'luckydig.profile';
   const Rank = {
-    store, BOARDS, emptyStats, applyPlay, todayKST, totalCards,
+    store, BOARDS, emptyStats, applyPlay, normStats, cleanFeed, todayKST, totalCards,
     me: null, // { nickname, pin_hash, stats }
     profile() { try { return JSON.parse(localStorage.getItem(PKEY)); } catch (e) { return null; } },
-    async login(nickname, pin) {
+    async login(nickname, pin, savedHash) {
       nickname = String(nickname || '').trim().slice(0, 10);
       if (!nickname) throw new Error('닉네임을 입력하세요');
-      if (store.online && !/^\d{4}$/.test(pin || '')) throw new Error('PIN은 숫자 4자리입니다');
-      const r = await store.login(nickname, pin);
+      if (/^__/.test(nickname)) throw new Error('이 닉네임은 쓸 수 없습니다');
+      if (store.online && !savedHash && !/^\d{4}$/.test(pin || '')) throw new Error('PIN은 숫자 4자리입니다');
+      Rank.flush(); // 이전 계정의 저장 대기분을 먼저 보냄
+      const r = await store.login(nickname, pin, savedHash);
+      r.stats = normStats(r.stats);
       Rank.me = { nickname, pin_hash: r.pin_hash || '', stats: r.stats };
-      try { localStorage.setItem(PKEY, JSON.stringify({ nickname, pin_hash: Rank.me.pin_hash, pin })); } catch (e) { /* 무시 */ }
+      try { localStorage.setItem(PKEY, JSON.stringify({ nickname, pin_hash: Rank.me.pin_hash })); } catch (e) { /* 무시 */ }
       return r;
     },
     logout() { Rank.me = null; try { localStorage.removeItem(PKEY); } catch (e) { /* 무시 */ } },
     // 플레이 결과 기록 → 새 기록 여부 반환
     recordPlay(p) {
       if (!Rank.me) return {};
-      const r = applyPlay(Rank.me.stats, p);
+      let r;
+      try { r = applyPlay(Rank.me.stats, p); } catch (e) { console.warn('record', e); return {}; }
       if (BIG_FEED(p.grade) || r.newBest) {
         store.addFeed({ nickname: Rank.me.nickname, mode: p.mode, grade: p.grade, card: p.card, bet: p.bet, value: p.value, at: new Date().toISOString() })
           .catch(e => console.warn('feed', e));
@@ -157,22 +182,35 @@
     },
     noteCharge(amount) { if (Rank.me) Rank.me.stats.charged = (Rank.me.stats.charged || 0) + amount; },
     // 게임 상태(포인트·보관함 등) + 기록을 저장소에 저장 (잦은 저장은 묶어서 1초 뒤 한 번)
-    _t: null,
+    _t: null, _pending: null,
     sync(state) {
       if (!Rank.me) return;
       clearTimeout(Rank._t);
       const me = Rank.me;
-      Rank._t = setTimeout(() => store.save(me.nickname, me.pin_hash, state, me.stats).catch(e => console.warn('sync', e)), 1000);
+      Rank._pending = { me, state: JSON.parse(JSON.stringify(state)) };
+      Rank._t = setTimeout(() => Rank.flush(), 1000);
+    },
+    flush(keepalive) {
+      clearTimeout(Rank._t);
+      const p = Rank._pending; Rank._pending = null;
+      if (p) store.save(p.me.nickname, p.me.pin_hash, p.state, p.me.stats, keepalive).catch(e => console.warn('sync', e));
     },
     async board(id) {
       const def = BOARDS.find(b => b.id === id);
       const rows = (await store.leaderboard()).filter(r => r.stats && !String(r.nickname).startsWith('__')); // '__'로 시작 = 점검용 계정
       // 내 최신 기록은 화면 값으로 덮어씀 (저장 지연 대비)
       if (Rank.me) { const mine = rows.find(r => r.nickname === Rank.me.nickname); if (mine) mine.stats = Rank.me.stats; else rows.push({ nickname: Rank.me.nickname, stats: Rank.me.stats }); }
-      return rows.map(r => ({ nickname: r.nickname, score: def.score(r.stats), show: def.show(r.stats), sub: def.sub(r.stats) }))
-        .sort((a, b) => b.score - a.score);
+      const out = [];
+      for (const r of rows) {
+        try { const st = r === undefined ? null : (Rank.me && r.nickname === Rank.me.nickname ? r.stats : normStats(r.stats));
+          out.push({ nickname: String(r.nickname).slice(0, 10), score: def.score(st), show: def.show(st), sub: def.sub(st) }); } catch (e) { /* 깨진 기록은 건너뜀 */ }
+      }
+      return out.sort((a, b) => b.score - a.score);
     },
-    feed: () => store.feed(),
+    feed: async () => (await store.feed()).map(cleanFeed),
   };
+  // 창을 닫거나 다른 앱으로 넘어갈 때 저장 대기분을 바로 보냄
+  root.addEventListener && root.addEventListener('pagehide', () => Rank.flush(true));
+  root.document && root.document.addEventListener('visibilitychange', () => { if (root.document.visibilityState === 'hidden') Rank.flush(true); });
   root.Rank = Rank;
 })(window);

@@ -172,15 +172,24 @@
       <path d="M88 122 Q100 132 112 122" stroke="${d}" stroke-width="5" fill="none" stroke-linecap="round"/>
       <circle cx="70" cy="116" r="7" fill="#ff7a9a" opacity=".5"/><circle cx="130" cy="116" r="7" fill="#ff7a9a" opacity=".5"/>`, '0 0 200 180');
   }
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
   function card(c, opts = {}) {
     const [l, m, d] = ELEM[c.elem] || ELEM.stone;
-    const g = root.CONFIG.GRADES.find(x => x.id === c.grade);
+    const g = root.CONFIG.GRADES.find(x => x.id === c.grade) || root.CONFIG.GRADES[root.CONFIG.GRADES.length - 1];
     const stars = '★'.repeat(Math.max(1, 8 - root.CONFIG.GRADES.indexOf(g)));
+    if (c.grade === 'S') return `<div class="card full ${opts.cls || ''} grade-S" style="--l:${l};--m:${m};--d:${d}">
+      <img class="card-full" src="assets/cards/S${c.idx || 0}.jpg" alt="" draggable="false">
+      <div class="card-in">
+        <div class="card-top"><span class="card-grade" style="background:${g.color}">S상</span><span class="card-stars">${stars}</span></div>
+        <div class="card-namebar"><div class="card-name">${esc(c.name)}</div><div class="card-foot">LUCKY DIG · No.${String((c.idx || 0) + 1).padStart(2, '0')} · LEGEND</div></div>
+      </div>
+      <div class="card-holo"></div>
+    </div>`;
     return `<div class="card ${opts.cls || ''} grade-${c.grade}" style="--l:${l};--m:${m};--d:${d}">
       <div class="card-in">
         <div class="card-top"><span class="card-grade" style="background:${g.color}">${c.grade}상</span><span class="card-stars">${stars}</span></div>
-        <div class="card-art">${creature(c.elem, c.idx || 0)}</div>
-        <div class="card-name">${c.name}</div>
+        <div class="card-art"><img src="assets/cards/${c.grade}${c.idx || 0}.jpg" alt="" draggable="false" onerror="this.style.visibility='hidden'"></div>
+        <div class="card-name">${esc(c.name)}</div>
         <div class="card-foot">LUCKY DIG · No.${String('SABCDEFG'.indexOf(c.grade) * 6 + (c.idx || 0) + 1).padStart(2, '0')}</div>
       </div>
       ${'SAB'.includes(c.grade) ? '<div class="card-holo"></div>' : ''}

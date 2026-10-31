@@ -9,12 +9,47 @@
 
   // ---------- 저장 ----------
   const S = { mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 } };
-  function load() {
-    try { const d = JSON.parse(localStorage.getItem(SAVE_KEY)); if (d) Object.assign(S, d); } catch (e) { /* 저장 불가 환경 */ }
+  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, owner: null, savedAt: 0 });
+  // 불러온 저장 데이터를 기본 형식에 맞춰 정리 (빠진 칸·이상한 값·지금 없는 카드 제거)
+  function applyState(d) {
+    const base = DEFAULTS();
+    const keepSettings = S.settings;
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, base, d || {});
+    S.settings = { ...base.settings, ...(keepSettings || {}), ...((d && d.settings) || {}) };
+    for (const k of ['bgm', 'sfx']) if (!Number.isFinite(+S.settings[k])) S.settings[k] = base.settings[k];
+    if (!C.MODES[S.mode]) S.mode = 'mild';
+    if (!C.BETS.includes(S.bet)) S.bet = C.DEFAULT_BET;
+    S.points = Math.max(0, Number.isFinite(+S.points) ? Math.round(+S.points) : C.START_POINTS);
+    S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).filter(x => x && C.CARDS[x.grade] && C.CARDS[x.grade][x.idx | 0])
+      .map(x => ({ ...x, idx: x.idx | 0, value: Math.max(0, Math.round(+x.value || 0)), name: String(x.name || C.CARDS[x.grade][x.idx | 0].name).slice(0, 20) }));
+    S.nextId = Math.max(+S.nextId || 1, ...S.inventory.map(x => (+x.id || 0) + 1), 1);
+    Sound.setVolume('bgm', S.settings.bgm); Sound.setVolume('sfx', S.settings.sfx);
   }
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
+  function load() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { /* 저장 불가 환경 */ }
+    applyState(d);
+  }
+  function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
+  function refreshAll() { showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho(); }
+  // 로그인 결과를 지갑·보관함에 반영
+  //  - 서버에 이 계정 기록이 있으면: 이 기기 기록이 같은 계정이고 더 최신이면 그대로, 아니면 서버 기록으로
+  //  - 서버 기록이 없는 새 계정: 처음 로그인이면 지금 기기 기록을 가져가고, 다른 계정에서 바꾼 거면 새로 시작
+  function applyLogin(r) {
+    const nick = Rank.me.nickname;
+    if (r.state) {
+      const localNewer = S.owner === nick && (S.savedAt || 0) > (r.state.savedAt || 0);
+      if (!localNewer) applyState(r.state);
+    } else if (S.owner && S.owner !== nick) {
+      const keep = { settings: S.settings, mode: S.mode };
+      applyState(keep);
+    }
+    S.owner = nick;
+    save(); refreshAll();
+  }
 
-  let busy = false;
+  let busy = false, loginSeq = 0;
 
   // ---------- 화면 맞추기 ----------
   function fit() {
@@ -309,18 +344,22 @@
     const names = Rank.BOARDS.map(b => b.name).concat(['소식']);
     const body = () => box.querySelector('.tabbody');
     const note = Rank.store.online ? '' : '<p class="note center">오프라인 모드: 이 기기 기록만 보여요. 온라인 연결 후 둘이 같이 보입니다.</p>';
+    let seq = 0;
     const render = async i => {
+      const my = ++seq;
       const el = body();
       if (i < Rank.BOARDS.length) {
         const rows = await Rank.board(Rank.BOARDS[i].id);
+        if (my !== seq) return;
         const medal = k => ['🥇', '🥈', '🥉'][k] || (k + 1);
         el.innerHTML = note + (i === 0 ? '<p class="muted center">랭크 포인트 = 시작 10,000pt + 플레이로 얻은 순수익 (무료 충전 제외)</p>' : '') +
           `<div class="rlist">${rows.map((r, k) => `<div class="rrow2 ${Rank.me && r.nickname === Rank.me.nickname ? 'me' : ''}">
-            <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${r.show}</b><small>${r.sub}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
+            <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${esc(r.sub)}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
       } else {
         const feed = await Rank.feed();
-        el.innerHTML = note + `<div class="rlist">${feed.map(f => `<div class="frow"><span class="chip" style="background:${(C.GRADES.find(g => g.id === f.grade) || {}).color}">${f.grade}상</span>
-          <span><b>${esc(f.nickname)}</b> · ${String(f.mode || '').toUpperCase()} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A상, 최고 배율 갱신 시 기록)</p>'}</div>`;
+        if (my !== seq) return;
+        el.innerHTML = note + `<div class="rlist">${feed.map(f => `<div class="frow"><span class="chip" style="background:${(C.GRADES.find(g => g.id === f.grade) || {}).color}">${esc(f.grade)}상</span>
+          <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A상, 최고 배율 갱신 시 기록)</p>'}</div>`;
       }
     };
     tabs(box, names, i => { setTimeout(() => render(i).catch(e => { body().innerHTML = `<p class="note center">불러오기 실패: ${esc(e.message)}</p>`; }), 0); return '<p class="muted center">불러오는 중…</p>'; });
@@ -337,15 +376,19 @@
       const m = modal(`<p class="muted">랭킹에 표시될 이름이에요.${Rank.store.online ? '<br>PC·모바일에서 같은 닉네임+PIN으로 들어오면 기록이 이어져요.' : ''}</p>
         <input id="inNick" class="inp" maxlength="10" placeholder="닉네임 (최대 10자)" value="${esc(prof.nickname || '')}">
         ${Rank.store.online ? '<input id="inPin" class="inp" maxlength="4" inputmode="numeric" placeholder="PIN 숫자 4자리">' : ''}
-        <p id="loginErr" class="note"></p><button id="btnLogin" class="rowbtn gold">확인</button>`, { title: '닉네임', cls: 'small', noClose: true });
+        <p id="loginErr" class="note"></p><button id="btnLogin" class="rowbtn gold">확인</button>`, { title: '닉네임', cls: 'small', noClose: !Rank.me, onClose: () => resolve() });
+      let sending = false;
       const go = async () => {
+        if (sending) return;
+        sending = true; m.el.querySelector('#btnLogin').textContent = '확인 중…';
         const nick = m.el.querySelector('#inNick').value, pinEl = m.el.querySelector('#inPin');
         try {
+          loginSeq++;
           const r = await Rank.login(nick, pinEl ? pinEl.value : '');
-          if (r.state) { Object.assign(S, r.state); }   // 다른 기기에서 하던 기록 불러오기
-          save(); showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho();
+          applyLogin(r);
           m.close(); toast(`${Rank.me.nickname}님 환영합니다`); resolve();
         } catch (e) { m.el.querySelector('#loginErr').textContent = e.message; }
+        sending = false; const b = m.el.querySelector('#btnLogin'); if (b) b.textContent = '확인';
       };
       m.el.querySelector('#btnLogin').onclick = go;
       m.el.querySelector('#inNick').onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -381,11 +424,12 @@
 
   // ---------- 시작 ----------
   function init() {
+    document.body.appendChild($('#toast'));
+    // 팝업(#overlay)이 열려 있는 동안 뒤 화면(게임·타이틀)은 키보드/터치로 조작 불가
+    const ov = $('#overlay');
+    new MutationObserver(() => { const open = !ov.hidden; $('#app').inert = open; $('#title').inert = open; }).observe(ov, { attributes: true, attributeFilter: ['hidden'] });
     load();
     R.init();
-    Sound.setVolume('bgm', S.settings.bgm);
-    Sound.setVolume('sfx', S.settings.sfx);
-    if (!C.BETS.includes(S.bet)) S.bet = C.DEFAULT_BET;
     showPoints(); showBet();
     R.setBet(S.bet);
     const preview = E.simulate(S.bet, 0.5, Math.random);
@@ -411,8 +455,14 @@
     fit();
     // 저장된 닉네임으로 자동 로그인 (온라인이면 서버 기록과 맞춤)
     const prof = Rank.profile();
-    if (prof && prof.nickname) Rank.login(prof.nickname, prof.pin).then(r => { if (r.state && Rank.store.online) { Object.assign(S, r.state); save(); showPoints(); showBet(); showMode(); R.setBet(S.bet); } showWho(); })
-      .catch(() => { Rank.logout(); showWho(); });
+    if (prof && prof.nickname) {
+      const mySeq = ++loginSeq;
+      Rank.login(prof.nickname, prof.pin, prof.pin || !prof.pin_hash ? undefined : prof.pin_hash).then(r => {
+        if (mySeq !== loginSeq) return;           // 그사이 직접 로그인했으면 무시
+        if (busy) { const wait = setInterval(() => { if (!busy) { clearInterval(wait); applyLogin(r); } }, 500); return; }
+        applyLogin(r);
+      }).catch(() => { if (mySeq === loginSeq) { Rank.me = null; showWho(); } });
+    }
     showWho();
     if (Rank.store.online) { pollFeed(); setInterval(pollFeed, 20000); }
     // 시작 화면: GAME START 를 누르면 사라지면서 BGM 시작 (테스트용 주소(#...)로 열면 건너뜀)
@@ -437,8 +487,9 @@
         if (e && e.target.closest('.mode-btn')) return;
         if (e && e.target.closest('#btnWho')) { await askLogin(); return; }
         if (title.classList.contains('out')) return;
+        Sound.unlock();
         if (!Rank.me) { await askLogin(); }
-        Sound.unlock(); Sound.play('chestBig');
+        Sound.play('chestBig');
         title.classList.add('out');
         setTimeout(() => { title.hidden = true; title.classList.remove('out'); }, 600);
         toast(`${C.MODES[S.mode].name} 모드로 시작합니다`);

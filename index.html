@@ -88,6 +88,6 @@
 <script src="js/ui.js"></script>
 <script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js'; document.body.appendChild(s); });</script>
 <script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js'; document.body.appendChild(s); });</script>
 </body>
 </html>

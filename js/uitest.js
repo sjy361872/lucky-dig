@@ -1,7 +1,7 @@
 // 화면 자동 테스트 — index.html#uitest 로 열면 실행 (실제 버튼을 눌러서 확인)
 (function () {
   // 항상 빈 기록에서 시작: 저장 데이터를 지우고 한 번 새로고침
-  if (!sessionStorage.getItem('uitestReset')) { ['luckydig.v1', 'luckydig.rank.local', 'luckydig.profile'].forEach(k => localStorage.removeItem(k)); sessionStorage.setItem('uitestReset', '1'); location.reload(); return; }
+  if (!sessionStorage.getItem('uitestReset')) { if (window.Rank) { clearTimeout(window.Rank._t); window.Rank._pending = null; window.Rank.me = null; } ['luckydig.v1', 'luckydig.rank.local', 'luckydig.profile'].forEach(k => localStorage.removeItem(k)); sessionStorage.setItem('uitestReset', '1'); location.reload(); return; }
   sessionStorage.removeItem('uitestReset');
   const C = window.CONFIG, R = window.Render;
   const $ = s => document.querySelector(s);
@@ -84,11 +84,17 @@
     $('#keep').click();
     await until(() => !$('#panelIdle').hidden);
     check(true, 'HARD 1판 완료');
+    // 보안: 서버에서 이상한 값이 와도 스크립트로 실행되지 않아야 함
+    await window.Rank.store.addFeed({ nickname: '<b id=x1>해커</b>', mode: '<img id=x2 src=x>', grade: '<img id=x3 src=x onerror="window.__pwned=1">', card: '<i id=x4>c</i>', bet: 1, value: 2 });
+    const db = JSON.parse(localStorage.getItem('luckydig.rank.local'));
+    db.players['악당'] = { nickname: '악당', stats: { best: { mult: 9, grade: '<img id=x5 src=x>', mode: '<img id=x6 src=x>' }, grades: { mild: { S: '<img id=x7 src=x>' } } } };
+    localStorage.setItem('luckydig.rank.local', JSON.stringify(db));
     // 랭킹 화면
     $('#btnRank').click(); await sleep(300);
-    check(document.querySelectorAll('.rrow2').length === 1 && document.querySelector('.rrow2.me .rn').textContent === '테스터', '랭킹 보드에 내 기록 표시');
-    document.querySelector('.tabs button:last-child').click(); await sleep(300);
-    check(!!document.querySelector('.tabbody'), '소식 탭 열림');
+    check(!!document.querySelector('.rrow2.me') && document.querySelector('.rrow2.me .rn').textContent === '테스터', '랭킹 보드에 내 기록 표시');
+    for (let t = 0; t < 6; t++) { document.querySelectorAll('.tabs button')[t].click(); await sleep(250); }
+    check(!!document.querySelector('.frow'), '소식 탭 열림');
+    check(!document.querySelector('#x1,#x2,#x3,#x4,#x5,#x6,#x7') && !window.__pwned, '이상한 값이 HTML로 실행되지 않음 (스크립트 삽입 차단)');
     $('.closebtn').click();
     // 저장 유지
     const saved = JSON.parse(localStorage.getItem('luckydig.v1'));

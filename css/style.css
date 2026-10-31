@@ -462,3 +462,18 @@ button { font-family: inherit; cursor: pointer; border: 0; color: inherit; }
 #news { z-index: 150; }
 /* 입력 창이 있는 작은 팝업은 위쪽에 띄워서 휴대폰 키보드에 가리지 않게 */
 #overlay:has(.inp) { align-items: flex-start; padding-top: 8vh; }
+
+/* ---------- 카드 일러스트 ---------- */
+.card-art { background: radial-gradient(circle at 50% 42%, #fff 0%, #fff 38%, var(--l) 100%); overflow: hidden; }
+.card-art img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; display: block; }
+.card.grade-B .card-art, .card.grade-A .card-art { background: radial-gradient(circle at 50% 42%, #fff 0%, #fff 30%, var(--l) 75%, var(--m) 100%); }
+/* S상 풀아트: 그림이 카드 전체, 금테 */
+.card.full { padding: 4px; background: linear-gradient(145deg, #fff6c0, #e0a800 30%, #fff3b0 50%, #b8860b 70%, #ffe680); }
+.card.full .card-full { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: cover; border-radius: 5px; }
+.card.full .card-in { position: relative; background: none; justify-content: space-between; padding: 4px; }
+.card.full .card-namebar { background: linear-gradient(transparent, rgba(0,0,0,.75) 35%); margin: 0 -4px -4px; padding: 14px 4px 4px; border-radius: 0 0 5px 5px; }
+.card.full .card-name { font-size: 1.15em; color: #fff3b0; }
+.card.full .card-stars { color: #fff3b0; }
+
+/* 토스트는 팝업보다 위에 */
+body > #toast { position: fixed; bottom: 18vh; z-index: 160; }
