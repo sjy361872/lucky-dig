@@ -620,11 +620,12 @@
         if (e && e.target.closest('#btnWho')) { await askLogin(); return; }
         if (title.classList.contains('out')) return;
         Sound.unlock();
-        if (!Rank.me) { await askLogin(); }
+        let justLoggedIn = false;
+        if (!Rank.me) { await askLogin(); justLoggedIn = true; }
         Sound.play('chestBig');
         title.classList.add('out');
         setTimeout(() => { title.hidden = true; title.classList.remove('out'); }, 600);
-        toast(`${C.MODES[S.mode].name} 모드로 시작합니다`);
+        toast(justLoggedIn && Rank.me ? `${Rank.me.nickname}님 환영합니다! ${C.MODES[S.mode].name} 모드로 시작해요` : `${C.MODES[S.mode].name} 모드로 시작합니다`);
         setTimeout(() => { if (!busy) openDaily(false); }, 900);
       };
       title.addEventListener('click', start);
