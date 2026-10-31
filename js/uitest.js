@@ -117,6 +117,11 @@
     $('#btnRank').click(); await sleep(300);
     check(!!document.querySelector('.rrow2.me') && document.querySelector('.rrow2.me .rn').textContent === '테스터', '랭킹 보드에 내 기록 표시');
     for (let t = 0; t < 6; t++) { document.querySelectorAll('.tabs button')[t].click(); await sleep(250); }
+    document.querySelectorAll('.tabs button')[3].click(); await sleep(300);
+    const dexRow = document.querySelector('.rrow2.me');
+    const myDex = Object.keys(window.UI.state().dex).length;
+    check(dexRow && dexRow.textContent.includes(`${myDex} / ${C.allCards().length}장`) && dexRow.textContent.includes('완성 광산'), `도감 수집 랭킹: 내 도감 ${myDex}장과 일치`);
+    document.querySelector('.tabs button:last-child').click(); await sleep(300);
     check(!!document.querySelector('.frow'), '소식 탭 열림');
     check(!document.querySelector('#x1,#x2,#x3,#x4,#x5,#x6,#x7') && !window.__pwned, '이상한 값이 HTML로 실행되지 않음 (스크립트 삽입 차단)');
     $('.closebtn').click();

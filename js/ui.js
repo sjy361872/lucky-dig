@@ -40,7 +40,8 @@
     try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { /* 저장 불가 환경 */ }
     applyState(d);
   }
-  function save() { S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
+  function save() { if (Rank.me) Rank.me.stats.collection = Object.keys(S.dex || {}); // 랭킹 도감 수 = 내 도감
+    S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
   function refreshAll() { showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho(); showAdmin(); }
   function showAdmin() { document.body.classList.toggle('admin', Rank.isAdmin()); }
   // 로그인 결과를 지갑·보관함에 반영

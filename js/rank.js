@@ -66,6 +66,12 @@
   const sCount = st => (st.grades.mild.S || 0) + (st.grades.hard.S || 0);
   const todayNet = st => (st.daily && st.daily.date === todayKST() ? st.daily.net : 0);
   const totalCards = () => C.allCards().length;
+  // 다 모은 광산 수 (공통 G상 포함)
+  function doneMines(st) {
+    const have = new Set(st.collection || []), by = {};
+    for (const c of C.allCards()) { const t = c.tier; by[t] = by[t] || [0, 0]; by[t][1]++; if (have.has(C.cardKey(c))) by[t][0]++; }
+    return Object.values(by).filter(([a, b]) => a === b).length;
+  }
 
   // 랭킹 보드 정의: 점수 계산 + 표시
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
@@ -74,7 +80,8 @@
     { id: 'best', name: '최고 배율', score: st => (st.best ? st.best.mult : 0), show: st => (st.best ? '×' + st.best.mult.toFixed(2) : '—'),
       sub: st => (st.best ? `${st.best.mode.toUpperCase()} ${st.best.grade}상 · ${fmt(st.best.bet)}pt` : '') },
     { id: 'S', name: 'S상 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
-    { id: 'dex', name: '도감', score: st => st.collection.length, show: st => `${st.collection.length}/${totalCards()}`, sub: () => '' },
+    { id: 'dex', name: '도감 수집', score: st => st.collection.length * 1000 + doneMines(st), show: st => `${st.collection.length} / ${totalCards()}장`,
+      sub: st => `${Math.floor(st.collection.length / totalCards() * 100)}% · 완성 광산 ${doneMines(st)}곳` },
     { id: 'today', name: '오늘 수익', score: st => todayNet(st), show: st => (todayNet(st) >= 0 ? '+' : '') + fmt(todayNet(st)) + ' pt',
       sub: st => (st.daily && st.daily.date === todayKST() ? `${st.daily.plays}판` : '0판') },
   ];

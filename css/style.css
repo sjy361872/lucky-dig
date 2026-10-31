@@ -534,3 +534,6 @@ body:not(.admin) .pill .plus { display: none; }
 .dex-tiers button { flex: 0 0 calc(25% - 5px); padding: 5px 2px; }
 #prizeTabs .tabs { flex-wrap: wrap; overflow: visible; justify-content: center; }
 #prizeTabs .tabs button { flex: 0 0 calc(25% - 5px); padding: 7px 2px; font-size: 12px; }
+#rankTabs { display: flex; flex-direction: column; height: 100%; }
+#rankTabs .tabs { flex-wrap: wrap; overflow: visible; justify-content: center; }
+#rankTabs .tabs button { flex: 0 0 calc(33.3% - 5px); padding: 7px 2px; font-size: 12px; }
