@@ -455,3 +455,4 @@ button { font-family: inherit; cursor: pointer; border: 0; color: inherit; }
 .news-item { padding: 9px 16px; border-radius: 22px; background: linear-gradient(90deg, #6a3fd6, #d4142e); color: #fff; font-weight: 800; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.35); border: 2px solid #fff; animation: newsIn .35s ease-out; text-align: center; transition: opacity .4s, transform .4s; }
 .news-item.out { opacity: 0; transform: translateY(-12px); }
 @keyframes newsIn { from { transform: translateY(-20px); opacity: 0; } }
+#btnStart span { white-space: nowrap; font-size: clamp(26px, 9vw, 38px); }
