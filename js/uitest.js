@@ -1,0 +1,104 @@
+// 화면 자동 테스트 — index.html#uitest 로 열면 실행 (실제 버튼을 눌러서 확인)
+(function () {
+  // 항상 빈 기록에서 시작: 저장 데이터를 지우고 한 번 새로고침
+  if (!sessionStorage.getItem('uitestReset')) { ['luckydig.v1', 'luckydig.rank.local', 'luckydig.profile'].forEach(k => localStorage.removeItem(k)); sessionStorage.setItem('uitestReset', '1'); location.reload(); return; }
+  sessionStorage.removeItem('uitestReset');
+  const C = window.CONFIG, R = window.Render;
+  const $ = s => document.querySelector(s);
+  const num = s => +String(s).replace(/[^0-9-]/g, '');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const log = [], fails = [];
+  const check = (ok, msg) => { (ok ? log : fails).push((ok ? 'OK   ' : 'FAIL ') + msg); };
+  async function until(fn, ms = 120000) { const t = Date.now(); while (!fn()) { if (Date.now() - t > ms) throw new Error('timeout'); await sleep(50); } }
+  window.confirm = () => true;
+
+  async function run() {
+    R.state.speed = 40;
+    await window.Rank.login('테스터');
+    const st = () => window.Rank.me.stats;
+    check(st().rankPoints === C.START_POINTS, '랭크 포인트 시작 10,000');
+    const ROUNDS = 8;
+    for (let i = 0; i < ROUNDS; i++) {
+      const P = num($('#pointsText').textContent), B = num($('#betText').textContent);
+      $('#btnPlay').click();
+      await sleep(20);
+      check(num($('#pointsText').textContent) === P - B, `[${i}] 플레이 시 ${B}pt 차감`);
+      await until(() => $('#keep'));
+      const grade = $('.result .chip').textContent.replace('상', '');
+      const value = num($('.rrow b').textContent);
+      const score = num($('#scoreText').textContent);
+      const gi = C.GRADES.findIndex(g => g.id === grade);
+      const lo = C.GRADES[gi].need * B, hi = (gi === 0 ? C.S_CAP : C.GRADES[gi - 1].need) * B;
+      check(score >= lo && score < hi, `[${i}] ${grade}상, 화면 스코어 ${score}가 구간 [${lo}, ${hi}) 안`);
+      check(C.CARDS[grade].some(c => value === window.Engine.cardValue(C.GRADES[gi], c, B)), `[${i}] 환원 값 ${value}이 ${grade}상 카드 값 중 하나`);
+      const sell = i % 2 === 0;
+      if (sell) { $('#sell').click(); await until(() => $('#ok')); $('#ok').click(); }
+      else $('#keep').click();
+      await until(() => !$('#panelIdle').hidden);
+      check(num($('#pointsText').textContent) === P - B + (sell ? value : 0), `[${i}] ${sell ? '교환' : '보관'} 후 포인트`);
+    }
+    // 랭킹 기록: 랭크 포인트 = 10,000 + 받은 합 − 쓴 합
+    check(st().plays === ROUNDS, `랭킹 플레이 수 ${st().plays}`);
+    check(st().rankPoints === C.START_POINTS + st().earned - st().spent, `랭크 포인트 ${st().rankPoints} = 10,000 + ${st().earned} − ${st().spent}`);
+    check(st().best && st().best.mult > 0, '최고 배율 기록됨');
+    // 보관함
+    $('#btnBag').click();
+    const n = document.querySelectorAll('.bagitem').length;
+    check(n === ROUNDS / 2, `보관함 ${n}장 (기대 ${ROUNDS / 2})`);
+    const P1 = num($('#pointsText').textContent);
+    const total = [...document.querySelectorAll('.bagitem small')].reduce((a, s) => a + num(s.innerHTML.split('<br>')[1]), 0);
+    $('#sellAll').click();
+    check(num($('#pointsText').textContent) === P1 + total, `전부 교환 +${total}pt`);
+    check(document.querySelectorAll('.bagitem').length === 0, '보관함 비워짐');
+    $('.closebtn').click();
+    // 소비 포인트 변경 / 포인트 부족
+    $('#betPlus').click();
+    check(num($('#betText').textContent) === C.BETS[1], '+ 버튼으로 2,000pt');
+    for (let i = 0; i < 20; i++) $('#betPlus').click();
+    check(num($('#betText').textContent) === C.BETS[C.BETS.length - 1], '+ 끝까지 500,000pt');
+    $('#btnPlay').click();
+    await sleep(50);
+    check(!!document.querySelector('.chargegrid'), '포인트 부족 → 충전 팝업');
+    const P2 = num($('#pointsText').textContent);
+    const rpBefore = st().rankPoints;
+    document.querySelector('.chargegrid button:last-child').click();
+    check(num($('#pointsText').textContent) === P2 + C.CHARGE_AMOUNTS[C.CHARGE_AMOUNTS.length - 1], '충전');
+    check(st().rankPoints === rpBefore, '무료 충전은 랭크 포인트에 반영 안 됨');
+    $('.closebtn').click();
+    // 고액 1판
+    $('#btnPlay').click();
+    await until(() => $('#keep'));
+    $('#keep').click();
+    await until(() => !$('#panelIdle').hidden);
+    check(true, '500,000pt 1판 완료');
+    // HARD 모드: 메뉴 → 타이틀 → HARD 선택 → 시작 → 1판
+    $('#btnMenu').click(); $('#btnTitle').click();
+    check(!$('#title').hidden, '메뉴에서 타이틀로 이동');
+    document.querySelector('.mode-btn[data-mode=hard]').click();
+    check($('#modeBadge').textContent === 'HARD', 'HARD 선택 시 배지 표시');
+    $('#btnStart').click(); await sleep(700);
+    check($('#title').hidden, '시작 후 타이틀 닫힘');
+    for (let i = 0; i < 20; i++) $('#betMinus').click();
+    $('#btnPlay').click();
+    await until(() => $('#keep'));
+    $('#keep').click();
+    await until(() => !$('#panelIdle').hidden);
+    check(true, 'HARD 1판 완료');
+    // 랭킹 화면
+    $('#btnRank').click(); await sleep(300);
+    check(document.querySelectorAll('.rrow2').length === 1 && document.querySelector('.rrow2.me .rn').textContent === '테스터', '랭킹 보드에 내 기록 표시');
+    document.querySelector('.tabs button:last-child').click(); await sleep(300);
+    check(!!document.querySelector('.tabbody'), '소식 탭 열림');
+    $('.closebtn').click();
+    // 저장 유지
+    const saved = JSON.parse(localStorage.getItem('luckydig.v1'));
+    check(saved.points === num($('#pointsText').textContent), '저장된 포인트 = 화면 포인트');
+    check(saved.mode === 'hard', '모드 저장됨');
+  }
+  run().catch(e => fails.push('ERROR ' + e.message)).finally(() => {
+    const pre = document.createElement('pre');
+    pre.id = 'uitest-result';
+    pre.textContent = (fails.length ? 'UITEST FAIL' : 'UITEST PASS') + '\n' + fails.concat(log).join('\n');
+    document.body.appendChild(pre);
+  });
+})();

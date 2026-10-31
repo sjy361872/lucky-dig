@@ -1,0 +1,5 @@
+# 원작 참고 자료·이미지 생성 도구·작업 파일은 올리지 않음
+reference/
+tools/
+design/
+*.log

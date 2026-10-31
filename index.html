@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>럭키 디그</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="bg"></div>
+
+<div id="viewport">
+  <div id="app">
+    <!-- 상단 -->
+    <div id="topbar">
+      <div id="logo"><img src="assets/ui/logo.png" alt="LUCKY DIG"><span id="modeBadge">MILD</span></div>
+      <button id="pointsPill" class="pill" title="무료 충전">
+        <span class="coin"></span>
+        <span class="pt-col"><small>보유 포인트</small><b id="pointsText">0 pt</b></span>
+        <span class="plus">+</span>
+      </button>
+      <button id="btnRank" class="sidebtn" title="랭킹"><span class="ico">🏆</span><small>랭킹</small></button>
+      <button id="btnMenu" class="sidebtn" title="메뉴"><span class="ico">☰</span><small>메뉴</small></button>
+    </div>
+
+    <div id="middle">
+      <div id="stage">
+        <div id="slot"></div>
+        <div id="board"></div>
+        <div id="fx"></div>
+      </div>
+      <div id="rightcol">
+        <button id="btnHelp" class="sidebtn" title="플레이 방법"><span class="ico">?</span><small>플레이 방법</small></button>
+        <button id="btnPrizes" class="sidebtn" title="상품 목록"><span class="ico">🂠</span><small>상품</small></button>
+        <button id="btnBag" class="sidebtn" title="보관함"><span class="ico">🎒</span><small>보관함</small></button>
+        <div id="gauge">
+          <div id="gaugeTrack"><div id="gaugeFill"></div></div>
+          <div id="gaugeLabels"></div>
+        </div>
+        <button id="btnSpeed" class="speedbtn" title="고속">⚡</button>
+      </div>
+    </div>
+
+    <div id="chests"></div>
+
+    <div id="panel">
+      <div id="panelIdle">
+        <button id="betMinus" class="roundbtn minus">−</button>
+        <button id="betBox"><small>소비 포인트</small><b id="betText">1,000 pt</b></button>
+        <button id="betPlus" class="roundbtn plus">+</button>
+        <button id="btnPlay"><span class="tri"></span><small>플레이</small></button>
+      </div>
+      <div id="panelPlay" hidden>
+        <div class="info">
+          <div><small>소비 포인트</small><b id="playBet">0 pt</b></div>
+          <div><small>남은 스핀</small><b id="spinsText">0회</b></div>
+        </div>
+        <div class="scorebox"><small>스코어</small><b id="scoreText">0</b></div>
+      </div>
+    </div>
+    <div id="toast"></div>
+  </div>
+</div>
+
+<div id="title">
+  <div class="title-glow"></div>
+  <img class="title-logo" src="assets/ui/logo.png" alt="LUCKY DIG">
+  <div class="mode-select">
+    <button class="mode-btn" data-mode="mild"><b>MILD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>오래 즐기는 안정형<br>본전 근처가 자주 나와요</small></button>
+    <button class="mode-btn" data-mode="hard"><b>HARD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>한 방을 노리는 승부형<br>S·A상이 약 2배 자주</small></button>
+  </div>
+  <button id="btnStart"><span>GAME START</span></button>
+  <button id="btnWho" class="who"></button>
+  <div class="title-hint">화면을 눌러 시작하세요</div>
+  <div class="title-sparkles"></div>
+</div>
+
+<div id="news"></div>
+<div id="overlay" hidden></div>
+
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/online-config.js"></script>
+<script src="js/rank.js"></script>
+<script src="js/ui.js"></script>
+<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js'; document.body.appendChild(s); });</script>
+<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js'; document.body.appendChild(s); });</script>
+</body>
+</html>
