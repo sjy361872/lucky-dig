@@ -599,3 +599,36 @@ body:not(.admin) .pill .plus { display: none; }
 .minelist button.on { border-color: #f5c518; background: #fff6d0; }
 .minelist button.locked { opacity: .5; }
 .minelist small { color: #8a6a3a; font-size: 11px; }
+
+/* ===================== 몬스터 전투 ===================== */
+body.battle #gauge, body.battle #btnPrizes { display: none; }
+#monster { width: 84px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 4px 6px; border-radius: 10px;
+  background: rgba(30,18,10,.78); border: 2px solid #f2c14e; color: #fff; text-align: center; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+#monster[hidden] { display: none; }
+#monster.boss { border-color: #ff5a5a; box-shadow: 0 0 12px rgba(255,60,60,.6), 0 3px 0 rgba(0,0,0,.35); }
+.mon-img { position: relative; width: 70px; height: 70px; border-radius: 8px; overflow: hidden; background: #2a1a10; }
+.mon-img img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
+.mon-img .chip { position: absolute; left: 2px; top: 2px; font-size: 10px; padding: 0 4px; }
+#monName { font-size: 11px; line-height: 1.2; word-break: keep-all; }
+.mon-hp { width: 100%; height: 9px; border-radius: 5px; background: #3b0d0d; overflow: hidden; border: 1px solid #000; }
+#monHpFill { height: 100%; width: 100%; background: linear-gradient(#ff6b6b, #c81e1e); transition: width .15s; }
+#monHpText { font-size: 10px; opacity: .9; }
+.mon-atk { display: flex; flex-direction: column; align-items: center; margin-top: 2px; padding: 2px 6px; border-radius: 6px; background: #5a1414; }
+.mon-atk span { font-size: 9px; opacity: .85; } .mon-atk b { font-size: 18px; line-height: 1; }
+.mon-atk.danger { background: #c81e1e; animation: monPulse .6s infinite alternate; }
+@keyframes monPulse { to { transform: scale(1.08); } }
+#monster.hurt .mon-img { animation: monHurt .3s; }
+@keyframes monHurt { 30% { filter: brightness(2.2) saturate(0); transform: translateX(-3px); } 60% { transform: translateX(3px); } }
+#monster.attack { animation: monLunge .45s; }
+@keyframes monLunge { 40% { transform: translateX(-26px) scale(1.15); } }
+#monster.dead .mon-img img { filter: grayscale(1) brightness(.6); }
+#app.shake, #stage.shake { animation: scrShake .4s; }
+@keyframes scrShake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+body.battle .hide-spins { display: none !important; }
+#heartText { color: #ff4d6d; letter-spacing: -1px; }
+#heartText .lost { color: #777; }
+.float.hurt { color: #ff4d6d; font-size: 26px; font-weight: 900; text-shadow: 0 2px 0 #000; }
+.float.kill { color: #ffe066; font-size: 22px; font-weight: 900; text-shadow: 0 2px 0 #000; white-space: nowrap; }
+.capt { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 6px 0; }
+.capt .card { width: 64px; font-size: 8px; }
+.newcard { text-align: center; } .newcard .card { width: 150px; margin: 6px auto; }

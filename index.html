@@ -33,6 +33,13 @@
         <button id="btnHelp" class="sidebtn" title="플레이 방법"><span class="ico">?</span><small>플레이 방법</small></button>
         <button id="btnPrizes" class="sidebtn" title="상품 목록"><span class="ico">🂠</span><small>상품</small></button>
         <button id="btnBag" class="sidebtn" title="보관함"><span class="ico">🎒</span><small>카드·도감</small></button>
+        <div id="monster" hidden>
+          <div class="mon-img"><img id="monImg" alt=""><span id="monGrade" class="chip">F</span></div>
+          <b id="monName">몬스터</b>
+          <div class="mon-hp"><div id="monHpFill"></div></div>
+          <small id="monHpText">0</small>
+          <div class="mon-atk" id="monAtkBox"><span>⚔ 공격까지</span><b id="monAtk">3</b></div>
+        </div>
         <div id="gauge">
           <div id="gaugeTrack"><div id="gaugeFill"></div></div>
           <div id="gaugeLabels"></div>
@@ -53,10 +60,11 @@
       <div id="panelPlay" hidden>
         <div class="info">
           <div><small>층</small><b id="playBet">1층</b></div>
-          <div><small>남은 스핀</small><b id="spinsText">0회</b></div>
+          <div><small>하트</small><b id="heartText">❤❤❤</b></div>
+          <div class="hide-spins"><small>남은 스핀</small><b id="spinsText">0회</b></div>
           <div><small>리롤</small><b id="rerollText">0회</b></div>
         </div>
-        <div class="scorebox"><small>스코어</small><b id="scoreText">0</b></div>
+        <div class="scorebox"><small>대미지</small><b id="scoreText">0</b></div>
       </div>
       <div id="spinActions" hidden>
         <div id="holdHint">열을 눌러 고정(홀드)한 뒤 리롤할 수 있어요</div>

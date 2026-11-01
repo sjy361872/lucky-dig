@@ -1,5 +1,6 @@
 // =====================================================
-//  탐험 진행 화면 — 광산 → 층 → 스핀(리롤·홀드) → 상점 → 보스 → 정산
+//  탐험 진행 화면 — 광산 → 층(몬스터 전투) → 스핀(리롤·홀드) → 상점 → 보스 → 정산
+//  블록을 캔 점수 = 몬스터에게 주는 대미지. 정해진 턴 안에 못 잡으면 몬스터가 공격해서 하트 -1
 //  계산은 js/dig.js, 그리기는 js/render.js, 팝업·저장은 ui.js(UIX)
 // =====================================================
 (function (root) {
@@ -19,13 +20,55 @@
     if (!run) return;
     $('#playBet').textContent = `${floorLabel(run.floor)} / ${FLOORS}+보스`;
     $('#rerollText').textContent = run.rerolls + '회';
+    $('#heartText').innerHTML = '❤'.repeat(Math.max(0, run.hearts)) + `<span class="lost">${'❤'.repeat(Math.max(0, run.maxHearts - run.hearts))}</span>`;
   }
   function setGaugeFor(quota) { R.setThresholds(D.thresholds(quota), quota * 0.2); }
+
+  // ---------- 몬스터 표시 ----------
+  let lastHp = 0;
+  function showMonster(f) {
+    const mo = f.monster, g = C.GRADES.find(x => x.id === mo.grade);
+    const box = $('#monster');
+    box.hidden = false;
+    box.className = f.boss ? 'boss' : '';
+    $('#monImg').src = C.cardImg(mo);
+    $('#monGrade').textContent = mo.grade; $('#monGrade').style.background = g ? g.color : '#888';
+    $('#monName').textContent = (f.boss ? '👑 ' : '') + mo.name;
+    lastHp = f.quota; setHp(0); setAtk(f.spins);
+  }
+  function setHp(dmg) {
+    if (!fl) return;
+    const hp = Math.max(0, Math.round(fl.quota - dmg));
+    $('#monHpFill').style.width = (hp / fl.quota * 100) + '%';
+    $('#monHpText').textContent = `${fmt(hp)} / ${fmt(fl.quota)}`;
+    if (hp < lastHp) { const b = $('#monster'); b.classList.remove('hurt'); void b.offsetWidth; b.classList.add('hurt'); }
+    lastHp = hp;
+  }
+  function setAtk(n) {
+    $('#monAtk').textContent = n;
+    $('#monAtkBox').classList.toggle('danger', n <= 1);
+  }
+  R.onScore = v => { if (fl) setHp(v); };
+  // 몬스터 공격 연출
+  async function monsterAttack() {
+    const b = $('#monster'), app = $('#app');
+    b.classList.remove('attack'); void b.offsetWidth; b.classList.add('attack');
+    await R.wait(220);
+    Sound.play('last');
+    app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
+    R.floatText(140, 230, '-❤ 몬스터의 공격!', 'hurt', 1400);
+    showInfo();
+    await R.wait(900);
+  }
 
   // ---------- 스핀 결정 (리롤 / 홀드 / 확정) ----------
   function decide() {
     return new Promise(res => {
       if (run.rerolls <= 0) return res();
+      // 아쉬운 스핀(곡괭이 1개 이하, TNT·책 없음)일 때만 리롤을 물어봄. 괜찮은 스핀은 그대로 진행
+      const g = fl.grid.flat();
+      const weak = g.filter(D.isPick).length <= 1 && !g.some(x => x === 'tnt' || x === 'book' || x === 'superbook');
+      if (!weak) return res();
       if (R.state.auto) {   // 테스트: 첫 열만 고정하고 리롤 1번
         if (run.rerolls > 1 && fl.spinCount === 1) { const ev = D.reroll(run, fl, [true, false, false, false, false]); showInfo(); return R.play([ev]).then(res); }
         return res();
@@ -36,7 +79,7 @@
         R.setHeld(held);
         $('#btnReroll').innerHTML = `🔄 리롤 <small>${run.rerolls}회 남음</small>`;
         $('#btnReroll').classList.toggle('disabled', run.rerolls <= 0);
-        $('#holdHint').textContent = held.some(Boolean) ? `고정한 열 ${held.filter(Boolean).length}개는 그대로 두고 다시 돌려요` : '열을 눌러 고정(홀드)한 뒤 리롤할 수 있어요';
+        $('#holdHint').textContent = held.some(Boolean) ? `고정한 열 ${held.filter(Boolean).length}개는 그대로 두고 다시 돌려요` : '아쉬운 스핀! 다시 돌릴까요? (열을 누르면 고정)';
       };
       bar.hidden = false; paint();
       slot.classList.add('pickable');
@@ -69,31 +112,56 @@
     R.clearSlot();
     setGaugeFor(fl.quota);
     R.resetScore();
+    showMonster(fl);
     showInfo();
     Sound.play(fl.boss ? 'drumroll' : 'click');
     await R.banner(fl.boss ? 'BOSS' : `${run.floor + 1}F`, fl.boss ? 'last' : '');
-    X().toast(`${floorLabel(run.floor)} 목표 ${fmt(fl.quota)}점`);
+    X().toast(`${fl.monster.name} 등장! 체력 ${fmt(fl.quota)}`);
     await R.play([{ type: 'init', spins: fl.spins }]);
-    while (!D.floorDone(fl)) {
+    while (!D.floorDone(fl, run)) {
       const ev = D.startSpin(run, fl);
+      setAtk(fl.spins + 1);
       await R.play([ev]);
       await decide();
       await R.play(D.resolveSpin(run, fl));
+      const t = D.endTurn(run, fl);
+      if (t.attacked) await monsterAttack();
+      setAtk(fl.spins); R.setSpins(fl.spins);
+      if (t.refill) {
+        X().toast('블록을 다 캤어요! 새 광맥이 열려요');
+        await R.wait(500);
+        R.drawBoard(fl.initialBoard, fl.initialChests);
+        await R.wait(400);
+      }
     }
     return D.floorResult(run, fl);
   }
 
   // ---------- 층 결과 ----------
   async function showFloorResult(res) {
-    const g = C.GRADES.find(x => x.id === res.grade);
     if (res.pass) {
-      Sound.play(res.gi <= 1 ? 'fanfare' : 'big');
-      R.floatText(140, 200, `${res.boss ? '보스 격파!' : '통과!'} ${g.id}상`, 'chestmult t' + Math.max(0, 4 - res.gi), 1800);
+      $('#monster').classList.add('dead');
+      Sound.play(res.boss || res.perfect ? 'fanfare' : 'big');
+      R.floatText(140, 200, `${res.boss ? '보스 격파!' : '처치!'}${res.perfect ? ' 무피해 ★' : ''}`, 'kill', 1800);
+      res.newCard = X().recordDex(res.monster);
+      run.caught = (run.caught || []).concat([{ ...res.monster, isNew: res.newCard }]);
+      X().save();
+      await R.wait(1300);
+      if (!R.state.auto) await cardGet(res);
     } else {
       Sound.play('last');
-      R.floatText(140, 200, `실패… ${fmt(res.score)} / ${fmt(res.quota)}`, 'big', 1800);
+      R.floatText(140, 200, '쓰러졌어요…', 'hurt', 1800);
+      await R.wait(1600);
     }
-    await R.wait(1600);
+  }
+  // 잡은 몬스터 카드 보여주기
+  function cardGet(res) {
+    return new Promise(done => {
+      const m = X().modal(`<div class="newcard">${res.newCard ? '<b class="good">✨ 새 카드! 도감에 등록됐어요</b>' : '<small class="muted">이미 가진 카드예요 (도감 횟수 +1)</small>'}
+        ${Art.card(res.monster)}<button class="rowbtn gold big" id="ncOk">계속</button></div>`, { title: `${res.monster.name} 포획!`, noClose: true, cls: 'small' });
+      Sound.play('coin');
+      m.el.querySelector('#ncOk').onclick = () => { Sound.play('click'); m.close(); done(); };
+    });
   }
 
   // ---------- 상점 ----------
@@ -107,14 +175,13 @@
   function shop(res) {
     return new Promise(resolve => {
       const opts = RL.offer(run, D.shopSize(res), run.rng);
-      const g = C.GRADES.find(x => x.id === res.grade);
       const m = X().modal(`
-        <p class="muted center"><span class="chip" style="background:${g ? g.color : '#888'}">${res.grade}상</span> ${fmt(res.score)}점 (목표 ${fmt(res.quota)})
-          ${res.gi >= 0 && res.gi <= 2 ? '<br><b class="good">B상 이상 보너스: 선택지 +1</b>' : ''}</p>
+        <p class="muted center">${res.turns}턴 만에 처치 · 하트 ${'❤'.repeat(run.hearts)}
+          ${res.perfect ? '<br><b class="good">★ 무피해 처치 보너스: 선택지 +1</b>' : ''}</p>
         <div class="shop">${opts.map(it => `<button class="shop-item r${it.rare}" data-id="${it.id}">${itemIcon(it)}
           <span class="shop-txt"><small class="rar">${RL.RARITY_NAME[it.rare]} · ${it.kind === 'symbol' ? '심볼' : it.kind === 'relic' ? '유물' : '회복'}</small><b>${it.name}</b><span>${it.desc}</span></span></button>`).join('')}</div>
-        <div class="owned-row"><small>지금 가진 것 · 리롤 ${run.rerolls}회</small><div>${ownedHtml()}</div></div>`,
-      { title: `${floorLabel(run.floor - 1)} 통과! 하나 고르세요`, noClose: true });
+        <div class="owned-row"><small>지금 가진 것 · 리롤 ${run.rerolls}회 · 하트 ${run.hearts}/${run.maxHearts}</small><div>${ownedHtml()}</div></div>`,
+      { title: `${res.monster.name} 처치! 하나 고르세요`, noClose: true });
       if (R.state.auto) setTimeout(() => m.el.querySelector('.shop-item').click(), 200);
       m.el.querySelectorAll('.shop-item').forEach(b => b.onclick = () => {
         RL.take(run, b.dataset.id);
@@ -141,9 +208,10 @@
     return new Promise(res => {
       const m = X().modal(`<div class="runend ${run.cleared ? 'win' : ''}">
         <div class="re-title">${run.cleared ? '🏆 광산 정복!' : '탐험 종료'}</div>
-        <p class="muted center">${mineName(run.mine)} · ${run.cleared ? '보스까지 클리어' : `${floorLabel(run.results.length - 1)}에서 멈춤`}</p>
-        <div class="re-floors">${run.results.map((r, i) => { const g = C.GRADES.find(x => x.id === r.grade);
-          return `<div class="${r.pass ? '' : 'fail'}"><small>${floorLabel(i)}</small><span class="chip" style="background:${g ? g.color : '#555'}">${r.pass ? r.grade : '✕'}</span></div>`; }).join('')}</div>
+        <p class="muted center">${mineName(run.mine)} · ${run.cleared ? '보스까지 클리어' : `${floorLabel(run.results.length - 1)}에서 쓰러짐`}</p>
+        <div class="re-floors">${run.results.map((r, i) =>
+          `<div class="${r.pass ? '' : 'fail'}"><small>${floorLabel(i)}</small><span class="chip" style="background:${r.perfect ? '#e8a317' : r.pass ? '#3a9a3a' : '#555'}">${r.perfect ? '★' : r.pass ? '✓' : '✕'}</span></div>`).join('')}</div>
+        ${run.caught && run.caught.length ? `<small class="muted">잡은 몬스터 (${run.caught.filter(c => c.isNew).length}장 새로 등록)</small><div class="capt">${run.caught.map(c => Art.card(c)).join('')}</div>` : ''}
         <div class="re-ore">⛏ 광석 <b>+${fmt(ore)}</b></div>
         ${unlockedNew ? `<p class="good center">🔓 새 광산 해금: <b>${mineName(run.mine + 1)}</b></p>` : ''}
         <div class="owned-row"><small>이번 탐험에서 고른 것</small><div>${ownedHtml()}</div></div>
@@ -163,6 +231,7 @@
     run = D.newRun({ mine: S.mine });
     try {
       $('#panelIdle').hidden = true; $('#panelPlay').hidden = false;
+      document.body.classList.add('battle');
       R.state.skipping = false;
       while (!run.over) {
         const res = await playFloor();
@@ -177,6 +246,7 @@
       ux.toast('오류가 발생했습니다: ' + e.message);
     } finally {
       run = null; fl = null;
+      document.body.classList.remove('battle'); $('#monster').hidden = true;
       $('#spinActions').hidden = true; $('#slot').classList.remove('pickable');
       $('#panelIdle').hidden = false; $('#panelPlay').hidden = true;
       R.state.skipping = false;

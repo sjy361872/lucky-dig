@@ -129,6 +129,7 @@
       const v = from + (n - from) * (1 - Math.pow(1 - p, 3));
       const st = $('#scoreText'); st.textContent = fmt(v); st.classList.toggle('long', st.textContent.length > 9);
       setGauge(v);
+      if (root.Render.onScore) root.Render.onScore(v);
       if (p < 1) scoreTween = setTimeout(() => step(performance.now()), 16);
     };
     step(performance.now());
