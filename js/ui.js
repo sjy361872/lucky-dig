@@ -100,10 +100,12 @@
 
   // ---------- 팝업 ----------
   function modal(html, opts = {}) {
-    const ov = $('#overlay');
+    // 이미 팝업이 떠 있으면(예: 심볼 고르기 중 '덱 보기') 위에 겹쳐 띄우고, 닫으면 아래 팝업이 그대로 남음
+    const base = $('#overlay'), stacked = !base.hidden;
+    const ov = stacked ? document.body.appendChild(Object.assign(document.createElement('div'), { className: 'overlay2' })) : base;
     ov.hidden = false;
     ov.innerHTML = `<div class="modal ${opts.cls || ''}">${opts.title ? `<h2>${opts.title}</h2><div class="divider"><span></span></div>` : ''}<div class="mbody">${html}</div>${opts.noClose ? '' : '<button class="closebtn">닫기</button>'}</div>`;
-    const close = () => { ov.hidden = true; ov.innerHTML = ''; opts.onClose && opts.onClose(); };
+    const close = () => { if (stacked) ov.remove(); else { ov.hidden = true; ov.innerHTML = ''; } opts.onClose && opts.onClose(); };
     const cb = ov.querySelector('.closebtn');
     if (cb) cb.onclick = () => { Sound.play('click'); close(); };
     ov.onclick = e => { if (e.target === ov && !opts.noClose) close(); };

@@ -678,3 +678,5 @@ body.battle .hide-spins { display: none !important; }
 .draft .opt .ic .itememoji, .draft .opt .ic.itememoji { font-size: 34px; }
 .slot-item .itememoji { font-size: 30px; }
 .deckview .dc .itememoji { font-size: 28px; }
+
+.overlay2 { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 130; display: flex; align-items: center; justify-content: center; padding: 16px; }
