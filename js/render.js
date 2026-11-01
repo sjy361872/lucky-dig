@@ -712,7 +712,7 @@
           const t = floatText(140, BOARD_TOP + CELL * 1.5, `${fmt(ev.chips)} × ${fmtM(ev.mult)}`, 'tallyf', 1500);
           Sound.play(ev.dmg >= 1000 ? 'chestBig' : 'coin');
           await wait(450);
-          t.textContent = `= ${fmt(ev.dmg)}`;
+          t.textContent = ev.guard ? `🛡 절반 = ${fmt(ev.dmg)}` : `= ${fmt(ev.dmg)}`;
           if (ev.mult >= 5) shake($('#stage'), 5);
           await wait(250);
           await strike(ev.dmg, ev.quota ? ev.dmg / ev.quota : 0.1);
