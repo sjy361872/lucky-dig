@@ -135,7 +135,9 @@
   // 아이템 이미지 (assets/items/*.png, Gemini로 생성)
   const ITEM_TYPES = ['pick1', 'pick2', 'pick3', 'pick5', 'pick7', 'spin', 'book', 'superbook', 'tnt'];
   function item(type) {
-    return ITEM_TYPES.includes(type) ? `<img class="itemimg" src="assets/items/${type}.png" alt="" draggable="false">` : '';
+    if (ITEM_TYPES.includes(type)) return `<img class="itemimg" src="assets/items/${type}.png" alt="" draggable="false">`;
+    const S = root.Relics && root.Relics.SYMBOLS[type];     // 새 심볼: 그림이 생기기 전까지 이모지
+    return S && S.emoji ? `<span class="itememoji">${S.emoji}</span>` : '';
   }
 
   // ---------- 보물상자 ----------

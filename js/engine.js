@@ -59,7 +59,8 @@
   function makeBoard(rng, k) {
     const board = [];
     for (let r = 0; r < C.ROWS; r++) {
-      const table = lerpTable(ROW_TABLES[r][0], ROW_TABLES[r][1], k);
+      const ti = Math.round(r * (ROW_TABLES.length - 1) / Math.max(1, C.ROWS - 1));   // 줄 수가 달라도 위=가난, 아래=부자
+      const table = lerpTable(ROW_TABLES[ti][0], ROW_TABLES[ti][1], k);
       const row = [];
       for (let c = 0; c < C.COLS; c++) {
         const type = pickWeighted(rng, table);

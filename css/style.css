@@ -632,3 +632,49 @@ body.battle .hide-spins { display: none !important; }
 .capt { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 6px 0; }
 .capt .card { width: 64px; font-size: 8px; }
 .newcard { text-align: center; } .newcard .card { width: 150px; margin: 6px auto; }
+
+/* ===================== 슬롯 덱빌딩 ===================== */
+#slot { height: calc(var(--cell) * 4); }
+#board, #gauge { top: calc(var(--cell) * 4 + var(--gap)); height: calc(var(--cell) * 5); }
+.reel { height: calc(var(--cell) * 4); }
+.itememoji { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: calc(var(--cell) * .55); filter: drop-shadow(0 2px 1px rgba(0,0,0,.4)); }
+.badge.up { color: #7dff8a; font-size: 14px; }
+#cmText { font-size: 13px; color: #ccc; }
+#cmText .c { font: 900 15px Arial, sans-serif; color: #5ab0ff; } #cmText .m { font: 900 15px Arial, sans-serif; color: #ff5a5a; }
+.scorebox .sb-l { font-size: 10px; color: #999; }
+.float.chipf { color: #9fd0ff; font-weight: 900; font-size: 14px; text-shadow: 0 1px 0 #000; }
+.float.symf { color: #fff; background: rgba(60,30,120,.85); padding: 1px 6px; border-radius: 6px; font-size: 12px; font-weight: 900; white-space: nowrap; }
+.float.multf { color: #ff6b6b; font-weight: 900; font-size: 16px; text-shadow: 0 2px 0 #000; white-space: nowrap; }
+.float.tallyf { color: #fff; font: 900 30px Arial, sans-serif; text-shadow: 0 3px 0 #000, 0 0 12px #f80; white-space: nowrap; z-index: 8; }
+.colglow { position: absolute; top: 0; width: var(--cell); height: calc(var(--cell) * 9 + var(--gap)); pointer-events: none; z-index: 3; }
+.colglow.torch { background: linear-gradient(rgba(255,140,0,.0), rgba(255,140,0,.45)); }
+.colglow.magnet { background: linear-gradient(rgba(90,170,255,.0), rgba(90,170,255,.45)); }
+.boltfx { position: absolute; top: 0; width: 6px; margin-left: -3px; background: linear-gradient(#fff, #9ff, #ff0); box-shadow: 0 0 12px #ff0, 0 0 24px #0ff; z-index: 7; pointer-events: none; }
+#deckBtn { cursor: pointer; }
+#deckBtn b { text-decoration: underline dotted; }
+.draft { display: flex; flex-direction: column; gap: 8px; }
+.draft .opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 2px solid #c9a76a; background: #fff8e8; text-align: left; }
+.draft .opt .ic { width: 44px; height: 44px; flex-shrink: 0; position: relative; }
+.draft .opt .ic img { width: 100%; height: 100%; object-fit: contain; }
+.draft .opt.rR { border-color: #3b82f6; background: #eef5ff; } .draft .opt.rE { border-color: #a855f7; background: #f6eeff; } .draft .opt.rL { border-color: #f59e0b; background: #fff6e0; }
+.draft .opt b { display: block; font-size: 15px; } .draft .opt span { font-size: 12px; color: #555; }
+.draft .opt small.rar { font-size: 10px; color: #888; }
+.draft .row2 { display: flex; gap: 8px; } .draft .row2 button { flex: 1; }
+.deckview { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; max-height: 40vh; overflow: auto; }
+.deckview .dc { width: 46px; height: 52px; border-radius: 8px; background: #f3ead6; border: 2px solid #c9a76a; position: relative; padding: 4px; }
+.deckview .dc img { width: 100%; height: 100%; object-fit: contain; }
+.deckview .dc .itememoji { font-size: 26px; }
+.deckview .dc .badge { right: 2px; bottom: 1px; }
+.deckview .dc.x { border-color: #777; background: #ddd; }
+.deckview.pick .dc { cursor: pointer; } .deckview.pick .dc:hover { border-color: #e3263f; }
+.complist { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.complist .cp { display: flex; gap: 8px; align-items: center; background: #f3ead6; border-radius: 8px; padding: 4px 6px; font-size: 12px; text-align: left; }
+.complist .cp img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+.compmini { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; margin-top: 3px; }
+.compmini img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1px solid #f2c14e; }
+.opt .cpimg { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+
+#gauge, #btnPrizes { display: none !important; }
+.draft .opt .ic .itememoji, .draft .opt .ic.itememoji { font-size: 34px; }
+.slot-item .itememoji { font-size: 30px; }
+.deckview .dc .itememoji { font-size: 28px; }

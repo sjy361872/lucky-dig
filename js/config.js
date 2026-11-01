@@ -4,7 +4,7 @@
 (function (root) {
   // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
   //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
-  const QUOTA_TABLE = [900, 1300, 2000, 3200, 7000, 16000, 50000], QUOTA_MINE = 1.12;
+  const QUOTA_TABLE = [1500, 3200, 4800, 7000, 11500, 20000, 32000], QUOTA_MINE = 1.12;
   const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
   const CONFIG = {
     GAME_NAME: '럭키 디그',
@@ -24,8 +24,8 @@
       hard: { name: 'HARD', meter: 5, rates: { S: 3.5, A: 4.5, B: 6.0, C: 6.0, D: 5.0, E: 8.0, F: 10.0, G: 57.0 } },
     },
     COLS: 5,
-    ROWS: 6,
-    SLOT_ROWS: 3,
+    ROWS: 5,
+    SLOT_ROWS: 4,
 
     // 등급: 기준 = 소비 포인트 × need, 출현율 rate(%)
     // 카드 환원 포인트 = 소비 포인트 × need × 카드별 r (원작 관찰: 환원 ≈ 등급 기준의 0.9~1.2배)
@@ -87,21 +87,22 @@
     RUN: {
       FLOORS: 6,
       UNIT: 10000,              // 블록 점수 = 블록 배율 × UNIT × 열린 상자 배율
-      START_SPINS: 5,
       HEARTS: 3,                // 탐험 전체 하트 (몬스터에게 맞으면 -1, 0이면 탐험 끝)
       ATK_EVERY: 3,             // 몬스터가 공격하기까지 스핀 수
-      BOSS_ATK: 3,           // 층 시작 스핀 수
-      MAX_SPINS: 9,
-      START_REROLLS: 3,         // 탐험 1회에 쓸 수 있는 리롤
-      // 시작 슬롯 심볼 비중 (상점에서 바꿔 나감)
-      BASE_POOL: { empty: 72, pick1: 6, pick2: 4.8, pick3: 3.9, pick5: 1.9, pick7: 0.6, spin: 2.2, book: 0.5, superbook: 0.15, tnt: 0.9 },
+      BOSS_ATK: 3,
+      MAX_SPINS: 9,             // 공격까지 남은 턴 최대치
+      MAX_COMPS: 5,             // 동료 최대 수
+      START_DECK: ['pick1', 'pick1', 'pick1', 'pick1', 'pick1', 'tnt', 'clover', 'spin'],   // 모래시계는 소모품
+      // 블록 칩 값 (대미지 = 칩 합계 × 배율)
+      CHIPS: { grass: 1, dirt: 1, stone: 3, explosive: 5, ruby: 12, gold: 25, diamond: 40, obsidian: 100, mystery: 5 },
+      MYSTERY_CHIPS: [[5, 30], [10, 25], [25, 20], [50, 12], [100, 8], [150, 5]],
       // 블록판·상자 강도 (0 = 가난한 판, 1 = 흑요석·큰 상자가 많은 판)
       boardK: (mine, floor, boss) => Math.min(1.1, 0.12 + mine * 0.07 + floor * 0.05 + (boss ? 0.2 : 0)),
       chestK: (mine, floor, boss) => Math.min(1, 0.1 + mine * 0.05 + floor * 0.03 + (boss ? 0.15 : 0)),
       // 목표 점수 (tools/sim_run.js 로 맞춤)
       // 층 등급: 목표 점수의 몇 배인지 (D = 목표 = 통과선). B상 이상이면 상점 선택지 +1
       GRADE_X: { S: 50, A: 20, B: 8, C: 3, D: 1, E: 0.6, F: 0.35, G: 0.15 },
-      quota: (mine, floor) => round2(QUOTA_TABLE[Math.min(floor, QUOTA_TABLE.length - 1)] * Math.pow(QUOTA_MINE, mine)),
+      quota: (mine, floor) => round2(QUOTA_TABLE[Math.min(floor, QUOTA_TABLE.length - 1)] * Math.pow(QUOTA_MINE, mine * (0.5 + Math.min(floor, 6) / 12))),
     },
 
     // <CARDS> — design/cards/build_cards.py 가 자동으로 씀 (직접 고치지 말 것)
