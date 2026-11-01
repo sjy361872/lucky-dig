@@ -246,7 +246,7 @@
     const m = curMult(), dmg = Math.round(chips * m);
     fl.score += dmg;
     fl.grid = null;
-    events.push({ type: 'tally', chips, mult: m, dmg, score: fl.score, hp: Math.max(0, fl.quota - fl.score) });
+    events.push({ type: 'tally', chips, mult: m, dmg, score: fl.score, hp: Math.max(0, fl.quota - fl.score), quota: fl.quota });
     events.push({ type: 'spinEnd', spinsLeft: fl.spins });
     return events;
   }
