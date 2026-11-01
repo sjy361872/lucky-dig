@@ -20,6 +20,7 @@
       pool: { ...RUN.BASE_POOL },
       mods: RL.baseMods(),
       rerolls: RUN.START_REROLLS,
+      hearts: RUN.HEARTS, maxHearts: RUN.HEARTS,
       picks: [],                      // 상점에서 고른 것 (id)
       results: [],                    // 층별 { score, quota, grade }
       over: false, cleared: false,
@@ -31,30 +32,64 @@
   const thresholds = quota => C.GRADES.map(g => ({ id: g.id, color: g.color, at: Math.round(quota * RUN.GRADE_X[g.id]) }));
   function gradeIndexOf(score, quota) { const t = thresholds(quota); for (let i = 0; i < t.length; i++) if (score >= t[i].at) return i; return -1; }
 
-  // ---------- 층 ----------
-  function createFloor(run) {
-    const boss = isBoss(run), rng = run.rng, m = run.mods;
-    const board = makeBoard(rng, RUN.boardK(run.mine, run.floor, boss));
-    const chests = makeChests(rng, RUN.chestK(run.mine, run.floor, boss));
+  // ---------- 몬스터 ----------
+  // 층이 깊을수록 높은 등급 몬스터 (1층 F상 → 6층 A상, 보스 S상). 그 광산 도감 카드 중에서 뽑음
+  const MON_GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+  function pickMonster(run, boss) {
+    const key = Object.keys(C.TIERS).sort((a, b) => a - b)[run.mine];
+    const grade = boss ? 'S' : MON_GRADES[Math.min(run.floor, MON_GRADES.length - 2)];
+    const list = C.TIERS[key].cards[grade] || [];
+    const idx = Math.floor(run.rng() * list.length);
+    return { ...list[idx], grade, idx, tier: key };
+  }
+  // 블록판 + 상자 (판을 다 캐면 새로 깔 때도 사용)
+  function layBoard(run, fl) {
+    const rng = run.rng, m = run.mods;
+    const board = makeBoard(rng, RUN.boardK(run.mine, run.floor, fl.boss));
+    const chests = makeChests(rng, RUN.chestK(run.mine, run.floor, fl.boss));
     for (const row of board) for (const b of row) {
       const minus = m.hpMinus[b.type] || 0;
       if (minus) b.hp = b.maxHp = Math.max(1, b.maxHp - minus);
     }
     if (m.clearTop) for (let c = 0; c < C.COLS; c++) board[0][c] = null;
     for (const ch of chests) if (m.chestMin) { ch.min = Math.min(10, ch.min + m.chestMin); ch.mult += m.chestMin; }
+    fl.board = board; fl.chests = chests;
+    fl.bank = fl.score; fl.bs = 0; fl.gm = 1;     // 이전 판에서 준 대미지는 따로 보관
+    fl.initialBoard = board.map(row => row.map(b => (b ? { type: b.type } : null)));
+    fl.initialChests = chests.map(ch => ({ min: ch.min, mult: ch.mult }));
+  }
+
+  // ---------- 층 ----------
+  // 층 = 몬스터 한 마리. 블록을 캔 점수 = 몬스터에게 주는 대미지, 목표 점수 = 몬스터 체력
+  // 남은 스핀 = 몬스터 공격까지 남은 턴. 0이 되면 하트 1개를 잃고 다시 채워짐
+  function createFloor(run) {
+    const boss = isBoss(run), m = run.mods;
     const quota = quotaOf(run.mine, run.floor);
-    return {
-      boss, quota, unit: RUN.UNIT,
-      score: 0, gm: 1,
-      spins: RUN.START_SPINS + m.startSpins, spinCount: 0,
-      board, chests,
-      initialBoard: board.map(row => row.map(b => (b ? { type: b.type } : null))),
-      initialChests: chests.map(ch => ({ min: ch.min, mult: ch.mult })),
-      grid: null, held: [false, false, false, false, false],
+    const fl = {
+      boss, quota, unit: RUN.UNIT, monster: pickMonster(run, boss),
+      atkEvery: (boss ? RUN.BOSS_ATK : RUN.ATK_EVERY) + m.startSpins,
+      score: 0, bank: 0, bs: 0, gm: 1, hits: 0, refills: 0,
+      spinCount: 0, grid: null, held: [false, false, false, false, false],
     };
+    fl.spins = fl.atkEvery;
+    layBoard(run, fl);
+    return fl;
   }
   const boardEmpty = fl => fl.board.every(row => row.every(b => !b));
-  const floorDone = fl => fl.spins <= 0 || boardEmpty(fl);
+  const isDead = fl => fl.score >= fl.quota;
+  const floorDone = (fl, run) => isDead(fl) || (run && run.hearts <= 0);
+  // 스핀이 끝난 뒤: 몬스터 공격 / 판 새로 깔기
+  //  → { dead, attacked, hearts, refill, spinsLeft }
+  function endTurn(run, fl) {
+    const out = { dead: isDead(fl), attacked: false, refill: false };
+    if (!out.dead && fl.spins <= 0) {
+      run.hearts--; fl.hits++; out.attacked = true;
+      fl.spins = fl.atkEvery;
+    }
+    if (!out.dead && run.hearts > 0 && boardEmpty(fl)) { layBoard(run, fl); fl.refills++; out.refill = true; }
+    out.hearts = run.hearts; out.spinsLeft = fl.spins;
+    return out;
+  }
 
   // ---------- 스핀 결과 만들기 ----------
   // held[c] 가 true 인 열은 이전 그리드(prev)를 그대로 둠 (홀드)
@@ -114,7 +149,7 @@
       const bm = m.blockMult[b.type] || 1;
       const base = Math.round(mult * fl.unit * bm);
       const gain = Math.round(mult * fl.unit * bm * fl.gm);
-      fl.score += gain;
+      fl.bs += gain; fl.score = fl.bank + fl.bs;
       board[r][c] = null;
       events.push({ type: 'break', r, c, block: b.type, base, gm: fl.gm, gain, score: fl.score });
       if (b.type === 'explosive') queue.push({ r, c, center: false, dmg: m.exDmg });
@@ -128,11 +163,11 @@
       // 탐험에서는 상자 배율을 더함 (×3, ×4 상자 → 전체 ×6). 곱하면 운이 너무 크게 갈려서 업그레이드가 의미 없어짐
       //  점수 = (지금까지 캔 기본 점수 합) × 전체 배율
       const before = fl.score, gm = fl.gm + ch.mult - 1;
-      fl.score = Math.round(fl.score * gm / fl.gm);
+      fl.bs = Math.round(fl.bs * gm / fl.gm); fl.score = fl.bank + fl.bs;
       fl.gm = gm;
       events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, before, score: fl.score, gm: fl.gm });
       if (m.chestSpin) {
-        const add = Math.max(0, Math.min(m.chestSpin, MAX - (fl.spinCount + fl.spins)));
+        const add = Math.max(0, Math.min(m.chestSpin, MAX - fl.spins));
         if (add) { fl.spins += add; events.push({ type: 'bonusSpin', c, n: add, spinsLeft: fl.spins }); }
       }
     }
@@ -163,7 +198,7 @@
     for (let r = 0; r < C.SLOT_ROWS; r++) for (let c = 0; c < C.COLS; c++) {
       if (grid[r][c] !== 'spin') continue;
       grid[r][c] = null;
-      if (fl.spinCount + fl.spins >= MAX) continue;
+      if (fl.spins >= MAX) continue;
       fl.spins++;
       events.push({ type: 'spinPlus', r, c, spinsLeft: fl.spins });
     }
@@ -210,31 +245,30 @@
   }
 
   // ---------- 층 결과 ----------
-  // 등급(S~G, 못 미치면 -1)과 통과 여부
+  // 처치 여부 + 무피해(한 대도 안 맞음) 여부. grade: 무피해 S / 처치 D / 실패 -
   function floorResult(run, fl) {
-    const gi = gradeIndexOf(fl.score, fl.quota);
-    const pass = fl.score >= fl.quota;
-    return { score: fl.score, quota: fl.quota, gi, grade: gi >= 0 ? C.GRADES[gi].id : '-', pass, boss: fl.boss };
+    const pass = isDead(fl), perfect = pass && fl.hits === 0;
+    return { score: fl.score, quota: fl.quota, pass, perfect, hits: fl.hits, turns: fl.spinCount, boss: fl.boss, monster: fl.monster,
+      gi: perfect ? 0 : pass ? 4 : -1, grade: perfect ? 'S' : pass ? 'D' : '-' };
   }
   // 통과 후 다음 층으로 (보스까지 깨면 cleared)
   function advance(run, res) {
     run.results.push(res);
-    if (!res.pass) { run.over = true; return; }
+    if (!res.pass || run.hearts <= 0) { run.over = true; return; }
     if (res.boss) { run.over = true; run.cleared = true; return; }
     run.floor++;
   }
-  // 상점 선택지 수: B상 이상이면 1개 더
-  const shopSize = res => (res.gi >= 0 && res.gi <= 2 ? 4 : 3);
+  // 상점 선택지 수: 무피해 처치면 1개 더
+  const shopSize = res => (res.perfect ? 4 : 3);
 
   // ---------- 보상 (광석) ----------
   // 층마다: 목표 점수 기준 기본 + 등급 보너스
-  const GRADE_BONUS = { S: 3, A: 2.2, B: 1.7, C: 1.35, D: 1, E: 0, F: 0, G: 0, '-': 0 };
   function oreFor(run) {
     let ore = 0;
-    run.results.forEach((r, i) => { if (r.pass) ore += Math.round((10 + i * 5) * (1 + run.mine * 0.5) * GRADE_BONUS[r.grade]); });
+    run.results.forEach((r, i) => { if (r.pass) ore += Math.round((10 + i * 5) * (1 + run.mine * 0.5) * (r.perfect ? 1.5 : 1)); });
     if (run.cleared) ore += Math.round(100 * (1 + run.mine * 0.5));
     return ore;
   }
 
-  root.Dig = { newRun, createFloor, startSpin, reroll, resolveSpin, floorDone, floorResult, advance, shopSize, oreFor, quotaOf, thresholds, gradeIndexOf, isBoss, isPick };
+  root.Dig = { newRun, createFloor, startSpin, reroll, resolveSpin, floorDone, floorResult, advance, shopSize, oreFor, quotaOf, endTurn, isDead, layBoard, thresholds, gradeIndexOf, isBoss, isPick };
 })(typeof window !== 'undefined' ? window : globalThis);

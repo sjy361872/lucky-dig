@@ -32,7 +32,7 @@
     { id: 's_tnt', kind: 'symbol', rare: 'C', icon: 'tnt', name: 'TNT 보급', desc: 'TNT가 더 자주 나와요', max: 4, apply: r => { r.pool.tnt += 1.5; } },
     { id: 's_book', kind: 'symbol', rare: 'R', icon: 'book', name: '강화의 책 늘리기', desc: '같은 열 곡괭이를 다이아로 바꾸는 책이 더 자주', max: 3, apply: r => { r.pool.book += 0.9; } },
     { id: 's_super', kind: 'symbol', rare: 'E', icon: 'superbook', name: '초강화의 책 늘리기', desc: '같은 열 곡괭이를 흑요석으로 바꾸는 책이 더 자주', max: 2, apply: r => { r.pool.superbook += 0.35; } },
-    { id: 's_spin', kind: 'symbol', rare: 'C', icon: 'spin', name: '행운의 스핀', desc: '+1 스핀 심볼이 더 자주 나와요', max: 4, apply: r => { r.pool.spin += 1.1; } },
+    { id: 's_spin', kind: 'symbol', rare: 'C', icon: 'spin', name: '행운의 스핀', desc: '스핀 심볼(몬스터 공격 1턴 늦춤)이 더 자주 나와요', max: 4, apply: r => { r.pool.spin += 1.1; } },
     { id: 's_trim', kind: 'symbol', rare: 'C', icon: 'pick1', name: '빈칸 정리', desc: '슬롯의 빈칸이 15% 줄어요', max: 4, apply: r => { r.pool.empty *= 0.85; } },
     { id: 's_upg', kind: 'symbol', rare: 'R', icon: 'pick2', name: '곡괭이 개량', desc: '돌 곡괭이(1타)가 모두 철 곡괭이(2타)로', max: 1, apply: r => { r.pool.pick2 += r.pool.pick1; r.pool.pick1 = 0; } },
     // ---- 유물 ----
@@ -43,11 +43,12 @@
     { id: 'r_gold', kind: 'relic', rare: 'C', emoji: '🟡', name: '금 세공사', desc: '금 점수 ×2', max: 3, apply: r => { mul(r, 'gold', 2); } },
     { id: 'r_dia', kind: 'relic', rare: 'R', emoji: '💎', name: '다이아 연마사', desc: '다이아 점수 ×2', max: 3, apply: r => { mul(r, 'diamond', 2); } },
     { id: 'r_obs', kind: 'relic', rare: 'R', emoji: '🟣', name: '흑요석 균열', desc: '흑요석 내구도 −2, 다이아 −1', max: 2, apply: r => { r.mods.hpMinus.obsidian = (r.mods.hpMinus.obsidian || 0) + 2; r.mods.hpMinus.diamond = (r.mods.hpMinus.diamond || 0) + 1; } },
-    { id: 'r_clover', kind: 'relic', rare: 'R', emoji: '🍀', name: '네잎클로버', desc: '층 시작 스핀 +1', max: 3, apply: r => { r.mods.startSpins += 1; } },
+    { id: 'r_clover', kind: 'relic', rare: 'R', emoji: '🍀', name: '네잎클로버', desc: '몬스터 공격 간격 +1턴', max: 2, apply: r => { r.mods.startSpins += 1; } },
     { id: 'r_sense', kind: 'relic', rare: 'C', emoji: '👁️', name: '광부의 감', desc: '층 첫 스핀에 곡괭이 최소 3개', max: 1, apply: r => { r.mods.firstPicks = Math.max(r.mods.firstPicks, 3); } },
-    { id: 'r_chest', kind: 'relic', rare: 'R', emoji: '🎁', name: '상자 속 스핀', desc: '상자가 열릴 때마다 스핀 +1', max: 2, apply: r => { r.mods.chestSpin += 1; } },
+    { id: 'r_chest', kind: 'relic', rare: 'R', emoji: '🎁', name: '상자 속 스핀', desc: '상자가 열릴 때마다 몬스터 공격까지 +1턴', max: 2, apply: r => { r.mods.chestSpin += 1; } },
     { id: 'r_mower', kind: 'relic', rare: 'C', emoji: '🌿', name: '풀 베기', desc: '층 시작 시 맨 윗줄 풀이 사라져요', max: 1, apply: r => { r.mods.clearTop = 1; } },
     // ---- 회복 ----
+    { id: 'h_heart', kind: 'heal', rare: 'R', emoji: '❤️', name: '회복 물약', desc: '하트 +1 (최대 하트도 +1, 최대 5)', max: 99, apply: r => { r.maxHearts = Math.min(5, r.maxHearts + 1); r.hearts = Math.min(r.maxHearts, r.hearts + 1); } },
     { id: 'h_reroll', kind: 'heal', rare: 'C', emoji: '🔄', name: '리롤 충전', desc: '리롤 +2', max: 99, apply: r => { r.rerolls += 2; } },
   ];
   function mul(r, type, x) { r.mods.blockMult[type] = (r.mods.blockMult[type] || 1) * x; }

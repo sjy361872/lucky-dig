@@ -151,9 +151,10 @@
     tabs(m.el.querySelector('#helpTabs'), ['게임 흐름', '아이템', '블록·보물상자', '조작'], i => {
       if (i === 0) return `<ol class="steps">
         <li><b>광산 고르기</b>−/+로 광산을 고르고 “탐험”을 누르세요. 광산은 ${C.RUN.FLOORS}개 층 + 보스층입니다.</li>
-        <li><b>층 목표</b>층마다 스핀 ${C.RUN.START_SPINS}회로 블록을 캐서 게이지의 <b>목표</b> 선을 넘기면 다음 층으로 갑니다. 못 넘기면 탐험 끝.</li>
-        <li><b>리롤 · 홀드</b>슬롯이 멈춘 뒤 마음에 드는 열을 눌러 고정하고 나머지를 다시 돌릴 수 있어요. 리롤은 탐험 전체에서 ${C.RUN.START_REROLLS}회.</li>
-        <li><b>상점</b>층을 통과하면 심볼·유물 중 하나를 골라 점점 강해집니다. B상 이상이면 선택지가 하나 더.</li>
+        <li><b>몬스터 전투</b>층마다 그 광산의 몬스터가 나와요. 블록을 캔 점수가 곧 <b>대미지</b>예요. 체력을 0으로 만들면 처치하고 그 몬스터 카드를 얻어요.</li>
+        <li><b>몬스터의 공격</b>오른쪽 ⚔ 숫자가 0이 되면 몬스터가 공격해서 <b>하트 ❤ 1개</b>를 잃어요(탐험 전체 ${C.RUN.HEARTS}개). 하트를 다 잃으면 탐험 끝. +1 스핀 심볼은 공격을 1턴 늦춰요.</li>
+        <li><b>리롤 · 홀드</b>곡괭이가 거의 없는 아쉬운 스핀이 나오면 다시 돌릴지 물어봐요. 열을 눌러 고정할 수 있어요. 리롤은 탐험 전체에서 ${C.RUN.START_REROLLS}회.</li>
+        <li><b>상점</b>몬스터를 잡으면 심볼·유물 중 하나를 골라 점점 강해집니다. 한 대도 안 맞고 잡으면 선택지가 하나 더.</li>
         <li><b>보스</b>보스층을 깨면 광산 정복! 다음 광산이 열리고 광석을 많이 받아요.</li></ol>
         <p class="note">보물상자 배율은 탐험에서 <b>더해집니다</b> (×3 상자 + ×4 상자 = 전체 ×6).</p>`;
       if (i === 1) return `<h4>곡괭이</h4><p>정해진 횟수만큼 같은 열의 블록을 위에서부터 때립니다. 남은 횟수로 아래 블록까지 계속 깹니다.</p>
@@ -649,6 +650,7 @@
       title.addEventListener('click', start);
     }
     // 테스트용: 주소 끝에 #auto 를 붙이면 자동으로 한 판 플레이
+    if (location.hash.includes('runtest')) setTimeout(() => root.Run.start(), 300);
     if (location.hash.includes('autorun')) { R.state.auto = true; R.state.speed = 12; setTimeout(() => root.Run.start(), 300); }
     if (location.hash.includes('help')) openHelp();
     if (location.hash.includes('dex')) openBag(1);
@@ -663,6 +665,6 @@
   });
   root.UI = { openDaily, dailyInfo, state: () => S }; // 테스트용
   // 탐험 화면(js/run.js)이 쓰는 도구
-  root.UIX = { S: () => S, save, modal, toast, news, esc, isBusy: () => busy, setBusy: v => { busy = v; }, refreshIdle: () => { showPoints(); showBet(); } };
+  root.UIX = { S: () => S, save, modal, toast, news, esc, isBusy: () => busy, setBusy: v => { busy = v; }, refreshIdle: () => { showPoints(); showBet(); }, recordDex };
   document.addEventListener('DOMContentLoaded', init);
 })(window);
