@@ -5,11 +5,12 @@
   const C = root.CONFIG, E = root.Engine, R = root.Render, Art = root.Art, Sound = root.Sound, Rank = root.Rank;
   const $ = s => document.querySelector(s);
   const fmt = R.fmt;
-  const SAVE_KEY = 'luckydig.v1';
+  const SAVE_KEY = 'luckydig.app1'; // 탐험 버전 저장 (기존 오리파 버전 luckydig.v1 과 분리)
 
   // ---------- 저장 ----------
   const S = { mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 } };
-  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, attend: { last: '', streak: 0 }, owner: null, savedAt: 0 });
+  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, attend: { last: '', streak: 0 }, owner: null, savedAt: 0,
+    mine: 0, unlocked: 0, ore: 0, best: {}, runs: 0 }); // 탐험: 고른 광산, 해금한 광산(번호), 광석, 광산별 최고 통과 층
   // 불러온 저장 데이터를 기본 형식에 맞춰 정리 (빠진 칸·이상한 값·지금 없는 카드 제거)
   function applyState(d) {
     const base = DEFAULTS();
@@ -33,6 +34,14 @@
     S.dex = dex;
     if (!S.attend || typeof S.attend !== 'object') S.attend = { last: '', streak: 0 };
     S.attend = { last: String(S.attend.last || '').slice(0, 10), streak: Math.max(0, +S.attend.streak | 0) };
+    // 탐험 기록 정리
+    const nMines = Object.keys(C.TIERS).length;
+    S.unlocked = Math.max(0, Math.min(nMines - 1, +S.unlocked | 0));
+    S.mine = Math.max(0, Math.min(S.unlocked, +S.mine | 0));
+    S.ore = Math.max(0, Math.round(+S.ore || 0));
+    S.runs = Math.max(0, +S.runs | 0);
+    const best = {}; for (const [k, v] of Object.entries(S.best && typeof S.best === 'object' ? S.best : {})) if (+k >= 0 && +k < nMines) best[+k] = Math.max(0, +v | 0);
+    S.best = best;
     Sound.setVolume('bgm', S.settings.bgm); Sound.setVolume('sfx', S.settings.sfx);
   }
   function load() {
@@ -42,7 +51,7 @@
   }
   function save() { if (Rank.me) Rank.me.stats.collection = Object.keys(S.dex || {}); // 랭킹 도감 수 = 내 도감
     S.savedAt = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 무시 */ } Rank.sync(S); }
-  function refreshAll() { showPoints(); showBet(); showMode(); R.setBet(S.bet); showWho(); showAdmin(); }
+  function refreshAll() { showPoints(); showBet(); showMode(); showWho(); showAdmin(); }
   function showAdmin() { document.body.classList.toggle('admin', Rank.isAdmin()); }
   // 로그인 결과를 지갑·보관함에 반영
   //  - 서버에 이 계정 기록이 있으면: 이 기기 기록이 같은 계정이고 더 최신이면 그대로, 아니면 서버 기록으로
@@ -73,10 +82,14 @@
   }
 
   // ---------- 표시 ----------
-  function showPoints() { $('#pointsText').textContent = fmt(S.points) + ' pt'; }
+  function showPoints() { $('#pointsText').textContent = fmt(S.ore) + ' 광석'; }
+  // 대기 화면: 고른 광산 이름 + 1층 목표 게이지
   function showBet() {
-    $('#betText').textContent = fmt(S.bet) + ' pt';
-    $('#btnPlay').classList.toggle('disabled', S.points < S.bet);
+    $('#betText').textContent = root.Run.mineName(S.mine);
+    $('#betSub').textContent = `광산 ${S.mine + 1} · 최고 ${S.best[S.mine] ? (S.best[S.mine] > C.RUN.FLOORS ? '정복' : S.best[S.mine] + '층') : '-'}`;
+    $('#betMinus').classList.toggle('disabled', S.mine <= 0);
+    $('#betPlus').classList.toggle('disabled', S.mine >= S.unlocked);
+    if (!busy) { const q = root.Dig.quotaOf(S.mine, 0); R.setThresholds(root.Dig.thresholds(q), q * 0.2); }
   }
   let toastTimer;
   function toast(msg) {
@@ -119,7 +132,7 @@
       ${Rank.isAdmin() ? '<button class="rowbtn gold" id="btnGrant">👑 포인트 지급 (관리자)</button>' : ''}
       <button class="rowbtn" id="btnDaily">📅 출석 체크</button>
       <button class="rowbtn" id="btnTitle">🏠 타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
-      <button class="rowbtn" id="btnReset">🗑 기록 초기화 (포인트 ${fmt(C.START_POINTS)}pt, 보관함 비움)</button>`, { title: '메뉴', cls: 'small' });
+      <button class="rowbtn" id="btnReset">🗑 탐험 기록 초기화 (광석·해금 광산)</button>`, { title: '메뉴', cls: 'small' });
     m.el.querySelector('#volBgm').oninput = e => { S.settings.bgm = +e.target.value; Sound.setVolume('bgm', S.settings.bgm); save(); };
     m.el.querySelector('#volSfx').oninput = e => { S.settings.sfx = +e.target.value; Sound.setVolume('sfx', S.settings.sfx); save(); };
     m.el.querySelector('#btnDaily').onclick = () => { m.close(); openDaily(true); };
@@ -127,8 +140,8 @@
     m.el.querySelector('#btnTitle').onclick = () => { if (busy) { toast('플레이 중에는 이동할 수 없습니다'); return; } m.close(); showTitle(); };
     m.el.querySelector('#btnReset').onclick = () => {
       if (busy) { toast('플레이 중에는 초기화할 수 없습니다'); return; }
-      if (!confirm('포인트와 보관함을 초기화할까요?')) return;
-      S.points = C.START_POINTS; S.inventory = []; save(); showPoints(); showBet(); m.close(); toast('초기화했습니다');
+      if (!confirm('광석과 해금한 광산을 초기화할까요?')) return;
+      S.ore = 0; S.unlocked = 0; S.mine = 0; S.best = {}; save(); showPoints(); showBet(); m.close(); toast('초기화했습니다');
     };
   }
 
@@ -137,12 +150,12 @@
     const ic = (svg, label, sub) => `<div class="icbox"><div class="ic">${svg}</div><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
     tabs(m.el.querySelector('#helpTabs'), ['게임 흐름', '아이템', '블록·보물상자', '조작'], i => {
       if (i === 0) return `<ol class="steps">
-        <li><b>소비 포인트 선택</b>−/+로 소비 포인트를 정하고 “플레이”를 누르는 순간 결과가 정해집니다.</li>
-        <li><b>곡괭이로 채굴</b>슬롯에 나온 곡괭이가 같은 열의 블록을 위에서부터 깹니다. 깬 블록에 따라 스코어가 오릅니다.</li>
-        <li><b>스핀 횟수</b>처음 나온 스핀 코인 수가 스핀 횟수가 됩니다. 도중에 코인이 나오면 1개당 1회 늘어납니다.</li>
-        <li><b>등급 결정</b>스코어가 게이지의 기준선을 넘을 때마다 등급이 올라갑니다. 마지막 등급의 상품 중 하나를 받습니다.</li>
-        <li><b>카드 받기</b>받은 카드는 보관하거나 포인트로 교환할 수 있습니다.</li></ol>
-        <p class="note">결과는 플레이 시작 시 정해집니다. 고속 모드로 넘겨도 결과는 바뀌지 않습니다.</p>`;
+        <li><b>광산 고르기</b>−/+로 광산을 고르고 “탐험”을 누르세요. 광산은 ${C.RUN.FLOORS}개 층 + 보스층입니다.</li>
+        <li><b>층 목표</b>층마다 스핀 ${C.RUN.START_SPINS}회로 블록을 캐서 게이지의 <b>목표</b> 선을 넘기면 다음 층으로 갑니다. 못 넘기면 탐험 끝.</li>
+        <li><b>리롤 · 홀드</b>슬롯이 멈춘 뒤 마음에 드는 열을 눌러 고정하고 나머지를 다시 돌릴 수 있어요. 리롤은 탐험 전체에서 ${C.RUN.START_REROLLS}회.</li>
+        <li><b>상점</b>층을 통과하면 심볼·유물 중 하나를 골라 점점 강해집니다. B상 이상이면 선택지가 하나 더.</li>
+        <li><b>보스</b>보스층을 깨면 광산 정복! 다음 광산이 열리고 광석을 많이 받아요.</li></ol>
+        <p class="note">보물상자 배율은 탐험에서 <b>더해집니다</b> (×3 상자 + ×4 상자 = 전체 ×6).</p>`;
       if (i === 1) return `<h4>곡괭이</h4><p>정해진 횟수만큼 같은 열의 블록을 위에서부터 때립니다. 남은 횟수로 아래 블록까지 계속 깹니다.</p>
         <div class="icrow">${Object.entries(C.PICKS).map(([k, p]) => ic(Art.item(k), p.name.replace(' 곡괭이', ''), p.power + '회')).join('')}</div>
         <div class="itemrow">${ic(Art.item('spin'), '스핀 코인')}<p>나오면 1개당 남은 스핀 +1</p></div>
@@ -262,13 +275,18 @@
   }
 
   function openBetList() {
-    const m = modal(`<div class="betlist">${C.BETS.map(b => `<button data-b="${b}" class="${b === S.bet ? 'on' : ''} ${b > S.points ? 'disabled' : ''}">${fmt(b)} pt</button>`).join('')}</div>`, { title: '소비 포인트', cls: 'small' });
-    m.el.querySelectorAll('[data-b]').forEach(btn => btn.onclick = () => { S.bet = +btn.dataset.b; save(); showBet(); R.setBet(S.bet); m.close(); });
+    const keys = root.Run.mineKeys();
+    const m = modal(`<div class="minelist">${keys.map((k, i) => `<button data-m="${i}" class="${i === S.mine ? 'on' : ''} ${i > S.unlocked ? 'locked' : ''}">
+      <b>${i + 1}. ${esc(C.TIERS[k].name)}</b><small>${i > S.unlocked ? '🔒 앞 광산 보스를 깨면 열려요' : `1층 목표 ${fmt(root.Dig.quotaOf(i, 0))} · 최고 ${S.best[i] ? (S.best[i] > C.RUN.FLOORS ? '정복 🏆' : S.best[i] + '층') : '-'}`}</small></button>`).join('')}</div>`, { title: '광산 선택', cls: 'small' });
+    m.el.querySelectorAll('[data-m]').forEach(btn => btn.onclick = () => {
+      if (+btn.dataset.m > S.unlocked) { toast('아직 잠겨 있어요'); return; }
+      S.mine = +btn.dataset.m; save(); showBet(); m.close(); Sound.play('click');
+    });
   }
   function stepBet(d) {
-    const i = C.BETS.indexOf(S.bet);
-    const n = Math.max(0, Math.min(C.BETS.length - 1, (i < 0 ? 0 : i) + d));
-    S.bet = C.BETS[n]; save(); showBet(); R.setBet(S.bet); Sound.play('click');
+    const n = Math.max(0, Math.min(S.unlocked, S.mine + d));
+    if (n === S.mine) { if (d > 0) toast('다음 광산은 보스를 깨면 열려요'); return; }
+    S.mine = n; save(); showBet(); Sound.play('click');
   }
 
   // ---------- 플레이 ----------
@@ -562,12 +580,11 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 정리된 저장 데이터를 바로 기록 */ }
     R.init();
     showPoints(); showBet();
-    R.setBet(S.bet);
     const preview = E.simulate(S.bet, 0.5, Math.random);
     R.drawBoard(preview.board, preview.chests);
     $('#scoreText').textContent = '0';
 
-    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click'); if (Rank.isAdmin()) openCharge(); else toast('포인트 충전은 관리자에게 요청하세요'); };
+    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click'); toast('광석은 탐험에서 모아요 (성장 기능은 다음 단계)'); };
     $('#btnRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(); };
     $('#btnMenu').onclick = () => { Sound.unlock(); Sound.play('click'); openMenu(); };
     $('#btnHelp').onclick = () => { Sound.unlock(); Sound.play('click'); openHelp(); };
@@ -576,7 +593,7 @@
     $('#betMinus').onclick = () => stepBet(-1);
     $('#betPlus').onclick = () => stepBet(1);
     $('#betBox').onclick = () => { Sound.play('click'); openBetList(); };
-    $('#btnPlay').onclick = play;
+    $('#btnPlay').onclick = () => root.Run.start();
     $('#btnSpeed').onclick = () => {
       R.state.speed = R.state.speed === 1 ? 3 : 1;
       $('#btnSpeed').classList.toggle('on', R.state.speed > 1);
@@ -626,13 +643,13 @@
         Sound.play('chestBig');
         title.classList.add('out');
         setTimeout(() => { title.hidden = true; title.classList.remove('out'); }, 600);
-        toast(justLoggedIn && Rank.me ? `${Rank.me.nickname}님 환영합니다! ${C.MODES[S.mode].name} 모드로 시작해요` : `${C.MODES[S.mode].name} 모드로 시작합니다`);
+        toast(justLoggedIn && Rank.me ? `${Rank.me.nickname}님 환영합니다! 광산 탐험을 시작해요` : '광산 탐험을 시작해요');
         setTimeout(() => { if (!busy) openDaily(false); }, 900);
       };
       title.addEventListener('click', start);
     }
     // 테스트용: 주소 끝에 #auto 를 붙이면 자동으로 한 판 플레이
-    if (location.hash.includes('auto')) setTimeout(play, 300);
+    if (location.hash.includes('autorun')) { R.state.auto = true; R.state.speed = 12; setTimeout(() => root.Run.start(), 300); }
     if (location.hash.includes('help')) openHelp();
     if (location.hash.includes('dex')) openBag(1);
     if (location.hash.includes('ranking')) setTimeout(openRanking, 200);
@@ -645,5 +662,7 @@
     document.body.appendChild(d);
   });
   root.UI = { openDaily, dailyInfo, state: () => S }; // 테스트용
+  // 탐험 화면(js/run.js)이 쓰는 도구
+  root.UIX = { S: () => S, save, modal, toast, news, esc, isBusy: () => busy, setBusy: v => { busy = v; }, refreshIdle: () => { showPoints(); showBet(); } };
   document.addEventListener('DOMContentLoaded', init);
 })(window);

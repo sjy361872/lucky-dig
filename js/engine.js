@@ -259,5 +259,7 @@
     return { grade: g.id, gradeIndex: gi, card, payout: cardValue(g, card, bet), sim };
   }
 
-  root.Engine = { rateOf, cardValue, makeRng, simulate, findRound, playRound, gradeIndexForScore, drawGradeIndex, drawCard };
+  root.Engine = { rateOf, cardValue, makeRng, simulate, findRound, playRound, gradeIndexForScore, drawGradeIndex, drawCard,
+    // 탐험 엔진(js/dig.js)이 같이 쓰는 내부 도구
+    _: { pickWeighted, lerpTable, makeBoard, makeChests, MAX_SPINS } };
 })(typeof window !== 'undefined' ? window : globalThis);

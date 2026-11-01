@@ -14,9 +14,9 @@
     <!-- 상단 -->
     <div id="topbar">
       <div id="logo"><img src="assets/ui/logo.png" alt="LUCKY DIG"><span id="modeBadge">MILD</span></div>
-      <button id="pointsPill" class="pill" title="무료 충전">
+      <button id="pointsPill" class="pill" title="광석">
         <span class="coin"></span>
-        <span class="pt-col"><small>보유 포인트</small><b id="pointsText">0 pt</b></span>
+        <span class="pt-col"><small>보유 광석</small><b id="pointsText">0 pt</b></span>
         <span class="plus">+</span>
       </button>
       <button id="btnRank" class="sidebtn" title="랭킹"><span class="ico">🏆</span><small>랭킹</small></button>
@@ -46,16 +46,21 @@
     <div id="panel">
       <div id="panelIdle">
         <button id="betMinus" class="roundbtn minus">−</button>
-        <button id="betBox"><small>소비 포인트</small><b id="betText">1,000 pt</b></button>
+        <button id="betBox"><small id="betSub">광산</small><b id="betText">풀숲 입구</b></button>
         <button id="betPlus" class="roundbtn plus">+</button>
-        <button id="btnPlay"><span class="tri"></span><small>플레이</small></button>
+        <button id="btnPlay"><span class="tri"></span><small>탐험</small></button>
       </div>
       <div id="panelPlay" hidden>
         <div class="info">
-          <div><small>소비 포인트</small><b id="playBet">0 pt</b></div>
+          <div><small>층</small><b id="playBet">1층</b></div>
           <div><small>남은 스핀</small><b id="spinsText">0회</b></div>
+          <div><small>리롤</small><b id="rerollText">0회</b></div>
         </div>
         <div class="scorebox"><small>스코어</small><b id="scoreText">0</b></div>
+      </div>
+      <div id="spinActions" hidden>
+        <div id="holdHint">열을 눌러 고정(홀드)한 뒤 리롤할 수 있어요</div>
+        <div class="sa-btns"><button id="btnReroll">🔄 리롤</button><button id="btnConfirm">✔ 이대로 캐기</button></div>
       </div>
     </div>
     <div id="toast"></div>
@@ -80,11 +85,14 @@
 
 <script src="js/config.js?v=20261101022620"></script>
 <script src="js/engine.js?v=20261101022620"></script>
+<script src="js/relics.js?v=20261101022620"></script>
+<script src="js/dig.js?v=20261101022620"></script>
 <script src="js/sound.js?v=20261101022620"></script>
 <script src="js/art.js?v=20261101022620"></script>
 <script src="js/render.js?v=20261101022620"></script>
 <script src="js/online-config.js?v=20261101022620"></script>
 <script src="js/rank.js?v=20261101022620"></script>
+<script src="js/run.js?v=20261101022620"></script>
 <script src="js/ui.js?v=20261101022620"></script>
 <script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js?v=20261101022620'; document.body.appendChild(s); });</script>
 <script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js?v=20261101022620'; document.body.appendChild(s); });</script>

@@ -2,6 +2,10 @@
 //  게임 수치 설정 — 밸런스 조정은 이 파일만 고치면 됩니다
 // =====================================================
 (function (root) {
+  // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
+  //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
+  const QUOTA_TABLE = [500, 600, 800, 1400, 5000, 15000, 55000], QUOTA_MINE = 1.12;
+  const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
   const CONFIG = {
     GAME_NAME: '럭키 디그',
     START_POINTS: 30000,          // 새 계정 시작 포인트 (닉네임을 처음 만들 때 지급)
@@ -77,6 +81,25 @@
       { min: 9, color: '#f2c40f', trim: '#fff0a0' },
       { min: 10, color: 'rainbow', trim: '#ffffff' },
     ],
+
+    // ---------- 탐험(슬롯 로그라이크) ----------
+    // 광산 하나 = 일반층 FLOORS개 + 보스층 1개. 층마다 목표 점수(= 게이지의 D상 선)를 넘기면 통과
+    RUN: {
+      FLOORS: 6,
+      UNIT: 10000,              // 블록 점수 = 블록 배율 × UNIT × 열린 상자 배율
+      START_SPINS: 5,           // 층 시작 스핀 수
+      MAX_SPINS: 20,
+      START_REROLLS: 3,         // 탐험 1회에 쓸 수 있는 리롤
+      // 시작 슬롯 심볼 비중 (상점에서 바꿔 나감)
+      BASE_POOL: { empty: 72, pick1: 6, pick2: 4.8, pick3: 3.9, pick5: 1.9, pick7: 0.6, spin: 2.2, book: 0.5, superbook: 0.15, tnt: 0.9 },
+      // 블록판·상자 강도 (0 = 가난한 판, 1 = 흑요석·큰 상자가 많은 판)
+      boardK: (mine, floor, boss) => Math.min(1.1, 0.12 + mine * 0.07 + floor * 0.05 + (boss ? 0.2 : 0)),
+      chestK: (mine, floor, boss) => Math.min(1, 0.1 + mine * 0.05 + floor * 0.03 + (boss ? 0.15 : 0)),
+      // 목표 점수 (tools/sim_run.js 로 맞춤)
+      // 층 등급: 목표 점수의 몇 배인지 (D = 목표 = 통과선). B상 이상이면 상점 선택지 +1
+      GRADE_X: { S: 50, A: 20, B: 8, C: 3, D: 1, E: 0.6, F: 0.35, G: 0.15 },
+      quota: (mine, floor) => round2(QUOTA_TABLE[Math.min(floor, QUOTA_TABLE.length - 1)] * Math.pow(QUOTA_MINE, mine)),
+    },
 
     // <CARDS> — design/cards/build_cards.py 가 자동으로 씀 (직접 고치지 말 것)
     // 소비 포인트 구간(광산)마다 S~F 등급 5장씩 + G상은 모든 광산 공통 5장

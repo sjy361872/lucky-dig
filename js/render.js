@@ -8,6 +8,8 @@
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
 
   let slotEls = [], blockEls = [], chestEls = [], bet = 1000;
+  let thr = null;          // 탐험 모드 등급 기준선 [{id,color,at}] (S→G). 없으면 소비 포인트 × 등급 기준
+  let bigRef = 200;        // 이 점수 이상 블록은 '크게' 연출
   let shownScore = 0, scoreTween = null;
   const state = { speed: 1, skipping: false };
   const wait = ms => new Promise(res => setTimeout(res, ms / (state.skipping ? 12 : state.speed)));
@@ -28,6 +30,7 @@
       for (let c = 0; c < C.COLS; c++) {
         const cell = document.createElement('div');
         cell.className = 'slot-cell';
+        cell.dataset.c = c;
         cell.style.left = c * CELL + 'px'; cell.style.top = r * CELL + 'px';
         slot.appendChild(cell);
         row.push(cell);
@@ -79,12 +82,13 @@
 
   // ---------- 등급 게이지 ----------
   // 9칸: [0~G) [G~F) ... [S~상한]  — 칸마다 같은 높이
-  function bounds() { return C.GRADES.slice().reverse().map(g => g.need * bet); } // G..S
+  function bounds() { return thr ? thr.slice().reverse().map(t => t.at) : C.GRADES.slice().reverse().map(g => g.need * bet); } // G..S
+  const topCap = () => (thr ? thr[0].at * 2 : C.S_CAP * bet);
   function gaugeFrac(score) {
     const b = bounds(), seg = 1 / (b.length + 1);
     if (score < b[0]) return (score / b[0]) * seg;
     for (let i = 0; i < b.length; i++) {
-      const lo = b[i], hi = i + 1 < b.length ? b[i + 1] : C.S_CAP * bet;
+      const lo = b[i], hi = i + 1 < b.length ? b[i + 1] : topCap();
       if (score < hi || i === b.length - 1) return Math.min(1, seg * (i + 1) + seg * Math.min(1, (score - lo) / (hi - lo)));
     }
     return 1;
@@ -93,21 +97,26 @@
     const box = $('#gaugeLabels');
     box.innerHTML = '';
     const seg = 100 / (C.GRADES.length + 1);
-    C.GRADES.slice().reverse().forEach((g, i) => {
+    const list = thr ? thr.slice().reverse() : C.GRADES.slice().reverse().map(g => ({ id: g.id, color: g.color, at: g.need * bet }));
+    list.forEach((g, i) => {
       const d = document.createElement('div');
-      d.className = 'glabel';
+      d.className = 'glabel' + (thr && g.id === 'D' ? ' goal' : '');
       d.dataset.grade = g.id;
       d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
-      d.innerHTML = `<span class="chip" style="background:${g.color}">${g.id}상</span><small>${fmt(g.need * bet)}</small>`;
+      d.innerHTML = `<span class="chip" style="background:${g.color}">${thr && g.id === 'D' ? '목표' : g.id + '상'}</span><small>${fmt(g.at)}</small>`;
       box.appendChild(d);
     });
   }
   function setGauge(score) {
     $('#gaugeFill').style.height = (gaugeFrac(score) * 100) + '%';
-    const gi = root.Engine.gradeIndexForScore(score, bet);
+    let gi = -1;
+    if (thr) { for (let i = 0; i < thr.length; i++) if (score >= thr[i].at) { gi = i; break; } }
+    else gi = root.Engine.gradeIndexForScore(score, bet);
     document.querySelectorAll('.glabel').forEach(el => el.classList.toggle('on', gi >= 0 && el.dataset.grade === C.GRADES[gi].id));
   }
-  function setBet(b) { bet = b; buildGauge(); setGauge(0); }
+  function setBet(b) { thr = null; bet = b; bigRef = b * 0.2; buildGauge(); setGauge(0); }
+  // 탐험: 층 목표에 맞춘 게이지
+  function setThresholds(list, big) { thr = list; bigRef = big; buildGauge(); setGauge(0); }
 
   // ---------- 숫자 ----------
   function setScore(n, ms = 300) {
@@ -205,12 +214,15 @@
 
   // ---------- 슬롯 릴 ----------
   const REEL_ITEMS = ['pick1', 'pick2', 'pick3', 'pick5', 'pick7', 'spin', 'book', 'tnt', null, null, null, null];
-  async function spinReels(grid) {
+  async function spinReels(grid, held) {
     const slot = $('#slot');
     const reels = [];
     const N = 18; // 지나가는 칸 수 (열마다 조금씩 늘어나서 늦게 멈춤)
+    let k = 0;
     for (let c = 0; c < C.COLS; c++) {
-      const count = N + c * 4;
+      if (held && held[c]) continue;           // 홀드한 열은 그대로
+      for (let r = 0; r < C.SLOT_ROWS; r++) setSlotItem(r, c, null);
+      const count = N + k * 4;
       // 띠 구성(위→아래): [최종 3칸] + [무작위 칸들] + [이전 화면 3칸 자리]
       const cells = [grid[0][c], grid[1][c], grid[2][c]];
       for (let i = 0; i < count; i++) cells.push(REEL_ITEMS[Math.floor(Math.random() * REEL_ITEMS.length)]);
@@ -223,7 +235,7 @@
       win.appendChild(strip);
       slot.appendChild(win);
       const from = -(cells.length - 3) * CELL;
-      const dur = 520 + c * 150;
+      const dur = 520 + k * 150; k++;
       // 빠르게 내려오다가 마지막에 살짝 넘쳤다 되돌아오며 멈춤
       strip.animate([
         { transform: `translateY(${from}px)`, filter: 'blur(0px)' },
@@ -236,6 +248,7 @@
     // 릴 소리: 도는 동안 틱틱, 열이 멈출 때마다 탁
     const t0 = performance.now();
     let stopped = 0;
+    if (!reels.length) return;
     await new Promise(res => {
       const tick = () => {
         const el = (performance.now() - t0) * (state.skipping ? 12 : state.speed);
@@ -298,9 +311,9 @@
     anim(d, [{ transform: 'translate(-50%,-50%) scale(3)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(.9)', opacity: 1, offset: .18 },
       { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .8 }, { transform: 'translate(-50%,-50%) scale(1.1)', opacity: 0 }], 1700).then(() => d.remove());
   }
-  async function openChest(ev, sim) {
+  async function openChest(ev) {
     const el = chestEls[ev.c];
-    const min = sim.chests[ev.c].min, tier = chestTier(min);
+    const min = ev.min, tier = chestTier(min);
     const conf = C.CHESTS.find(x => x.min === min);
     const cx = ev.c * CELL + CELL / 2, cy = BOARD_TOP + C.ROWS * CELL + 30; // 상자 위치 (stage 좌표)
     const stage = $('#stage');
@@ -345,11 +358,13 @@
 
   // ---------- 재생 ----------
   async function replay(sim) {
-    let pickEl = null, inExplosion = false;
-    const board = sim.board.map(row => row.map(b => ({ ...b })));
     shownScore = 0; setScore(0, 1);
-
-    for (const ev of sim.events) {
+    await play(sim.events);
+  }
+  // 이벤트 목록 재생 (탐험에서는 스핀 단위로 나눠서 호출)
+  async function play(events) {
+    let pickEl = null, inExplosion = false;
+    for (const ev of events) {
       switch (ev.type) {
         case 'init': {
           clearSlot();
@@ -370,11 +385,11 @@
           break;
         }
         case 'spin': {
-          if (ev.last) { Sound.play('last'); await banner('LAST', 'last'); }
+          if (ev.last && !ev.reroll) { Sound.play('last'); await banner('LAST', 'last'); }
           setSpins(ev.spinsLeft);
-          // 릴 회전 연출: 열마다 아이템 띠가 위→아래로 빠르게 지나가다가 왼쪽 열부터 차례로 멈춤
-          clearSlot();
-          await spinReels(ev.grid);
+          // 릴 회전 연출: 열마다 아이템 띠가 위→아래로 빠르게 지나가다가 왼쪽 열부터 차례로 멈춤 (홀드한 열은 그대로)
+          if (!ev.held) clearSlot();
+          await spinReels(ev.grid, ev.held);
           await wait(250);
           break;
         }
@@ -451,20 +466,19 @@
         case 'break': {
           const el = blockEls[ev.r][ev.c];
           blockEls[ev.r][ev.c] = null;
-          board[ev.r][ev.c] = null;
           const p = pos(ev.r, ev.c, true), cx = p.x + CELL / 2, cy = p.y + CELL / 2;
           if (el) anim(el, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.15)', opacity: .8, offset: .3 }, { transform: 'scale(.4)', opacity: 0 }], 260).then(() => el.remove());
           particles(cx, cy, BLOCK_COLOR[ev.block], ev.block === 'obsidian' || ev.block === 'diamond' ? 14 : 8);
           Sound.play('break', { type: ev.block });
-          if (ev.gain >= bet * 0.2) Sound.play('big');
+          if (ev.gain >= bigRef) Sound.play('big');
           if (ev.gain > 0) {
             if (ev.gm > 1) {
               const t = floatText(cx, cy - 18, `${fmt(ev.base)} ×${fmt(ev.gm)}`, 'mult');
               wait(380).then(() => { t.textContent = fmt(ev.gain); });
-            } else floatText(cx, cy - 18, fmt(ev.gain), ev.block === 'mystery' ? 'mystery' : (ev.gain >= bet * 0.2 ? 'big' : ''));
+            } else floatText(cx, cy - 18, fmt(ev.gain), ev.block === 'mystery' ? 'mystery' : (ev.gain >= bigRef ? 'big' : ''));
           }
           setScore(ev.score);
-          await wait(ev.gain >= bet * 0.2 ? 320 : 140);
+          await wait(ev.gain >= bigRef ? 320 : 140);
           break;
         }
         case 'tnt': {
@@ -498,7 +512,14 @@
           break;
         }
         case 'chest': {
-          await openChest(ev, sim);
+          await openChest(ev);
+          break;
+        }
+        case 'bonusSpin': {
+          Sound.play('spinUp');
+          setSpins(ev.spinsLeft);
+          floatText(ev.c * CELL + CELL / 2, BOARD_TOP + C.ROWS * CELL - 10, `+${ev.n} SPIN`, 'spin');
+          await wait(300);
           break;
         }
         case 'spinEnd': clearSlot(); await wait(260); break;
@@ -510,7 +531,9 @@
   root.Render = {
     CELL, BOARD_TOP, state, fmt, wait,
     init() { buildSlot(); Art.preload(); },
-    drawBoard, setBet, setScore, setSpins, setGauge, clearSlot, replay, banner,
+    drawBoard, setBet, setThresholds, setScore, setSpins, setGauge, clearSlot, replay, play, banner, floatText,
+    setHeld(held) { for (const row of slotEls) row.forEach((cell, c) => cell.classList.toggle('held', !!held[c])); },
+    resetScore() { shownScore = 0; setScore(0, 1); },
     gaugeFrac,
   };
 })(window);
