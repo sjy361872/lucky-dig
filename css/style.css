@@ -602,28 +602,53 @@ body:not(.admin) .pill .plus { display: none; }
 
 /* ===================== 몬스터 전투 ===================== */
 body.battle #gauge, body.battle #btnPrizes { display: none; }
-#monster { width: 84px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 4px 6px; border-radius: 10px;
-  background: rgba(30,18,10,.78); border: 2px solid #f2c14e; color: #fff; text-align: center; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+/* 전투 화면: 탐험 중 상단바 자리에 크게 */
+body.battle #topbar { display: none; }
+#monster { position: relative; height: 150px; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 8px; border-radius: 16px; color: #fff;
+  background: radial-gradient(ellipse at 22% 70%, #5b3a22 0%, #2b1a0f 55%, #160d07 100%); border: 3px solid #f2c14e; box-shadow: inset 0 0 0 2px #6b4319, 0 4px 0 rgba(0,0,0,.35); }
 #monster[hidden] { display: none; }
-#monster.boss { border-color: #ff5a5a; box-shadow: 0 0 12px rgba(255,60,60,.6), 0 3px 0 rgba(0,0,0,.35); }
-.mon-img { position: relative; width: 70px; height: 70px; border-radius: 8px; overflow: hidden; background: #2a1a10; }
-.mon-img img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
-.mon-img .chip { position: absolute; left: 2px; top: 2px; font-size: 10px; padding: 0 4px; }
-#monName { font-size: 11px; line-height: 1.2; word-break: keep-all; }
-.mon-hp { width: 100%; height: 9px; border-radius: 5px; background: #3b0d0d; overflow: hidden; border: 1px solid #000; }
-#monHpFill { height: 100%; width: 100%; background: linear-gradient(#ff6b6b, #c81e1e); transition: width .15s; }
-#monHpText { font-size: 10px; opacity: .9; }
-.mon-atk { display: flex; flex-direction: column; align-items: center; margin-top: 2px; padding: 2px 6px; border-radius: 6px; background: #5a1414; }
-.mon-atk span { font-size: 9px; opacity: .85; } .mon-atk b { font-size: 18px; line-height: 1; }
-.mon-atk.danger { background: #c81e1e; animation: monPulse .6s infinite alternate; }
-@keyframes monPulse { to { transform: scale(1.08); } }
-#monster.hurt .mon-img { animation: monHurt .3s; }
-@keyframes monHurt { 30% { filter: brightness(2.2) saturate(0); transform: translateX(-3px); } 60% { transform: translateX(3px); } }
-#monster.attack { animation: monLunge .45s; }
-@keyframes monLunge { 40% { transform: translateX(-26px) scale(1.15); } }
-#monster.dead .mon-img img { filter: grayscale(1) brightness(.6); }
+#monster.boss { border-color: #ff5a5a; background: radial-gradient(ellipse at 22% 70%, #6a1d1d 0%, #2a0d0d 55%, #120505 100%); box-shadow: 0 0 18px rgba(255,60,60,.7), inset 0 0 0 2px #7a1f1f; }
+.mon-stage { position: relative; width: 132px; height: 132px; flex-shrink: 0; }
+.mon-img { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: radial-gradient(#fff 0%, #f3ead6 60%, #c9a76a 100%); border: 3px solid #f2c14e;
+  animation: monIdle 2.4s ease-in-out infinite; z-index: 1; }
+#monster.boss .mon-img { border-color: #ff5a5a; box-shadow: 0 0 20px #f33; }
+.mon-img img { width: 100%; height: 100%; object-fit: cover; object-position: center 35%; transform: scale(1.15); }
+.mon-shadow { position: absolute; left: 20%; right: 20%; bottom: -6px; height: 10px; border-radius: 50%; background: rgba(0,0,0,.5); filter: blur(2px); }
+@keyframes monIdle { 50% { transform: translateY(-5px) scale(1.02); } }
+.mon-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.mon-top { display: flex; align-items: center; gap: 6px; }
+.mon-top .chip { font-size: 13px; padding: 1px 7px; }
+#monName { font-size: 19px; line-height: 1.15; word-break: keep-all; text-shadow: 0 2px 0 #000; }
+.mon-hp { position: relative; height: 24px; border-radius: 12px; background: #2a0808; overflow: hidden; border: 2px solid #000; box-shadow: inset 0 2px 4px rgba(0,0,0,.6); }
+#monHpGhost, #monHpFill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
+#monHpGhost { background: #fff3c4; transition: width .5s ease .35s; }
+#monHpFill { background: linear-gradient(#ff7b7b, #d42020 60%, #a01010); transition: width .15s; }
+#monHpText { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 900 13px Arial, sans-serif; text-shadow: 0 1px 2px #000; }
+.mon-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mon-atk { padding: 4px 10px; border-radius: 10px; background: #5a1414; font-size: 13px; white-space: nowrap; }
+.mon-atk b { font-size: 20px; margin: 0 2px; }
+.mon-atk.danger { background: #d42020; animation: monPulse .5s infinite alternate; }
+@keyframes monPulse { to { transform: scale(1.08); box-shadow: 0 0 12px #f44; } }
+#monHearts { font-size: 18px; color: #ff4d6d; letter-spacing: -1px; text-shadow: 0 1px 0 #000; }
+#monHearts .lost { color: #555; }
+#monster.hurt .mon-img { animation: monHurt .35s; }
+@keyframes monHurt { 0% { filter: brightness(3) saturate(0); transform: translateX(0) scale(.94); } 30% { transform: translateX(-6px) scale(.97); filter: brightness(1.8) sepia(1) hue-rotate(-50deg) saturate(5); } 60% { transform: translateX(5px); } 100% { filter: none; transform: none; } }
+#monster.hurtbig .mon-img { animation: monHurtBig .6s; }
+@keyframes monHurtBig { 0% { filter: brightness(4) saturate(0); transform: scale(.85) rotate(-6deg); } 25% { transform: translateX(-10px) scale(1.05) rotate(4deg); filter: brightness(1.6) sepia(1) hue-rotate(-50deg) saturate(6); } 50% { transform: translateX(8px) rotate(-3deg); } 75% { transform: translateX(-4px); } 100% { filter: none; transform: none; } }
+#monster.attack .mon-stage { animation: monLunge .5s cubic-bezier(.3,1.6,.5,1); z-index: 5; }
+@keyframes monLunge { 0% { transform: none; } 35% { transform: translate(60px, 160px) scale(1.6); } 100% { transform: none; } }
+#monster.dead .mon-img { animation: monDie 1s forwards; }
+@keyframes monDie { 0% { filter: brightness(4) saturate(0); transform: scale(1.1); } 30% { filter: brightness(4) saturate(0); transform: scale(1.15) rotate(8deg); } 100% { filter: brightness(5) saturate(0); transform: scale(0) rotate(-360deg); opacity: 0; } }
+#fx2 { position: absolute; inset: 0; pointer-events: none; z-index: 60; overflow: visible; }
+.orb { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: radial-gradient(#fff, #7fd0ff 45%, rgba(60,140,255,0) 72%); box-shadow: 0 0 10px #7fd0ff; }
+.orb.big { width: 22px; height: 22px; margin: -11px 0 0 -11px; background: radial-gradient(#fff, #ffd84a 45%, rgba(255,150,0,0) 72%); box-shadow: 0 0 16px #ffb300; }
+.dmgnum { position: absolute; font: 900 34px Arial, sans-serif; color: #fff; -webkit-text-stroke: 2px #7a0000; text-shadow: 0 4px 0 #000; white-space: nowrap; transform: translate(-50%,-50%); }
+.dmgnum.crit { color: #ffe14a; font-size: 48px; -webkit-text-stroke: 3px #a00; }
+.slash { position: absolute; height: 10px; border-radius: 6px; background: linear-gradient(90deg, rgba(255,255,255,0), #fff 40%, #fff 60%, rgba(255,255,255,0)); box-shadow: 0 0 14px #fff, 0 0 30px #ff0; transform-origin: center; }
+.redflash { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(255,0,0,0) 30%, rgba(220,0,0,.75) 100%); }
+.crack { position: absolute; font-size: 90px; transform: translate(-50%,-50%); filter: drop-shadow(0 0 8px #f00); }
 #app.shake, #stage.shake { animation: scrShake .4s; }
-@keyframes scrShake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+@keyframes scrShake { 20% { translate: -7px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 2px 0; } }
 body.battle .hide-spins { display: none !important; }
 #heartText { color: #ff4d6d; letter-spacing: -1px; }
 #heartText .lost { color: #777; }

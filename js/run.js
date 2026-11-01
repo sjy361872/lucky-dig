@@ -34,6 +34,7 @@
     $('#playBet').textContent = `${floorLabel(run.floor)} / ${FLOORS}+보스`;
     $('#rerollText').textContent = `${run.deck.length}장${run.comps.length ? ' · 동료 ' + run.comps.length : ''}`;
     $('#heartText').innerHTML = '❤'.repeat(Math.max(0, run.hearts)) + `<span class="lost">${'❤'.repeat(Math.max(0, run.maxHearts - run.hearts))}</span>`;
+    $('#monHearts').innerHTML = $('#heartText').innerHTML;
   }
 
   // ---------- 몬스터 표시 ----------
@@ -46,14 +47,16 @@
     $('#monImg').src = C.cardImg(mo);
     $('#monGrade').textContent = mo.grade; $('#monGrade').style.background = g ? g.color : '#888';
     $('#monName').textContent = (f.boss ? '👑 ' : '') + mo.name;
+    const gh = $('#monHpGhost'); gh.style.transition = 'none';
     lastHp = f.quota; setHp(0); setAtk(f.spins);
+    void gh.offsetWidth; gh.style.transition = '';
   }
   function setHp(dmg) {
     if (!fl) return;
     const hp = Math.max(0, Math.round(fl.quota - dmg));
     $('#monHpFill').style.width = (hp / fl.quota * 100) + '%';
+    $('#monHpGhost').style.width = (hp / fl.quota * 100) + '%';
     $('#monHpText').textContent = `${fmt(hp)} / ${fmt(fl.quota)}`;
-    if (hp < lastHp) { const b = $('#monster'); b.classList.remove('hurt'); void b.offsetWidth; b.classList.add('hurt'); }
     lastHp = hp;
   }
   function setAtk(n) {
@@ -62,11 +65,8 @@
   }
   R.onScore = v => { if (fl) setHp(v); };
   async function monsterAttack() {
-    const b = $('#monster'), app = $('#app');
-    b.classList.remove('attack'); void b.offsetWidth; b.classList.add('attack');
-    await R.wait(220);
     Sound.play('last');
-    app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
+    await R.monsterHit();
     R.floatText(140, 230, '-❤ 몬스터의 공격!', 'hurt', 1400);
     await R.wait(500);
     R.floatText(140, 270, '덱에 🪨 돌멩이가 들어왔어요', 'symf', 1500);
@@ -154,8 +154,8 @@
   // ---------- 층 결과 ----------
   async function showFloorResult(res) {
     if (res.pass) {
-      $('#monster').classList.add('dead');
       Sound.play(res.boss || res.perfect ? 'fanfare' : 'big');
+      await R.monsterDie();
       R.floatText(140, 200, `${res.boss ? '보스 격파!' : '처치!'}${res.perfect ? ' 무피해 ★' : ''}`, 'kill', 1800);
       res.newCard = X().recordDex(res.monster);
       run.caught = (run.caught || []).concat([{ ...res.monster, isNew: res.newCard }]);

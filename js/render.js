@@ -268,6 +268,109 @@
     }
   }
 
+  // ---------- 전투 연출 (#fx2 = 앱 전체 좌표, 판에서 몬스터까지 날아가는 효과) ----------
+  function appPt(el, x = 0, y = 0) {
+    const app = $('#app'), a = app.getBoundingClientRect(), r = el.getBoundingClientRect(), s = a.width / app.offsetWidth || 1;
+    return { x: (r.left - a.left) / s + x, y: (r.top - a.top) / s + y };
+  }
+  function monPt() {
+    const m = $('#monster .mon-stage');
+    if (!m || !m.offsetParent) return null;
+    const p = appPt(m);
+    return { x: p.x + m.offsetWidth / 2, y: p.y + m.offsetHeight / 2 };
+  }
+  let flinchT = 0;
+  function flinch() {
+    const now = performance.now();
+    if (now - flinchT < 90) return;
+    flinchT = now;
+    const b = $('#monster'); if (!b || b.classList.contains('hurtbig')) return;
+    b.classList.remove('hurt'); void b.offsetWidth; b.classList.add('hurt');
+  }
+  // 깬 블록 칩 → 빛 구슬이 몬스터에게 날아가 꽂힘 (x,y = #stage 좌표)
+  function orb(x, y, big) {
+    const m = monPt();
+    if (!m || state.skipping) return;
+    const s = appPt($('#stage'), x, y);
+    const o = document.createElement('div');
+    o.className = 'orb' + (big ? ' big' : '');
+    o.style.left = s.x + 'px'; o.style.top = s.y + 'px';
+    $('#fx2').appendChild(o);
+    const dx = m.x - s.x, dy = m.y - s.y, side = (Math.random() - 0.5) * 140;
+    anim(o, [{ transform: 'translate(0,0) scale(.5)' }, { transform: `translate(${dx * 0.45 + side}px,${dy * 0.45 - 20}px) scale(1.3)`, offset: 0.45 },
+      { transform: `translate(${dx}px,${dy}px) scale(.7)` }], 480 + Math.random() * 160, { easing: 'cubic-bezier(.5,0,.9,.6)' })
+      .then(() => { o.remove(); flinch(); });
+  }
+  function dmgNum(text, crit) {
+    const m = monPt(); if (!m) return;
+    const d = document.createElement('div');
+    d.className = 'dmgnum' + (crit ? ' crit' : '');
+    d.textContent = text;
+    d.style.left = (m.x + 20) + 'px'; d.style.top = (m.y + 30) + 'px';
+    $('#fx2').appendChild(d);
+    anim(d, [{ transform: 'translate(-50%,-50%) scale(2.6)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .15 },
+      { transform: 'translate(-50%,-80%) scale(1)', opacity: 1, offset: .7 }, { transform: 'translate(-50%,-140%) scale(.9)', opacity: 0 }], crit ? 1500 : 1100)
+      .then(() => d.remove());
+  }
+  function sparks(x, y, n, colors) {
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti';
+      p.style.background = colors[i % colors.length];
+      p.style.width = p.style.height = (4 + Math.random() * 6) + 'px';
+      p.style.left = x + 'px'; p.style.top = y + 'px';
+      $('#fx2').appendChild(p);
+      const a = Math.random() * Math.PI * 2, v = 50 + Math.random() * 90;
+      anim(p, [{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${Math.cos(a) * v}px,${Math.sin(a) * v}px) scale(.3)`, opacity: 0 }], 500 + Math.random() * 300)
+        .then(() => p.remove());
+    }
+  }
+  const shakeApp = () => { const app = $('#app'); app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake'); };
+  // 칩×배율 정산 = 몬스터에게 한 방. frac = 이번 대미지 / 최대 체력
+  async function strike(dmg, frac) {
+    const m = monPt(); if (!m || dmg <= 0) return;
+    const crit = frac >= 0.3, n = frac >= 0.6 ? 3 : frac >= 0.15 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const sl = document.createElement('div');
+      sl.className = 'slash';
+      const w = 150 + Math.min(1, frac) * 120, ang = [-30, 30, -5][i];
+      sl.style.width = w + 'px'; sl.style.left = (m.x - w / 2) + 'px'; sl.style.top = (m.y - 5) + 'px';
+      $('#fx2').appendChild(sl);
+      anim(sl, [{ transform: `rotate(${ang}deg) scaleX(0)`, opacity: 1 }, { transform: `rotate(${ang}deg) scaleX(1)`, opacity: 1, offset: .4 }, { transform: `rotate(${ang}deg) scaleX(1.1) scaleY(.2)`, opacity: 0 }], 320)
+        .then(() => sl.remove());
+      Sound.play(i === n - 1 && crit ? 'boom' : 'break', { type: 'stone' });
+      await wait(110);
+    }
+    const b = $('#monster');
+    b.classList.remove('hurt', 'hurtbig'); void b.offsetWidth; b.classList.add('hurtbig');
+    setTimeout(() => b.classList.remove('hurtbig'), 650);
+    sparks(m.x, m.y, crit ? 26 : 12, crit ? ['#fff', '#ffe14a', '#ff7a12'] : ['#fff', '#ffd0d0']);
+    dmgNum(fmt(dmg), crit);
+    if (crit) shakeApp();
+  }
+  // 몬스터의 공격: 돌진 + 붉은 화면 + 충격
+  async function monsterHit() {
+    const b = $('#monster'), fx = $('#fx2');
+    b.classList.remove('attack'); void b.offsetWidth; b.classList.add('attack');
+    await wait(180);
+    const red = document.createElement('div'); red.className = 'redflash'; fx.appendChild(red);
+    anim(red, [{ opacity: 0 }, { opacity: 1, offset: .15 }, { opacity: 0 }], 700).then(() => red.remove());
+    const ck = document.createElement('div'); ck.className = 'crack'; ck.textContent = '💥';
+    ck.style.left = '220px'; ck.style.top = '420px'; fx.appendChild(ck);
+    anim(ck, [{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 }, { transform: 'translate(-50%,-50%) scale(1.4)', opacity: 1, offset: .3 }, { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }], 700).then(() => ck.remove());
+    shakeApp();
+    await wait(350);
+    b.classList.remove('attack');
+  }
+  // 처치: 하얗게 번쩍 → 빙글 돌며 사라짐 + 빛 터짐
+  async function monsterDie() {
+    const m = monPt();
+    $('#monster').classList.add('dead');
+    await wait(300);
+    if (m) sparks(m.x, m.y, 40, ['#fff', '#ffe14a', '#ffd700', '#7fd0ff']);
+    await wait(700);
+  }
+
   // ---------- 보물상자 오픈 연출 (등급별) ----------
   // tier: 0 = 일반(2~4배), 1 = 레어(5~6), 2 = 에픽(7~8), 3 = 전설(9), 4 = 무지개(10배 확정)
   const chestTier = min => min >= 10 ? 4 : min >= 9 ? 3 : min >= 7 ? 2 : min >= 5 ? 1 : 0;
@@ -499,6 +602,7 @@
             const big = ev.chip >= 25;
             if (big) Sound.play('big');
             if (ev.chip > 0) floatText(cx, cy - 18, '+' + fmt(ev.chip), ev.block === 'mystery' ? 'mystery' : big ? 'big' : 'chipf');
+            if (ev.chip > 0) orb(cx, cy, big);
             setCM(ev.chips, null);
             await wait(big ? 260 : 110);
             break;
@@ -610,6 +714,8 @@
           await wait(450);
           t.textContent = `= ${fmt(ev.dmg)}`;
           if (ev.mult >= 5) shake($('#stage'), 5);
+          await wait(250);
+          await strike(ev.dmg, ev.quota ? ev.dmg / ev.quota : 0.1);
           setScore(ev.score, 600);
           await wait(650);
           break;
@@ -623,7 +729,7 @@
   root.Render = {
     CELL, BOARD_TOP, state, fmt, wait,
     init() { buildSlot(); Art.preload(); },
-    drawBoard, setBet, setThresholds, setScore, setSpins, setGauge, clearSlot, replay, play, banner, floatText, setCM,
+    drawBoard, setBet, setThresholds, setScore, setSpins, setGauge, clearSlot, replay, play, banner, floatText, setCM, monsterHit, monsterDie, strike,
     setHeld(held) { for (const row of slotEls) row.forEach((cell, c) => cell.classList.toggle('held', !!held[c])); },
     resetScore() { shownScore = 0; setScore(0, 1); },
     gaugeFrac,

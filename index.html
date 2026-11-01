@@ -23,6 +23,17 @@
       <button id="btnMenu" class="sidebtn" title="메뉴"><span class="ico">☰</span><small>메뉴</small></button>
     </div>
 
+    <!-- 전투 화면 (탐험 중에는 상단바 대신 표시) -->
+    <div id="monster" hidden>
+      <div class="mon-stage"><div class="mon-img"><img id="monImg" alt=""></div><div class="mon-shadow"></div></div>
+      <div class="mon-info">
+        <div class="mon-top"><span id="monGrade" class="chip">F</span><b id="monName">몬스터</b></div>
+        <div class="mon-hp"><div id="monHpGhost"></div><div id="monHpFill"></div><small id="monHpText">0</small></div>
+        <div class="mon-row"><div class="mon-atk" id="monAtkBox">⚔ <b id="monAtk">3</b>턴 뒤 공격</div><div id="monHearts"></div></div>
+      </div>
+    </div>
+    <div id="fx2"></div>
+
     <div id="middle">
       <div id="stage">
         <div id="slot"></div>
@@ -33,13 +44,6 @@
         <button id="btnHelp" class="sidebtn" title="플레이 방법"><span class="ico">?</span><small>플레이 방법</small></button>
         <button id="btnPrizes" class="sidebtn" title="상품 목록"><span class="ico">🂠</span><small>상품</small></button>
         <button id="btnBag" class="sidebtn" title="보관함"><span class="ico">🎒</span><small>카드·도감</small></button>
-        <div id="monster" hidden>
-          <div class="mon-img"><img id="monImg" alt=""><span id="monGrade" class="chip">F</span></div>
-          <b id="monName">몬스터</b>
-          <div class="mon-hp"><div id="monHpFill"></div></div>
-          <small id="monHpText">0</small>
-          <div class="mon-atk" id="monAtkBox"><span>⚔ 공격까지</span><b id="monAtk">3</b></div>
-        </div>
         <div id="gauge">
           <div id="gaugeTrack"><div id="gaugeFill"></div></div>
           <div id="gaugeLabels"></div>
