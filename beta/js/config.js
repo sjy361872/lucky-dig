@@ -4,7 +4,7 @@
 (function (root) {
   // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
   //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
-  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [1000, 2500, 4600, 7500, 11000, 15500, 16000], QUOTA_MINE = 1.04;
+  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [800, 1500, 6800, 10000, 16500, 19000, 17500], QUOTA_MINE = 1.04;
   const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
   const CONFIG = {
     GAME_NAME: '럭키 디그',

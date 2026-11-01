@@ -58,8 +58,8 @@
     const fav = ELEM_ACT[fl.monster.elem] || 'atk', f = run.floor;
     if (fl.boss) return ['heavy', 'guard', fav === 'heavy' || fav === 'guard' ? 'heal' : fav, 'atk', 'heavy'];
     if (fl.elite) return ['heavy', fav === 'heavy' ? 'curse' : fav, 'atk'];
-    if (f <= 2) return ['atk', fav === 'heavy' ? 'atk' : fav];
-    return ['atk', fav, fav === 'heavy' ? 'curse' : 'heavy'];
+    if (f <= 1) return ['atk', fav === 'heavy' ? 'atk' : fav];          // 1·2층: 순한 몬스터
+    return ['atk', fav === 'heavy' ? 'curse' : fav, 'heavy'];          // 3층부터: 강공격 섞임
   }
   function setIntent(fl) {
     fl.intent = fl.pattern[fl.patIdx % fl.pattern.length];
