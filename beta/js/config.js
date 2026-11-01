@@ -4,7 +4,7 @@
 (function (root) {
   // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
   //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
-  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [800, 1500, 6800, 10000, 16500, 19000, 17500], QUOTA_MINE = 1.04;
+  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [800, 2500, 6500, 11000, 16000, 14000], QUOTA_MINE = 1.04;
   const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
   const CONFIG = {
     GAME_NAME: '럭키 디그',
@@ -85,7 +85,7 @@
     // ---------- 탐험(슬롯 로그라이크) ----------
     // 광산 하나 = 일반층 FLOORS개 + 보스층 1개. 층마다 목표 점수(= 게이지의 D상 선)를 넘기면 통과
     RUN: {
-      FLOORS: 6,
+      FLOORS: 5,
       UNIT: 10000,              // 블록 점수 = 블록 배율 × UNIT × 열린 상자 배율
       HEARTS: 3,                // 탐험 전체 하트 (몬스터에게 맞으면 -1, 0이면 탐험 끝)
       ATK_EVERY: 3,
