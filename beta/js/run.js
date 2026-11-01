@@ -43,10 +43,10 @@
     const mo = f.monster, g = C.GRADES.find(x => x.id === mo.grade);
     const box = $('#monster');
     box.hidden = false;
-    box.className = f.boss ? 'boss' : '';
+    box.className = f.boss ? 'boss' : f.elite ? 'elite' : '';
     $('#monImg').src = C.cardImg(mo);
     $('#monGrade').textContent = mo.grade; $('#monGrade').style.background = g ? g.color : '#888';
-    $('#monName').textContent = (f.boss ? '👑 ' : '') + mo.name;
+    $('#monName').textContent = (f.boss ? '👑 ' : f.elite ? '💀 ' : '') + mo.name;
     const gh = $('#monHpGhost'); gh.style.transition = 'none';
     lastHp = f.quota; setHp(0); setAtk(f.spins);
     void gh.offsetWidth; gh.style.transition = '';
@@ -59,19 +59,37 @@
     $('#monHpText').textContent = `${fmt(hp)} / ${fmt(fl.quota)}`;
     lastHp = hp;
   }
-  function setAtk(n) {
+  // 몬스터가 다음에 할 행동 (예고)
+  function setAtk(n, fresh) {
+    if (!fl) return;
+    const a = D.ACTS[fl.intent], hurt = fl.intent === 'atk' || fl.intent === 'heavy';
+    $('#monActIcon').textContent = a.icon; $('#monActName').textContent = a.name;
     $('#monAtk').textContent = n;
-    $('#monAtkBox').classList.toggle('danger', n <= 1);
+    $('#monActDesc').textContent = a.desc;
+    const box = $('#monAtkBox');
+    box.className = 'mon-atk act-' + fl.intent + (hurt && n <= 1 ? ' danger' : '');
+    if (fresh) { box.classList.remove('newact'); void box.offsetWidth; box.classList.add('newact'); }
   }
   R.onScore = v => { if (fl) setHp(v); };
-  async function monsterAttack() {
+  async function monsterAttack(lost) {
     Sound.play('last');
     await R.monsterHit();
-    R.floatText(140, 230, '-❤ 몬스터의 공격!', 'hurt', 1400);
+    if (lost > 1) { await R.wait(150); await R.monsterHit(); }
+    R.floatText(140, 230, lost > 1 ? '-❤❤ 강공격!' : '-❤ 몬스터의 공격!', 'hurt', 1400);
     await R.wait(500);
     R.floatText(140, 270, '덱에 🪨 돌멩이가 들어왔어요', 'symf', 1500);
     showInfo();
     await R.wait(800);
+  }
+  // 공격 말고 다른 행동
+  async function monsterAct(t) {
+    const b = $('#monster');
+    b.classList.remove('acting'); void b.offsetWidth; b.classList.add('acting');
+    if (t.act === 'curse') { Sound.play('last'); R.floatText(140, 240, '🪨 저주! 덱에 돌멩이 +2', 'symf', 1600); }
+    if (t.act === 'guard') { Sound.play('click'); b.classList.add('guarded'); R.floatText(140, 240, '🛡 방어 태세! 다음 스핀 대미지 절반', 'symf', 1600); }
+    if (t.act === 'heal') { Sound.play('coin'); R.setScore(fl.score, 500); R.floatText(140, 240, `💚 체력 ${fmt(t.healed)} 회복`, 'healf', 1600); }
+    showInfo();
+    await R.wait(1100);
   }
 
   // ---------- 심볼·동료 그리기 ----------
@@ -120,15 +138,15 @@
   }
 
   // ---------- 한 층 ----------
-  async function playFloor() {
-    fl = D.createFloor(run);
+  async function playFloor(kind) {
+    fl = D.createFloor(run, kind);
     R.drawBoard(fl.initialBoard, fl.initialChests);
     R.clearSlot();
     R.resetScore(); R.setCM(0, 1 + run.permMult, true);
     showMonster(fl);
     showInfo();
     Sound.play(fl.boss ? 'drumroll' : 'click');
-    await R.banner(fl.boss ? 'BOSS' : `${run.floor + 1}F`, fl.boss ? 'last' : '');
+    await R.banner(fl.boss ? 'BOSS' : fl.elite ? `${run.floor + 1}F 정예` : `${run.floor + 1}F`, fl.boss || fl.elite ? 'last' : '');
     X().toast(`${fl.monster.name} 등장! 체력 ${fmt(fl.quota)}`);
     R.setSpins(fl.spins);
     while (!D.floorDone(fl, run)) {
@@ -136,10 +154,12 @@
       setAtk(fl.spins + 1);
       await R.play([ev]);
       await R.play(D.resolveSpin(run, fl));
+      $('#monster').classList.remove('guarded');
       showInfo();
       const t = D.endTurn(run, fl);
-      if (t.attacked) await monsterAttack();
-      setAtk(fl.spins); R.setSpins(fl.spins);
+      if (t.attacked) await monsterAttack(t.lost);
+      else if (t.act) await monsterAct(t);
+      setAtk(fl.spins, !!t.act); R.setSpins(fl.spins);
       if (t.refill) {
         X().toast('블록을 다 캤어요! 새 광맥이 열려요');
         await R.wait(500);
@@ -203,6 +223,34 @@
     });
   }
 
+  // ---------- 갈림길: 다음 층 고르기 ----------
+  const ROUTE = {
+    normal: { icon: '⚔️', name: '일반 몬스터', desc: '보통 싸움 · 보상 3개 중 1개' },
+    elite:  { icon: '💀', name: '정예 몬스터', desc: '체력 1.5배 · 강공격이 먼저 와요<br>대신 <i class="hl">보상 +1개 · 한 등급 위 카드</i>' },
+    rest:   { icon: '🔥', name: '모닥불 휴식', desc: '싸우지 않고 <i class="hl">하트 +1</i><br>대신 이 층 보상·카드 없음' },
+  };
+  function route() {
+    return new Promise(done => {
+      const opts = D.routeOffer(run);
+      if (!opts) return done('normal');
+      if (R.state.auto) return done(opts[0]);
+      const m = X().modal(`<p class="muted center">다음은 ${run.floor + 1 >= FLOORS ? '마지막 일반층' : `${run.floor + 1}층`}이에요 · 하트 ${'❤'.repeat(run.hearts)}</p>
+        <div class="draft">${opts.map(k => `<button class="opt route-${k}" data-k="${k}"><div class="ic itememoji">${ROUTE[k].icon}</div><div><b>${ROUTE[k].name}</b><span>${ROUTE[k].desc}</span></div></button>`).join('')}</div>
+        <div style="display:flex;margin-top:8px"><button class="rowbtn" id="rtDeck" style="flex:1">덱 · 동료 보기</button></div>`,
+      { title: '어느 길로 갈까요?', noClose: true, cls: 'small' });
+      m.el.querySelector('#rtDeck').onclick = () => openDeck();
+      m.el.querySelectorAll('.opt').forEach(b => b.onclick = () => { Sound.play('click'); m.close(); done(b.dataset.k); });
+    });
+  }
+  async function restFloor() {
+    D.rest(run);
+    showInfo();
+    Sound.play('coin');
+    await R.banner('🔥 휴식', '');
+    X().toast('모닥불에서 쉬었어요. 하트 +1');
+    await R.wait(400);
+  }
+
   // ---------- 정산 ----------
   function finish() {
     const S = X().S();
@@ -219,7 +267,7 @@
         <div class="re-title">${run.cleared ? '🏆 광산 정복!' : '탐험 종료'}</div>
         <p class="muted center">${mineName(run.mine)} · ${run.cleared ? '보스까지 클리어' : `${floorLabel(run.results.length - 1)}에서 쓰러짐`} · 스핀 ${run.spinsTotal}번</p>
         <div class="re-floors">${run.results.map((r, i) =>
-          `<div class="${r.pass ? '' : 'fail'}"><small>${floorLabel(i)}</small><span class="chip" style="background:${r.perfect ? '#e8a317' : r.pass ? '#3a9a3a' : '#555'}">${r.perfect ? '★' : r.pass ? '✓' : '✕'}</span></div>`).join('')}</div>
+          `<div class="${r.pass ? '' : 'fail'}"><small>${floorLabel(i)}</small><span class="chip" style="background:${r.rest ? '#a0522d' : r.elite && r.pass ? '#8b3fd9' : r.perfect ? '#e8a317' : r.pass ? '#3a9a3a' : '#555'}">${r.rest ? '🔥' : r.elite && r.pass ? '💀' : r.perfect ? '★' : r.pass ? '✓' : '✕'}</span></div>`).join('')}</div>
         ${run.caught && run.caught.length ? `<small class="muted">잡은 몬스터 (${run.caught.filter(c => c.isNew).length}장 새로 등록)</small><div class="capt">${run.caught.map(c => Art.card(c)).join('')}</div>` : ''}
         <div class="re-ore">⛏ 광석 <b>+${fmt(ore)}</b></div>
         ${unlockedNew ? `<p class="good center">🔓 새 광산 해금: <b>${mineName(run.mine + 1)}</b></p>` : ''}
@@ -243,11 +291,14 @@
       $('#panelIdle').hidden = true; $('#panelPlay').hidden = false;
       document.body.classList.add('battle');
       R.state.skipping = false;
+      let kind = 'normal';
       while (!run.over) {
-        const res = await playFloor();
+        const res = await playFloor(kind);
         D.advance(run, res);
         await showFloorResult(res);
         if (!run.over) await reward(res);
+        kind = 'normal';
+        while (!run.over) { kind = await route(); if (kind !== 'rest') break; await restFloor(); }
       }
       await finish();
     } catch (e) {

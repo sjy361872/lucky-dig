@@ -705,3 +705,27 @@ body.battle .hide-spins { display: none !important; }
 .deckview .dc .itememoji { font-size: 28px; }
 
 .overlay2 { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 130; display: flex; align-items: center; justify-content: center; padding: 16px; }
+
+/* 몬스터 행동 예고 · 정예 · 갈림길 */
+#monster { height: 156px; }
+.mon-info { gap: 6px; }
+.mon-atk { display: inline-flex; align-items: center; gap: 2px; }
+.mon-atk.act-heavy { background: #7a0f3a; }
+.mon-atk.act-curse { background: #4b3a5e; }
+.mon-atk.act-guard { background: #1f4f8a; }
+.mon-atk.act-heal { background: #1f6b3a; }
+.mon-atk.newact { animation: actIn .5s; }
+@keyframes actIn { 0% { transform: scale(1.5); filter: brightness(2); } 100% { transform: none; } }
+#monActDesc { font-size: 11px; color: #e8d6b0; margin-top: -2px; }
+#monster.elite { border-color: #b46bff; background: radial-gradient(ellipse at 22% 70%, #4a2a6a 0%, #1f1030 55%, #0d0618 100%); box-shadow: 0 0 16px rgba(180,107,255,.6), inset 0 0 0 2px #5a2f8a; }
+#monster.elite .mon-img { border-color: #b46bff; }
+#monster.guarded .mon-img { box-shadow: 0 0 0 4px #5ab0ff, 0 0 24px #5ab0ff; }
+#monster.guarded .mon-stage::after { content: '🛡'; position: absolute; right: -4px; bottom: -2px; font-size: 34px; z-index: 3; filter: drop-shadow(0 2px 2px #000); }
+#monster.acting .mon-stage { animation: monAct .5s; }
+@keyframes monAct { 30% { transform: scale(1.15) translateY(-8px); } }
+.float.healf { color: #6dff9a; font-size: 18px; font-weight: 900; text-shadow: 0 2px 0 #000; white-space: nowrap; }
+.draft .opt.route-elite { border-color: #8b3fd9; background: #f3eaff; }
+.draft .opt.route-rest { border-color: #c86a2a; background: #fff1e4; }
+.draft .opt .ic.itememoji { font-size: 34px; }
+.draft .opt i.hl { font-style: normal; font-weight: 900; color: #7a2fc9; }
+.draft .opt.route-rest i.hl { color: #c0392b; }

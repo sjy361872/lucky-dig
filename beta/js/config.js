@@ -4,7 +4,7 @@
 (function (root) {
   // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
   //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
-  const QUOTA_TABLE = [1500, 3200, 4800, 7000, 11500, 20000, 32000], QUOTA_MINE = 1.12;
+  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [1000, 2500, 4600, 7500, 11000, 15500, 16000], QUOTA_MINE = 1.04;
   const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
   const CONFIG = {
     GAME_NAME: '럭키 디그',
@@ -88,7 +88,8 @@
       FLOORS: 6,
       UNIT: 10000,              // 블록 점수 = 블록 배율 × UNIT × 열린 상자 배율
       HEARTS: 3,                // 탐험 전체 하트 (몬스터에게 맞으면 -1, 0이면 탐험 끝)
-      ATK_EVERY: 3,             // 몬스터가 공격하기까지 스핀 수
+      ATK_EVERY: 3,
+      ELITE_HP: 1.5,            // 정예 몬스터 체력 배수             // 몬스터가 공격하기까지 스핀 수
       BOSS_ATK: 3,
       MAX_SPINS: 9,             // 공격까지 남은 턴 최대치
       MAX_COMPS: 5,             // 동료 최대 수

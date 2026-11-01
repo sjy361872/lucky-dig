@@ -35,13 +35,37 @@
   // ---------- 몬스터 ----------
   const MON_GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
   const mineKey = m => Object.keys(C.TIERS).sort((a, b) => a - b)[m];
-  function pickMonster(run, boss) {
+  function pickMonster(run, boss, elite) {
     const key = mineKey(run.mine);
-    const grade = boss ? 'S' : MON_GRADES[Math.min(run.floor, MON_GRADES.length - 2)];
+    const grade = boss ? 'S' : MON_GRADES[Math.min(run.floor + (elite ? 1 : 0), MON_GRADES.length - 2)];
     const list = C.TIERS[key].cards[grade] || [];
     const idx = Math.floor(run.rng() * list.length);
     return { ...list[idx], grade, idx, tier: key };
   }
+  // ---------- 몬스터 행동 (미리 예고) ----------
+  // 몬스터는 패턴 순서대로 행동. 화면에 '다음 행동 + 남은 턴'을 보여줌 → 그 전에 잡을지 판단
+  const ACTS = {
+    atk:   { turns: 3, icon: '⚔️', name: '공격', desc: '하트 -1 · 덱에 돌멩이 +1' },
+    heavy: { turns: 4, icon: '💢', name: '강공격', desc: '하트 -2 · 덱에 돌멩이 +1' },
+    curse: { turns: 2, icon: '🪨', name: '저주', desc: '덱에 돌멩이 +2' },
+    guard: { turns: 1, icon: '🛡', name: '방어', desc: '다음 스핀 대미지 절반' },
+    heal:  { turns: 2, icon: '💚', name: '회복', desc: '체력 25% 회복' },
+  };
+  // 속성별 특기
+  const ELEM_ACT = { lava: 'heavy', thunder: 'heavy', ruby: 'heavy', void: 'curse', obsidian: 'curse', rainbow: 'curse',
+    sapphire: 'guard', diamond: 'guard', stone: 'guard', clover: 'heal', gold: 'heal' };
+  function makePattern(run, fl) {
+    const fav = ELEM_ACT[fl.monster.elem] || 'atk', f = run.floor;
+    if (fl.boss) return ['heavy', 'guard', fav === 'heavy' || fav === 'guard' ? 'heal' : fav, 'atk', 'heavy'];
+    if (fl.elite) return ['heavy', fav === 'heavy' ? 'curse' : fav, 'atk'];
+    if (f <= 2) return ['atk', fav === 'heavy' ? 'atk' : fav];
+    return ['atk', fav, fav === 'heavy' ? 'curse' : 'heavy'];
+  }
+  function setIntent(fl) {
+    fl.intent = fl.pattern[fl.patIdx % fl.pattern.length];
+    fl.spins = ACTS[fl.intent].turns;
+  }
+
   function layBoard(run, fl) {
     const rng = run.rng;
     fl.board = makeBoard(rng, RUN.boardK(run.mine, run.floor, fl.boss));
@@ -52,14 +76,15 @@
 
   // ---------- 층 ----------
   // 남은 스핀 = 몬스터 공격까지 남은 턴. 0이 되면 하트 -1, 덱에 돌멩이(저주) +1
-  function createFloor(run) {
-    const boss = isBoss(run);
+  // kind: 'normal' | 'elite' (정예: 체력 ↑, 한 등급 위 몬스터, 보상 +1)
+  function createFloor(run, kind = 'normal') {
+    const boss = isBoss(run), elite = !boss && kind === 'elite';
     const fl = {
-      boss, quota: quotaOf(run.mine, run.floor), monster: pickMonster(run, boss),
-      atkEvery: boss ? RUN.BOSS_ATK : RUN.ATK_EVERY,
-      score: 0, floorMult: 0, hits: 0, refills: 0, spinCount: 0, grid: null, cards: null,
+      boss, elite, quota: Math.round(quotaOf(run.mine, run.floor) * (elite ? RUN.ELITE_HP : 1)), monster: pickMonster(run, boss, elite),
+      score: 0, floorMult: 0, hits: 0, refills: 0, spinCount: 0, grid: null, cards: null, guard: false, patIdx: 0,
     };
-    fl.spins = fl.atkEvery;
+    fl.pattern = makePattern(run, fl);
+    setIntent(fl);
     layBoard(run, fl);
     return fl;
   }
@@ -118,7 +143,7 @@
       for (let r = 0; r < ROWS; r++) if (board[r][c]) return;
       ch.opened = true;
       const add = ch.mult - 1 + 0.5 * cRain;
-      fl.floorMult += add; mult += add;
+      mult += add;                                   // 상자 배율은 연 스핀에만 (층 내내 쌓이면 시간만 끌면 이기게 됨)
       events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, add, cur: curMult() });
     }
     function damage(r, c, amount, queue, viaBoom) {
@@ -243,21 +268,32 @@
     // 소모된 심볼 덱에서 제거 (뒤에서부터)
     used.sort((x, y) => y - x).forEach(i => run.deck.splice(i, 1));
     // 10) 대미지 = 칩 × 배율
-    const m = curMult(), dmg = Math.round(chips * m);
+    const m = curMult(), guard = fl.guard;
+    const dmg = Math.round(chips * m * (guard ? 0.5 : 1));
+    fl.guard = false;
     fl.score += dmg;
     fl.grid = null;
-    events.push({ type: 'tally', chips, mult: m, dmg, score: fl.score, hp: Math.max(0, fl.quota - fl.score), quota: fl.quota });
+    events.push({ type: 'tally', chips, mult: m, dmg, guard, score: fl.score, hp: Math.max(0, fl.quota - fl.score), quota: fl.quota });
     events.push({ type: 'spinEnd', spinsLeft: fl.spins });
     return events;
   }
 
   // 스핀이 끝난 뒤: 몬스터 공격 / 판 새로 깔기
   function endTurn(run, fl) {
-    const out = { dead: isDead(fl), attacked: false, refill: false };
+    const out = { dead: isDead(fl), attacked: false, refill: false, act: null };
     if (!out.dead && fl.spins <= 0) {
-      run.hearts--; fl.hits++; out.attacked = true;
-      run.deck.push({ id: 'pebble', plus: 0 });      // 저주: 돌멩이
-      fl.spins = fl.atkEvery;
+      const a = fl.intent;
+      out.act = a;
+      if (a === 'atk' || a === 'heavy') {
+        const n = a === 'heavy' ? 2 : 1;
+        run.hearts = Math.max(0, run.hearts - n); fl.hits++; out.attacked = true; out.lost = n;
+        run.deck.push({ id: 'pebble', plus: 0 });
+      }
+      if (a === 'curse') { run.deck.push({ id: 'pebble', plus: 0 }, { id: 'pebble', plus: 0 }); }
+      if (a === 'guard') fl.guard = true;
+      if (a === 'heal') { const h = Math.min(fl.score, Math.round(fl.quota * 0.25)); fl.score -= h; out.healed = h; out.score = fl.score; }
+      fl.patIdx++;
+      setIntent(fl);
     }
     if (!out.dead && run.hearts > 0 && boardEmpty(fl)) { layBoard(run, fl); fl.refills++; out.refill = true; }
     out.hearts = run.hearts; out.spinsLeft = fl.spins;
@@ -278,7 +314,7 @@
   // ---------- 층 결과·보상 ----------
   function floorResult(run, fl) {
     const pass = isDead(fl), perfect = pass && fl.hits === 0;
-    return { score: fl.score, quota: fl.quota, pass, perfect, hits: fl.hits, turns: fl.spinCount, boss: fl.boss, monster: fl.monster,
+    return { score: fl.score, quota: fl.quota, pass, perfect, hits: fl.hits, turns: fl.spinCount, boss: fl.boss, elite: fl.elite, monster: fl.monster,
       gi: perfect ? 0 : pass ? 4 : -1, grade: perfect ? 'S' : pass ? 'D' : '-' };
   }
   function advance(run, res) {
@@ -287,7 +323,7 @@
     if (res.boss) { run.over = true; run.cleared = true; return; }
     run.floor++;
   }
-  const shopSize = res => (res.perfect ? 4 : 3);
+  const shopSize = res => 3 + (res.perfect ? 1 : 0) + (res.elite ? 1 : 0);
   // 층 보상 (큰 선택): 방금 잡은 몬스터를 동료로 / 도감 속 다른 동료 / 희귀 심볼 / 회복 / 정화
   //  → [{ kind:'comp', card } | { kind:'sym', id } | { kind:'heal' } | { kind:'purge' }]
   function rewardOffer(run, res, n) {
@@ -299,7 +335,6 @@
     if (canComp && others.length) out.push({ kind: 'comp', card: others[0] });
     const rares = shuffle(['pick5', 'pick7', 'anvil', 'bolt', 'magnet'], rng);
     out.push({ kind: 'sym', id: rares[0] });
-    if (run.hearts < run.maxHearts || run.maxHearts < 5) out.push({ kind: 'heal' });
     out.push({ kind: 'purge' });
     if (canComp && others.length > 1) out.push({ kind: 'comp', card: others[1] });
     out.push({ kind: 'sym', id: rares[1] });
@@ -320,14 +355,30 @@
     }
   }
 
+  // ---------- 갈림길: 다음 층을 고름 (보스 직전 제외) ----------
+  //  일반 / 정예(강하지만 보상 +1, 한 등급 위 카드) / 휴식(싸움 없이 하트 +1, 대신 보상 없음)
+  function routeOffer(run) {
+    if (run.over || isBoss(run)) return null;
+    const out = ['normal', 'elite'];
+    const last = run.results[run.results.length - 1];
+    if (run.hearts < run.maxHearts && !(last && last.rest)) out.push('rest');
+    return out;
+  }
+  function rest(run) {
+    run.hearts = Math.min(run.maxHearts, run.hearts + 1);
+    run.results.push({ pass: true, rest: true, perfect: false, hits: 0, turns: 0, score: 0, quota: 0, boss: false, elite: false, monster: null });
+    run.choices++;
+    run.floor++;
+  }
+
   // ---------- 보상 (광석) ----------
   function oreFor(run) {
     let ore = 0;
-    run.results.forEach((r, i) => { if (r.pass) ore += Math.round((10 + i * 5) * (1 + run.mine * 0.5) * (r.perfect ? 1.5 : 1)); });
+    run.results.forEach((r, i) => { if (r.pass && !r.rest) ore += Math.round((10 + i * 5) * (1 + run.mine * 0.5) * (r.perfect ? 1.5 : 1)); });
     if (run.cleared) ore += Math.round(100 * (1 + run.mine * 0.5));
     return ore;
   }
 
   root.Dig = { newRun, createFloor, startSpin, resolveSpin, endTurn, floorDone, isDead, floorResult, advance, shopSize, oreFor, quotaOf, isBoss, isPick,
-    draftOffer, canRemove, addSymbol, removeCard, rewardOffer, takeReward, mineKey };
+    draftOffer, canRemove, addSymbol, removeCard, rewardOffer, takeReward, mineKey, ACTS, routeOffer, rest };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>럭키 디그 (베타)</title>
-<link rel="stylesheet" href="beta/css/style.css?v=20261101214212">
+<link rel="stylesheet" href="beta/css/style.css?v=20261101233842">
 </head>
 <body>
 <div id="bg"></div>
@@ -30,7 +30,8 @@
       <div class="mon-info">
         <div class="mon-top"><span id="monGrade" class="chip">F</span><b id="monName">몬스터</b></div>
         <div class="mon-hp"><div id="monHpGhost"></div><div id="monHpFill"></div><small id="monHpText">0</small></div>
-        <div class="mon-row"><div class="mon-atk" id="monAtkBox">⚔ <b id="monAtk">3</b>턴 뒤 공격</div><div id="monHearts"></div></div>
+        <div class="mon-row"><div class="mon-atk" id="monAtkBox"><span id="monActIcon">🗡</span> <span id="monActName">공격</span> <b id="monAtk">3</b>턴 뒤</div><div id="monHearts"></div></div>
+        <small id="monActDesc"></small>
       </div>
     </div>
     <div id="fx2"></div>
@@ -96,19 +97,19 @@
 <div id="news"></div>
 <div id="overlay" hidden></div>
 
-<script src="beta/js/config.js?v=20261101214212"></script>
-<script src="beta/js/engine.js?v=20261101214212"></script>
-<script src="beta/js/relics.js?v=20261101214212"></script>
-<script src="beta/js/dig.js?v=20261101214212"></script>
-<script src="beta/js/sound.js?v=20261101214212"></script>
-<script src="beta/js/art.js?v=20261101214212"></script>
-<script src="beta/js/render.js?v=20261101214212"></script>
-<script src="beta/js/online-config.js?v=20261101214212"></script>
-<script src="beta/js/rank.js?v=20261101214212"></script>
-<script src="beta/js/run.js?v=20261101214212"></script>
-<script src="beta/js/ui.js?v=20261101214212"></script>
-<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js?v=20261101214212'; document.body.appendChild(s); });</script>
-<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js?v=20261101214212'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js?v=20261101214212'; document.body.appendChild(s); });</script>
+<script src="beta/js/config.js?v=20261101233842"></script>
+<script src="beta/js/engine.js?v=20261101233842"></script>
+<script src="beta/js/relics.js?v=20261101233842"></script>
+<script src="beta/js/dig.js?v=20261101233842"></script>
+<script src="beta/js/sound.js?v=20261101233842"></script>
+<script src="beta/js/art.js?v=20261101233842"></script>
+<script src="beta/js/render.js?v=20261101233842"></script>
+<script src="beta/js/online-config.js?v=20261101233842"></script>
+<script src="beta/js/rank.js?v=20261101233842"></script>
+<script src="beta/js/run.js?v=20261101233842"></script>
+<script src="beta/js/ui.js?v=20261101233842"></script>
+<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js?v=20261101233842'; document.body.appendChild(s); });</script>
+<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js?v=20261101233842'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js?v=20261101233842'; document.body.appendChild(s); });</script>
 </body>
 </html>
