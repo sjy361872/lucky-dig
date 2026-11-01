@@ -1,75 +1,63 @@
 // =====================================================
-//  탐험 엔진 — 화면과 무관한 순수 계산 (서버에서도 그대로 돌릴 수 있게)
-//  탐험(run) → 층(floor) → 스핀(spin) 단위로 진행.
-//  스핀마다 결과 그리드를 먼저 만들고(rollGrid), 플레이어가 리롤·홀드를 정한 뒤
-//  확정하면 resolveSpin 이 블록을 캐고 이벤트 목록을 돌려줌 → 화면(Render.play)이 재생
-//  이벤트 형식은 기존 오리파 엔진과 같음 (break, hit, swing, chest, explode …)
+//  탐험 엔진 (슬롯 덱빌딩) — 화면과 무관한 순수 계산 (서버에서도 그대로 실행 가능)
+//   탐험(run) → 층(floor, 몬스터 1마리) → 스핀(spin)
+//   스핀: 덱의 심볼이 슬롯 20칸에 깔림 → 특수 심볼 발동 → 곡괭이·TNT가 블록을 깸
+//   대미지 = [칩(깬 블록 값 합)] × [배율] → 몬스터 체력에서 깎임
+//   이벤트 목록을 돌려주면 화면(Render.play)이 재생
 // =====================================================
 (function (root) {
   const C = root.CONFIG, E = root.Engine, RL = root.Relics;
   const { pickWeighted, makeBoard, makeChests } = E._;
   const RUN = C.RUN;
   const isPick = it => !!(it && it.startsWith('pick'));
+  const ORES = new Set(['ruby', 'gold', 'diamond', 'obsidian', 'mystery']);
+  const cv = (run, e) => RL.cv(run, e);
+  function shuffle(a, rng) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
   // ---------- 탐험 ----------
-  function newRun({ mine = 0, seed } = {}) {
+  // collection: 동료로 쓸 수 있는 카드(도감에서 잡은 몬스터) 목록
+  function newRun({ mine = 0, seed, collection = [] } = {}) {
     if (seed === undefined) seed = Math.floor(Math.random() * 2 ** 31);
     return {
       mine, seed, rng: E.makeRng(seed),
-      floor: 0,                       // 0 ~ FLOORS-1 일반층, FLOORS = 보스층
-      pool: { ...RUN.BASE_POOL },
-      mods: RL.baseMods(),
-      rerolls: RUN.START_REROLLS,
+      floor: 0,                                      // 0 ~ FLOORS-1 일반층, FLOORS = 보스층
+      deck: RUN.START_DECK.map(id => ({ id, plus: 0 })),
+      comps: [], collection,
+      permMult: 0,                                   // 영구 배율 (공허 동료)
       hearts: RUN.HEARTS, maxHearts: RUN.HEARTS,
-      picks: [],                      // 상점에서 고른 것 (id)
-      results: [],                    // 층별 { score, quota, grade }
-      over: false, cleared: false,
+      spinsTotal: 0, choices: 0,
+      results: [], over: false, cleared: false,
     };
   }
   const isBoss = run => run.floor >= RUN.FLOORS;
-  const quotaOf = (mine, floor) => RUN.quota(mine, floor, floor >= RUN.FLOORS);
-  // 등급 기준선: [{ id, color, at(점수) }] S → G 순서
-  const thresholds = quota => C.GRADES.map(g => ({ id: g.id, color: g.color, at: Math.round(quota * RUN.GRADE_X[g.id]) }));
-  function gradeIndexOf(score, quota) { const t = thresholds(quota); for (let i = 0; i < t.length; i++) if (score >= t[i].at) return i; return -1; }
+  const quotaOf = (mine, floor) => RUN.quota(mine, floor);
 
   // ---------- 몬스터 ----------
-  // 층이 깊을수록 높은 등급 몬스터 (1층 F상 → 6층 A상, 보스 S상). 그 광산 도감 카드 중에서 뽑음
   const MON_GRADES = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+  const mineKey = m => Object.keys(C.TIERS).sort((a, b) => a - b)[m];
   function pickMonster(run, boss) {
-    const key = Object.keys(C.TIERS).sort((a, b) => a - b)[run.mine];
+    const key = mineKey(run.mine);
     const grade = boss ? 'S' : MON_GRADES[Math.min(run.floor, MON_GRADES.length - 2)];
     const list = C.TIERS[key].cards[grade] || [];
     const idx = Math.floor(run.rng() * list.length);
     return { ...list[idx], grade, idx, tier: key };
   }
-  // 블록판 + 상자 (판을 다 캐면 새로 깔 때도 사용)
   function layBoard(run, fl) {
-    const rng = run.rng, m = run.mods;
-    const board = makeBoard(rng, RUN.boardK(run.mine, run.floor, fl.boss));
-    const chests = makeChests(rng, RUN.chestK(run.mine, run.floor, fl.boss));
-    for (const row of board) for (const b of row) {
-      const minus = m.hpMinus[b.type] || 0;
-      if (minus) b.hp = b.maxHp = Math.max(1, b.maxHp - minus);
-    }
-    if (m.clearTop) for (let c = 0; c < C.COLS; c++) board[0][c] = null;
-    for (const ch of chests) if (m.chestMin) { ch.min = Math.min(10, ch.min + m.chestMin); ch.mult += m.chestMin; }
-    fl.board = board; fl.chests = chests;
-    fl.bank = fl.score; fl.bs = 0; fl.gm = 1;     // 이전 판에서 준 대미지는 따로 보관
-    fl.initialBoard = board.map(row => row.map(b => (b ? { type: b.type } : null)));
-    fl.initialChests = chests.map(ch => ({ min: ch.min, mult: ch.mult }));
+    const rng = run.rng;
+    fl.board = makeBoard(rng, RUN.boardK(run.mine, run.floor, fl.boss));
+    fl.chests = makeChests(rng, RUN.chestK(run.mine, run.floor, fl.boss));
+    fl.initialBoard = fl.board.map(row => row.map(b => (b ? { type: b.type } : null)));
+    fl.initialChests = fl.chests.map(ch => ({ min: ch.min, mult: ch.mult }));
   }
 
   // ---------- 층 ----------
-  // 층 = 몬스터 한 마리. 블록을 캔 점수 = 몬스터에게 주는 대미지, 목표 점수 = 몬스터 체력
-  // 남은 스핀 = 몬스터 공격까지 남은 턴. 0이 되면 하트 1개를 잃고 다시 채워짐
+  // 남은 스핀 = 몬스터 공격까지 남은 턴. 0이 되면 하트 -1, 덱에 돌멩이(저주) +1
   function createFloor(run) {
-    const boss = isBoss(run), m = run.mods;
-    const quota = quotaOf(run.mine, run.floor);
+    const boss = isBoss(run);
     const fl = {
-      boss, quota, unit: RUN.UNIT, monster: pickMonster(run, boss),
-      atkEvery: (boss ? RUN.BOSS_ATK : RUN.ATK_EVERY) + m.startSpins,
-      score: 0, bank: 0, bs: 0, gm: 1, hits: 0, refills: 0,
-      spinCount: 0, grid: null, held: [false, false, false, false, false],
+      boss, quota: quotaOf(run.mine, run.floor), monster: pickMonster(run, boss),
+      atkEvery: boss ? RUN.BOSS_ATK : RUN.ATK_EVERY,
+      score: 0, floorMult: 0, hits: 0, refills: 0, spinCount: 0, grid: null, cards: null,
     };
     fl.spins = fl.atkEvery;
     layBoard(run, fl);
@@ -78,155 +66,160 @@
   const boardEmpty = fl => fl.board.every(row => row.every(b => !b));
   const isDead = fl => fl.score >= fl.quota;
   const floorDone = (fl, run) => isDead(fl) || (run && run.hearts <= 0);
-  // 스핀이 끝난 뒤: 몬스터 공격 / 판 새로 깔기
-  //  → { dead, attacked, hearts, refill, spinsLeft }
-  function endTurn(run, fl) {
-    const out = { dead: isDead(fl), attacked: false, refill: false };
-    if (!out.dead && fl.spins <= 0) {
-      run.hearts--; fl.hits++; out.attacked = true;
-      fl.spins = fl.atkEvery;
-    }
-    if (!out.dead && run.hearts > 0 && boardEmpty(fl)) { layBoard(run, fl); fl.refills++; out.refill = true; }
-    out.hearts = run.hearts; out.spinsLeft = fl.spins;
-    return out;
-  }
+  const powerOf = (run, fl, r, c) => C.PICKS[fl.grid[r][c]].power + run.deck[fl.cards[r][c]].plus;
 
-  // ---------- 스핀 결과 만들기 ----------
-  // held[c] 가 true 인 열은 이전 그리드(prev)를 그대로 둠 (홀드)
-  function rollGrid(run, fl, held, prev) {
-    const rng = run.rng, pool = Object.entries(run.pool);
-    const grid = [];
-    for (let r = 0; r < C.SLOT_ROWS; r++) {
-      const row = [];
-      for (let c = 0; c < C.COLS; c++) {
-        if (held && held[c] && prev) { row.push(prev[r][c]); continue; }
-        const it = pickWeighted(rng, pool);
-        row.push(it === 'empty' ? null : it);
-      }
-      grid.push(row);
-    }
-    // 광부의 감: 층 첫 스핀에 곡괭이 최소 N개
-    if (fl.spinCount === 1 && !prev && run.mods.firstPicks) {
-      const picks = pool.filter(([k]) => isPick(k));
-      let have = grid.flat().filter(isPick).length;
-      const empties = [];
-      for (let r = 0; r < C.SLOT_ROWS; r++) for (let c = 0; c < C.COLS; c++) if (!grid[r][c]) empties.push([r, c]);
-      while (have < run.mods.firstPicks && empties.length) {
-        const [r, c] = empties.splice(Math.floor(rng() * empties.length), 1)[0];
-        grid[r][c] = pickWeighted(rng, picks);
-        have++;
-      }
-    }
-    return grid;
-  }
-
-  // 스핀 시작 (남은 스핀 1 소모) → 첫 그리드
+  // ---------- 스핀: 덱 → 슬롯 ----------
   function startSpin(run, fl) {
-    fl.spins--; fl.spinCount++;
-    fl.held = [false, false, false, false, false];
-    fl.grid = rollGrid(run, fl, null, null);
-    return { type: 'spin', grid: fl.grid.map(r => r.slice()), last: fl.spins === 0, spinsLeft: fl.spins };
-  }
-  // 리롤: 홀드하지 않은 열만 다시 돌림
-  function reroll(run, fl, held) {
-    if (run.rerolls <= 0) return null;
-    run.rerolls--;
-    fl.held = held.slice();
-    fl.grid = rollGrid(run, fl, held, fl.grid);
-    return { type: 'spin', grid: fl.grid.map(r => r.slice()), last: fl.spins === 0, spinsLeft: fl.spins, held: held.slice(), reroll: true };
+    fl.spins--; fl.spinCount++; run.spinsTotal++;
+    const N = C.SLOT_ROWS * C.COLS, rng = run.rng;
+    const pick = shuffle(run.deck.map((_, i) => i), rng).slice(0, N);   // 덱이 20장보다 많으면 20장만
+    const cells = shuffle([...Array(N).keys()], rng);
+    fl.grid = Array.from({ length: C.SLOT_ROWS }, () => Array(C.COLS).fill(null));
+    fl.cards = Array.from({ length: C.SLOT_ROWS }, () => Array(C.COLS).fill(-1));
+    pick.forEach((di, k) => { const r = Math.floor(cells[k] / C.COLS), c = cells[k] % C.COLS; fl.grid[r][c] = run.deck[di].id; fl.cards[r][c] = di; });
+    const pow = fl.grid.map((row, r) => row.map((t, c) => (isPick(t) ? powerOf(run, fl, r, c) : 0)));
+    return { type: 'spin', grid: fl.grid.map(r => r.slice()), pow, spinsLeft: fl.spins };
   }
 
-  // ---------- 스핀 확정 → 블록 캐기 ----------
+  // ---------- 스핀 처리 ----------
   function resolveSpin(run, fl) {
-    const m = run.mods, rng = run.rng, board = fl.board, grid = fl.grid.map(r => r.slice());
+    const rng = run.rng, board = fl.board, g = fl.grid.map(r => r.slice()), cards = fl.cards;
+    const ROWS = C.ROWS, SR = C.SLOT_ROWS, COLS = C.COLS, MAX = RUN.MAX_SPINS;
     const events = [];
-    const MAX = RUN.MAX_SPINS;
+    let chips = 0, mult = 1 + fl.floorMult + run.permMult, xmult = 1;
+    const curMult = () => Math.round(mult * xmult * 100) / 100;
+    const pw = g.map((row, r) => row.map((t, c) => (isPick(t) ? powerOf(run, fl, r, c) : 0)));
+    const colTorch = Array(COLS).fill(0), colMag = Array(COLS).fill(0);
+    const addMult = (r, c, add, label) => { mult += add; events.push({ type: 'mult', r, c, add, label, mult: curMult() }); };
+    const cStone = cv(run, 'stone'), cRuby = cv(run, 'ruby'), cDia = cv(run, 'diamond'), cLava = cv(run, 'lava'), cRain = cv(run, 'rainbow');
+    const tntRad = cLava > 0 ? 2 : 1;
+    const used = [];
 
-    function breakBlock(r, c, queue) {
+    function breakBlock(r, c, queue, viaBoom) {
       const b = board[r][c];
-      let mult = C.BLOCKS[b.type].mult;
-      if (b.type === 'mystery') mult = pickWeighted(rng, C.MYSTERY_VALUES.map(v => [v.mult, v.w]));
-      const bm = m.blockMult[b.type] || 1;
-      const base = Math.round(mult * fl.unit * bm);
-      const gain = Math.round(mult * fl.unit * bm * fl.gm);
-      fl.bs += gain; fl.score = fl.bank + fl.bs;
+      let chip = RUN.CHIPS[b.type];
+      if (b.type === 'mystery') chip = pickWeighted(rng, RUN.MYSTERY_CHIPS);
+      if (cStone && (b.type === 'grass' || b.type === 'dirt' || b.type === 'stone')) chip += 7 * cStone;
+      if (cDia && (b.type === 'gold' || b.type === 'diamond')) chip *= 1 + 0.5 * cDia;
+      if (colTorch[c] && ORES.has(b.type)) chip *= Math.pow(2, colTorch[c]);
+      // 용암: 범위만 넓어짐
+      chip += 5 * colMag[c];
+      chip = Math.round(chip);
+      chips += chip;
       board[r][c] = null;
-      events.push({ type: 'break', r, c, block: b.type, base, gm: fl.gm, gain, score: fl.score });
-      if (b.type === 'explosive') queue.push({ r, c, center: false, dmg: m.exDmg });
+      events.push({ type: 'break', r, c, block: b.type, chip, chips });
+      if (b.type === 'ruby' && cRuby) addMult(-1, c, cRuby, '루비');
+      if (b.type === 'explosive') queue.push({ r, c, center: false, dmg: 2, rad: 1 });
       checkChest(c);
     }
     function checkChest(c) {
       const ch = fl.chests[c];
       if (ch.opened) return;
-      for (let r = 0; r < C.ROWS; r++) if (board[r][c]) return;
+      for (let r = 0; r < ROWS; r++) if (board[r][c]) return;
       ch.opened = true;
-      // 탐험에서는 상자 배율을 더함 (×3, ×4 상자 → 전체 ×6). 곱하면 운이 너무 크게 갈려서 업그레이드가 의미 없어짐
-      //  점수 = (지금까지 캔 기본 점수 합) × 전체 배율
-      const before = fl.score, gm = fl.gm + ch.mult - 1;
-      fl.bs = Math.round(fl.bs * gm / fl.gm); fl.score = fl.bank + fl.bs;
-      fl.gm = gm;
-      events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, before, score: fl.score, gm: fl.gm });
-      if (m.chestSpin) {
-        const add = Math.max(0, Math.min(m.chestSpin, MAX - fl.spins));
-        if (add) { fl.spins += add; events.push({ type: 'bonusSpin', c, n: add, spinsLeft: fl.spins }); }
-      }
+      const add = ch.mult - 1 + 0.5 * cRain;
+      fl.floorMult += add; mult += add;
+      events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, add, cur: curMult() });
     }
-    function damage(r, c, amount, queue) {
-      if (r < 0 || r >= C.ROWS || c < 0 || c >= C.COLS) return;
+    function damage(r, c, amount, queue, viaBoom) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
       const b = board[r][c];
       if (!b) return;
       b.hp -= amount;
       events.push({ type: 'hit', r, c, hp: Math.max(0, b.hp), maxHp: b.maxHp });
-      if (b.hp <= 0) breakBlock(r, c, queue);
+      if (b.hp <= 0) breakBlock(r, c, queue, viaBoom);
     }
     function runExplosions(queue) {
       while (queue.length) {
         const ex = queue.shift();
-        const cells = [];
-        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const cells = [], k = ex.rad || 1;
+        for (let dr = -k; dr <= k; dr++) for (let dc = -k; dc <= k; dc++) {
           if (!ex.center && dr === 0 && dc === 0) continue;
           const rr = ex.r + dr, cc = ex.c + dc;
-          if (rr >= 0 && rr < C.ROWS && cc >= 0 && cc < C.COLS) cells.push([rr, cc]);
+          if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) cells.push([rr, cc]);
         }
         events.push({ type: 'explode', r: ex.r, c: ex.c, cells });
-        for (const [rr, cc] of cells) damage(rr, cc, ex.dmg, queue);
+        for (const [rr, cc] of cells) damage(rr, cc, ex.dmg, queue, true);
       }
     }
-    const topBlockRow = c => { for (let r = 0; r < C.ROWS; r++) if (board[r][c]) return r; return -1; };
+    const topBlockRow = c => { for (let r = 0; r < ROWS; r++) if (board[r][c]) return r; return -1; };
+    const each = fn => { for (let r = 0; r < SR; r++) for (let c = 0; c < COLS; c++) fn(r, c, g[r][c]); };
 
-    // 스핀 심볼: 1개당 남은 스핀 +1
-    for (let r = 0; r < C.SLOT_ROWS; r++) for (let c = 0; c < C.COLS; c++) {
-      if (grid[r][c] !== 'spin') continue;
-      grid[r][c] = null;
-      if (fl.spins >= MAX) continue;
+    // 1) 모래시계: 몬스터 공격 1턴 늦춤
+    each((r, c, t) => {
+      if (t !== 'spin') return;
+      g[r][c] = null;
+      if (fl.spins >= MAX) return;
       fl.spins++;
+      used.push(cards[r][c]);                        // 모래시계는 쓰면 덱에서 사라짐 (소모품)
       events.push({ type: 'spinPlus', r, c, spinsLeft: fl.spins });
+    });
+    // 2) 동료: 곡괭이 강화 (흑요석 = 전부, 사파이어 = 첫 곡괭이)
+    const cObs = cv(run, 'obsidian'), cSap = cv(run, 'sapphire');
+    if (cObs) { const n = Math.max(1, Math.floor(cObs)); each((r, c, t) => { if (isPick(t)) pw[r][c] += n; }); }
+    if (cSap) {
+      let done = false;
+      for (let c = 0; c < COLS && !done; c++) for (let r = 0; r < SR && !done; r++) if (isPick(g[r][c])) { pw[r][c] += Math.round(4 * cSap); done = true; events.push({ type: 'sym', r, c, sym: 'sap', label: '선봉!', keep: true, ups: [{ r, c, power: pw[r][c] }] }); }
     }
-    // 강화의 책
-    for (let r = 0; r < C.SLOT_ROWS; r++) for (let c = 0; c < C.COLS; c++) {
-      const it = grid[r][c];
-      if (it !== 'book' && it !== 'superbook') continue;
-      const to = it === 'book' ? 'pick5' : 'pick7';
+    // 3) 모루: 바로 위 곡괭이 영구 +1
+    each((r, c, t) => {
+      if (t !== 'anvil') return;
       const ups = [];
-      for (let rr = 0; rr < C.SLOT_ROWS; rr++) {
-        const p = grid[rr][c];
-        if (isPick(p) && C.PICKS[p].power < C.PICKS[to].power) { grid[rr][c] = to; ups.push({ r: rr, c, to }); }
-      }
-      grid[r][c] = null;
-      events.push({ type: 'book', r, c, kind: it, ups });
+      if (r > 0 && isPick(g[r - 1][c])) { run.deck[cards[r - 1][c]].plus++; pw[r - 1][c]++; ups.push({ r: r - 1, c, power: pw[r - 1][c] }); }
+      g[r][c] = null;
+      events.push({ type: 'sym', r, c, sym: 'anvil', label: ups.length ? '영구 +1' : '', ups });
+    });
+    // 4) 강화의 책: 같은 열 아래 곡괭이 +2
+    each((r, c, t) => {
+      if (t !== 'book') return;
+      const ups = [];
+      for (let rr = r + 1; rr < SR; rr++) if (isPick(g[rr][c])) { pw[rr][c] += 2; ups.push({ r: rr, c, power: pw[rr][c] }); }
+      g[r][c] = null;
+      events.push({ type: 'sym', r, c, sym: 'book', label: ups.length ? `+2타 ×${ups.length}` : '', ups });
+    });
+    // 5) 횃불·자석: 열 효과
+    each((r, c, t) => {
+      if (t === 'torch') { colTorch[c]++; g[r][c] = null; events.push({ type: 'sym', r, c, sym: 'torch', label: '광석 ×2', col: [c] }); }
+      if (t === 'magnet') { if (c > 0) colMag[c - 1]++; if (c < COLS - 1) colMag[c + 1]++; g[r][c] = null; events.push({ type: 'sym', r, c, sym: 'magnet', label: '옆 열 +5', col: [c - 1, c + 1].filter(x => x >= 0 && x < COLS) }); }
+      if (t === 'pebble') g[r][c] = null;
+    });
+    // 6) 클로버: 배율
+    let clovers = 0; each((r, c, t) => { if (t === 'clover') clovers++; });
+    const cClo = cv(run, 'clover');
+    each((r, c, t) => {
+      if (t !== 'clover') return;
+      g[r][c] = null;
+      addMult(r, c, (clovers >= 3 ? 1 : 0.5) + cClo, '🍀');
+    });
+    // 7) 빈칸 (황금 동료)
+    const cGold = cv(run, 'gold');
+    if (cGold) {
+      let empty = 0;
+      for (let r = 0; r < SR; r++) for (let c = 0; c < COLS; c++) if (cards[r][c] < 0) empty++;
+      if (empty) addMult(-1, 2, Math.round(0.8 * cGold * empty * 100) / 100, `빈칸 ${empty}`);
     }
-    // 곡괭이·TNT: 왼쪽 열부터, 위에서 아래로
-    for (let c = 0; c < C.COLS; c++) for (let r = 0; r < C.SLOT_ROWS; r++) {
-      const it = grid[r][c];
+    // 8) 잭팟: 가로 한 줄이 전부 곡괭이 → 배율 ×3
+    for (let r = 0; r < SR; r++) if (g[r].every(isPick)) { xmult *= 3; events.push({ type: 'jackpot', r, mult: curMult() }); }
+
+    // 9) 왼쪽 열부터: 곡괭이·TNT·번개
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < SR; r++) {
+      const it = g[r][c];
       if (!it) continue;
-      grid[r][c] = null;
+      g[r][c] = null;
       if (it === 'tnt') {
         const tr = topBlockRow(c);
         events.push({ type: 'tnt', sr: r, c, tr });
-        if (tr >= 0) runExplosions([{ r: tr, c, center: true, dmg: m.tntDmg }]);
+        if (tr >= 0) runExplosions([{ r: tr, c, center: true, dmg: 2, rad: tntRad }]);
         continue;
       }
-      let power = C.PICKS[it].power + m.pickBonus;
+      if (it === 'bolt') {
+        const cols = shuffle([...Array(COLS).keys()], rng).slice(0, 3);
+        events.push({ type: 'boltSym', r, c });
+        for (const cc of cols) { const tr = topBlockRow(cc); events.push({ type: 'bolt', c: cc, r: tr }); if (tr >= 0) { const q = []; damage(tr, cc, 1, q); runExplosions(q); } }
+        continue;
+      }
+      if (!isPick(it)) continue;
+      let power = pw[r][c];
       events.push({ type: 'pick', sr: r, c, item: it, power });
       while (power > 0) {
         const tr = topBlockRow(c);
@@ -239,30 +232,95 @@
       }
       events.push({ type: 'pickEnd', c, power });
     }
+    // 동료 번개
+    const cTh = cv(run, 'thunder');
+    if (cTh) for (let i = 0; i < Math.max(1, Math.round(2 * cTh)); i++) {
+      const cc = Math.floor(rng() * COLS), tr = topBlockRow(cc);
+      events.push({ type: 'bolt', c: cc, r: tr });
+      if (tr >= 0) { const q = []; damage(tr, cc, 1, q); runExplosions(q); }
+    }
+
+    // 소모된 심볼 덱에서 제거 (뒤에서부터)
+    used.sort((x, y) => y - x).forEach(i => run.deck.splice(i, 1));
+    // 10) 대미지 = 칩 × 배율
+    const m = curMult(), dmg = Math.round(chips * m);
+    fl.score += dmg;
     fl.grid = null;
+    events.push({ type: 'tally', chips, mult: m, dmg, score: fl.score, hp: Math.max(0, fl.quota - fl.score) });
     events.push({ type: 'spinEnd', spinsLeft: fl.spins });
     return events;
   }
 
-  // ---------- 층 결과 ----------
-  // 처치 여부 + 무피해(한 대도 안 맞음) 여부. grade: 무피해 S / 처치 D / 실패 -
+  // 스핀이 끝난 뒤: 몬스터 공격 / 판 새로 깔기
+  function endTurn(run, fl) {
+    const out = { dead: isDead(fl), attacked: false, refill: false };
+    if (!out.dead && fl.spins <= 0) {
+      run.hearts--; fl.hits++; out.attacked = true;
+      run.deck.push({ id: 'pebble', plus: 0 });      // 저주: 돌멩이
+      fl.spins = fl.atkEvery;
+    }
+    if (!out.dead && run.hearts > 0 && boardEmpty(fl)) { layBoard(run, fl); fl.refills++; out.refill = true; }
+    out.hearts = run.hearts; out.spinsLeft = fl.spins;
+    return out;
+  }
+
+  // ---------- 선택: 스핀마다 심볼 3택1, 3스핀마다 1장 빼기 ----------
+  const draftOffer = run => RL.draft(run, 3, run.rng);
+  const canRemove = run => run.spinsTotal % 3 === 0 && run.deck.length > 1;
+  function addSymbol(run, id) { run.deck.push({ id, plus: 0 }); run.choices++; }
+  function removeCard(run, i) {
+    if (i < 0 || i >= run.deck.length) return;
+    run.deck.splice(i, 1); run.choices++;
+    const v = cv(run, 'void');
+    if (v) run.permMult = Math.round((run.permMult + 0.4 * v) * 100) / 100;
+  }
+
+  // ---------- 층 결과·보상 ----------
   function floorResult(run, fl) {
     const pass = isDead(fl), perfect = pass && fl.hits === 0;
     return { score: fl.score, quota: fl.quota, pass, perfect, hits: fl.hits, turns: fl.spinCount, boss: fl.boss, monster: fl.monster,
       gi: perfect ? 0 : pass ? 4 : -1, grade: perfect ? 'S' : pass ? 'D' : '-' };
   }
-  // 통과 후 다음 층으로 (보스까지 깨면 cleared)
   function advance(run, res) {
     run.results.push(res);
     if (!res.pass || run.hearts <= 0) { run.over = true; return; }
     if (res.boss) { run.over = true; run.cleared = true; return; }
     run.floor++;
   }
-  // 상점 선택지 수: 무피해 처치면 1개 더
   const shopSize = res => (res.perfect ? 4 : 3);
+  // 층 보상 (큰 선택): 방금 잡은 몬스터를 동료로 / 도감 속 다른 동료 / 희귀 심볼 / 회복 / 정화
+  //  → [{ kind:'comp', card } | { kind:'sym', id } | { kind:'heal' } | { kind:'purge' }]
+  function rewardOffer(run, res, n) {
+    const rng = run.rng, out = [];
+    const has = card => run.comps.some(c => c.name === card.name);
+    const canComp = run.comps.length < RUN.MAX_COMPS;
+    if (canComp && res.monster && RL.COMP[res.monster.elem] && !has(res.monster)) out.push({ kind: 'comp', card: res.monster });
+    const others = shuffle(run.collection.filter(c => RL.COMP[c.elem] && !has(c) && !(res.monster && c.name === res.monster.name)), rng);
+    if (canComp && others.length) out.push({ kind: 'comp', card: others[0] });
+    const rares = shuffle(['pick5', 'pick7', 'anvil', 'bolt', 'magnet'], rng);
+    out.push({ kind: 'sym', id: rares[0] });
+    if (run.hearts < run.maxHearts || run.maxHearts < 5) out.push({ kind: 'heal' });
+    out.push({ kind: 'purge' });
+    if (canComp && others.length > 1) out.push({ kind: 'comp', card: others[1] });
+    out.push({ kind: 'sym', id: rares[1] });
+    return out.slice(0, n);
+  }
+  function takeReward(run, opt) {
+    run.choices++;
+    if (opt.kind === 'comp') run.comps.push(opt.card);
+    if (opt.kind === 'sym') run.deck.push({ id: opt.id, plus: 0 });
+    if (opt.kind === 'heal') { if (run.hearts >= run.maxHearts) run.maxHearts = Math.min(5, run.maxHearts + 1); run.hearts = Math.min(run.maxHearts, run.hearts + 1); }
+    if (opt.kind === 'purge') {   // 돌멩이(없으면 돌 곡괭이) 2장 빼기
+      for (let k = 0; k < 2; k++) {
+        let j = run.deck.findIndex(d => d.id === 'pebble');
+        if (j < 0) j = run.deck.findIndex(d => d.id === 'pick1');
+        if (j >= 0) removeCard(run, j);
+      }
+      run.choices--;
+    }
+  }
 
   // ---------- 보상 (광석) ----------
-  // 층마다: 목표 점수 기준 기본 + 등급 보너스
   function oreFor(run) {
     let ore = 0;
     run.results.forEach((r, i) => { if (r.pass) ore += Math.round((10 + i * 5) * (1 + run.mine * 0.5) * (r.perfect ? 1.5 : 1)); });
@@ -270,5 +328,6 @@
     return ore;
   }
 
-  root.Dig = { newRun, createFloor, startSpin, reroll, resolveSpin, floorDone, floorResult, advance, shopSize, oreFor, quotaOf, endTurn, isDead, layBoard, thresholds, gradeIndexOf, isBoss, isPick };
+  root.Dig = { newRun, createFloor, startSpin, resolveSpin, endTurn, floorDone, isDead, floorResult, advance, shopSize, oreFor, quotaOf, isBoss, isPick,
+    draftOffer, canRemove, addSymbol, removeCard, rewardOffer, takeReward, mineKey };
 })(typeof window !== 'undefined' ? window : globalThis);

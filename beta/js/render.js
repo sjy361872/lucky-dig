@@ -38,9 +38,10 @@
       slotEls.push(row);
     }
   }
-  function setSlotItem(r, c, type, cls = '') {
+  function setSlotItem(r, c, type, cls = '', power) {
     const cell = slotEls[r][c];
-    cell.innerHTML = type ? `<div class="slot-item ${cls}">${Art.item(type)}${C.PICKS[type] ? `<span class="badge">${C.PICKS[type].power}</span>` : ''}</div>` : '';
+    const p = power || (C.PICKS[type] ? C.PICKS[type].power : 0);
+    cell.innerHTML = type ? `<div class="slot-item ${cls}">${Art.item(type)}${p ? `<span class="badge${C.PICKS[type] && p > C.PICKS[type].power ? ' up' : ''}">${p}</span>` : ''}</div>` : '';
   }
   function clearSlot() { for (let r = 0; r < C.SLOT_ROWS; r++) for (let c = 0; c < C.COLS; c++) setSlotItem(r, c, null); }
 
@@ -214,8 +215,8 @@
   }
 
   // ---------- 슬롯 릴 ----------
-  const REEL_ITEMS = ['pick1', 'pick2', 'pick3', 'pick5', 'pick7', 'spin', 'book', 'tnt', null, null, null, null];
-  async function spinReels(grid, held) {
+  const REEL_ITEMS = ['pick1', 'pick2', 'pick3', 'pick5', 'pick7', 'spin', 'book', 'tnt', 'clover', 'torch', null, null, null];
+  async function spinReels(grid, held, pow) {
     const slot = $('#slot');
     const reels = [];
     const N = 18; // 지나가는 칸 수 (열마다 조금씩 늘어나서 늦게 멈춤)
@@ -225,7 +226,7 @@
       for (let r = 0; r < C.SLOT_ROWS; r++) setSlotItem(r, c, null);
       const count = N + k * 4;
       // 띠 구성(위→아래): [최종 3칸] + [무작위 칸들] + [이전 화면 3칸 자리]
-      const cells = [grid[0][c], grid[1][c], grid[2][c]];
+      const cells = grid.map(row => row[c]);
       for (let i = 0; i < count; i++) cells.push(REEL_ITEMS[Math.floor(Math.random() * REEL_ITEMS.length)]);
       const win = document.createElement('div');
       win.className = 'reel';
@@ -235,7 +236,7 @@
       strip.innerHTML = cells.map(t => `<div class="reel-cell">${t ? Art.item(t) : ''}</div>`).join('');
       win.appendChild(strip);
       slot.appendChild(win);
-      const from = -(cells.length - 3) * CELL;
+      const from = -(cells.length - C.SLOT_ROWS) * CELL;
       const dur = 520 + k * 150; k++;
       // 빠르게 내려오다가 마지막에 살짝 넘쳤다 되돌아오며 멈춤
       strip.animate([
@@ -263,7 +264,7 @@
     // 멈춘 릴을 실제 슬롯 칸으로 교체
     for (const { win, c } of reels) {
       win.remove();
-      for (let r = 0; r < C.SLOT_ROWS; r++) setSlotItem(r, c, grid[r][c]);
+      for (let r = 0; r < C.SLOT_ROWS; r++) setSlotItem(r, c, grid[r][c], '', pow ? pow[r][c] : 0);
     }
   }
 
@@ -349,12 +350,34 @@
     // 3) 점수 반영
     const big = floatText(cx, BOARD_TOP + CELL * 3, `×${ev.mult}`, 'chestmult t' + tier, 2400 + tier * 550);
     await wait(500 + tier * 250);
-    big.textContent = `${fmt(ev.before)} → ${fmt(ev.score)}`;
-    setScore(ev.score, 700 + tier * 200);
+    if (ev.add !== undefined) { big.textContent = `배율 +${fmtM(ev.add)}`; setCM(null, ev.cur); }
+    else { big.textContent = `${fmt(ev.before)} → ${fmt(ev.score)}`; setScore(ev.score, 700 + tier * 200); }
     await wait(900 + tier * 300);
     $('#app').classList.remove('dim');
     el.classList.remove('glow');
     anim(el, [{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], 300);
+  }
+
+  // ---------- 칩 × 배율 표시 ----------
+  const fmtM = n => (Math.round(n * 100) / 100).toString();
+  let cmChips = 0, cmMult = 1;
+  function setCM(chips, mult, reset) {
+    if (reset) { cmChips = 0; } if (chips !== null && chips !== undefined) cmChips = chips; if (mult !== null && mult !== undefined) cmMult = mult;
+    const el = $('#cmText'); if (el) el.innerHTML = `<b class="c">${fmt(cmChips)}</b> × <b class="m">${fmtM(cmMult)}</b>`;
+  }
+  function slotItemType(r, c) {
+    const img = slotEls[r][c].querySelector('img.itemimg');
+    if (img) return img.getAttribute('src').replace(/^.*\/(\w+)\.png$/, '$1');
+    return null;
+  }
+  function colGlow(cols, sym) {
+    for (const c of cols) {
+      const g = document.createElement('div');
+      g.className = 'colglow ' + sym;
+      g.style.left = c * CELL + 'px';
+      $('#fx').appendChild(g);
+      anim(g, [{ opacity: 0 }, { opacity: .7, offset: .2 }, { opacity: 0 }], 900).then(() => g.remove());
+    }
   }
 
   // ---------- 재생 ----------
@@ -390,7 +413,8 @@
           setSpins(ev.spinsLeft);
           // 릴 회전 연출: 열마다 아이템 띠가 위→아래로 빠르게 지나가다가 왼쪽 열부터 차례로 멈춤 (홀드한 열은 그대로)
           if (!ev.held) clearSlot();
-          await spinReels(ev.grid, ev.held);
+          setCM(0, null, true);
+          await spinReels(ev.grid, ev.held, ev.pow);
           await wait(250);
           break;
         }
@@ -471,6 +495,14 @@
           if (el) anim(el, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.15)', opacity: .8, offset: .3 }, { transform: 'scale(.4)', opacity: 0 }], 260).then(() => el.remove());
           particles(cx, cy, BLOCK_COLOR[ev.block], ev.block === 'obsidian' || ev.block === 'diamond' ? 14 : 8);
           Sound.play('break', { type: ev.block });
+          if (ev.chip !== undefined) {
+            const big = ev.chip >= 25;
+            if (big) Sound.play('big');
+            if (ev.chip > 0) floatText(cx, cy - 18, '+' + fmt(ev.chip), ev.block === 'mystery' ? 'mystery' : big ? 'big' : 'chipf');
+            setCM(ev.chips, null);
+            await wait(big ? 260 : 110);
+            break;
+          }
           if (ev.gain >= bigRef) Sound.play('big');
           if (ev.gain > 0) {
             if (ev.gm > 1) {
@@ -523,6 +555,65 @@
           await wait(300);
           break;
         }
+        case 'sym': {      // 특수 심볼 발동 (책·모루·횃불·자석·선봉)
+          const el = slotEls[ev.r][ev.c].firstChild;
+          Sound.play(ev.sym === 'anvil' ? 'hit' : 'book');
+          if (el) await anim(el, [{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.4)', filter: 'brightness(1.8)' }, { transform: 'scale(1)', filter: 'brightness(1)', opacity: ev.keep ? 1 : 0 }], 420);
+          if (!ev.keep) setSlotItem(ev.r, ev.c, null);
+          if (ev.label) floatText(ev.c * CELL + CELL / 2, ev.r * CELL + 6, ev.label, 'symf', 1000);
+          for (const u of ev.ups || []) { const t = slotEls[u.r][u.c].querySelector('.slot-item img, .slot-item .itememoji'); const type = slotItemType(u.r, u.c); setSlotItem(u.r, u.c, type, 'upgrade', u.power); }
+          if (ev.col) colGlow(ev.col, ev.sym);
+          await wait(260);
+          break;
+        }
+        case 'mult': {
+          if (ev.r >= 0) {
+            const el = slotEls[ev.r][ev.c].firstChild;
+            if (el) anim(el, [{ transform: 'scale(1)' }, { transform: 'scale(1.5)' }, { transform: 'scale(.2)', opacity: 0 }], 360).then(() => setSlotItem(ev.r, ev.c, null));
+            floatText(ev.c * CELL + CELL / 2, ev.r * CELL + 6, `배율 +${fmtM(ev.add)}`, 'multf', 1000);
+          } else floatText(ev.c * CELL + CELL / 2, BOARD_TOP - 10, `${ev.label} 배율 +${fmtM(ev.add)}`, 'multf', 1100);
+          Sound.play('spinUp');
+          setCM(null, ev.mult);
+          await wait(200);
+          break;
+        }
+        case 'jackpot': {
+          for (let c = 0; c < C.COLS; c++) { const el = slotEls[ev.r][c].firstChild; if (el) anim(el, [{ filter: 'brightness(1)' }, { filter: 'brightness(2.2) drop-shadow(0 0 8px gold)' }, { filter: 'brightness(1)' }], 700, { fill: 'none' }); }
+          Sound.play('fanfare'); flash('#ffe14a', 400);
+          stamp('<b>JACKPOT</b><small>배율 ×3</small>', 'gold');
+          setCM(null, ev.mult);
+          await wait(900);
+          break;
+        }
+        case 'boltSym': {
+          const el = slotEls[ev.r][ev.c].firstChild;
+          if (el) await anim(el, [{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(.2)', opacity: 0 }], 300);
+          setSlotItem(ev.r, ev.c, null);
+          break;
+        }
+        case 'bolt': {
+          inExplosion = false;
+          const x = ev.c * CELL + CELL / 2;
+          const b = document.createElement('div');
+          b.className = 'boltfx';
+          b.style.left = x + 'px'; b.style.height = (BOARD_TOP + Math.max(0, ev.r) * CELL + CELL / 2) + 'px';
+          $('#fx').appendChild(b);
+          anim(b, [{ opacity: 1 }, { opacity: .2 }, { opacity: 1 }, { opacity: 0 }], 380).then(() => b.remove());
+          Sound.play('boom');
+          await wait(160);
+          break;
+        }
+        case 'tally': {
+          setCM(ev.chips, ev.mult);
+          const t = floatText(140, BOARD_TOP + CELL * 1.5, `${fmt(ev.chips)} × ${fmtM(ev.mult)}`, 'tallyf', 1500);
+          Sound.play(ev.dmg >= 1000 ? 'chestBig' : 'coin');
+          await wait(450);
+          t.textContent = `= ${fmt(ev.dmg)}`;
+          if (ev.mult >= 5) shake($('#stage'), 5);
+          setScore(ev.score, 600);
+          await wait(650);
+          break;
+        }
         case 'spinEnd': clearSlot(); await wait(260); break;
         case 'end': setScore(ev.score, 200); await wait(500); break;
       }
@@ -532,7 +623,7 @@
   root.Render = {
     CELL, BOARD_TOP, state, fmt, wait,
     init() { buildSlot(); Art.preload(); },
-    drawBoard, setBet, setThresholds, setScore, setSpins, setGauge, clearSlot, replay, play, banner, floatText,
+    drawBoard, setBet, setThresholds, setScore, setSpins, setGauge, clearSlot, replay, play, banner, floatText, setCM,
     setHeld(held) { for (const row of slotEls) row.forEach((cell, c) => cell.classList.toggle('held', !!held[c])); },
     resetScore() { shownScore = 0; setScore(0, 1); },
     gaugeFrac,
