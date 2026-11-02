@@ -264,7 +264,8 @@
   let mob = null, mobHp = 0, mobMax = 1, mode = 'auto', alive = true;
   function setMob(card, hp, boss) {
     mob = card; mobHp = mobMax = hp;
-    $('#mobImg').src = C.cardImg(card);
+    // 전투 화면에선 흰 배경을 잘라낸 스프라이트(assets/mobs/*.webp) → 배경 위에 서 있는 것처럼
+    $('#mobImg').src = C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
     $('#mobName').textContent = (boss ? '👑 ' : '') + card.name;
     $('#mob').className = boss ? 'boss' : '';
     $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'translateX(-8px)', opacity: 1, offset: .7 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'ease-out' });
