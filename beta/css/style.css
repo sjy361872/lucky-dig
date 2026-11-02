@@ -729,3 +729,42 @@ body.battle .hide-spins { display: none !important; }
 .draft .opt .ic.itememoji { font-size: 34px; }
 .draft .opt i.hl { font-style: normal; font-weight: 900; color: #7a2fc9; }
 .draft .opt.route-rest i.hl { color: #c0392b; }
+
+/* ---- 도파민: 계산판 · 발동 알림 · 상자 룰렛 · 황금 상자 ---- */
+.tally { position: absolute; left: 6px; top: 4px; width: calc(100% - 12px); max-height: 220px; z-index: 11; background: rgba(20,12,4,.92); border: 2px solid #e0b23a; border-radius: 12px; padding: 6px 10px 8px; color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.5); overflow: hidden; transform-origin: 50% 0; }
+.tally .th { display: flex; align-items: baseline; justify-content: center; gap: 8px; font: 900 26px/1.1 'Arial Black', Arial, sans-serif; }
+.tally .th .tc { color: #5ab0ff; display: inline-block; } .tally .th .tm { color: #ff5e5e; display: inline-block; } .tally .th i { font-style: normal; color: #ccc; font-size: 18px; }
+.tally .tls { display: flex; flex-direction: column; gap: 1px; margin: 4px 0; max-height: 96px; overflow: hidden; justify-content: flex-end; }
+.tally .tl { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; line-height: 1.35; }
+.tally .tl span { color: #e8d6b0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tally .tl b { white-space: nowrap; }
+.tally .tl.r-chip b { color: #8cc8ff; } .tally .tl.r-mul b { color: #ff8a8a; } .tally .tl.r-guard b { color: #8ab8ff; }
+.tally .tl.r-hit span { color: #ffe9b0; } .tally .tl.r-hit b { display: none; }
+.tally .tl.r-x { font-size: 15px; } .tally .tl.r-x b { color: #ffd700; text-shadow: 0 0 6px #ff9a00; }
+.tally .tk-bar { height: 10px; border-radius: 6px; background: #3a2a1a; overflow: hidden; border: 1px solid #000; }
+.tally .tk-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff5e5e, #ffb04a); transition: width .25s; }
+.tally .tk small { display: block; text-align: center; font-size: 11px; color: #ffd0a0; margin-top: 2px; font-weight: 700; }
+.tally.lethal { border-color: #ff3b3b; box-shadow: 0 0 18px #ff3b3b; }
+.tally.lethal .tk-bar i { background: linear-gradient(90deg, #ffd700, #fff6a0); }
+.tally.lethal .tk small { color: #ffe14a; font-size: 13px; }
+.tally.close .tk small { color: #ff9a9a; font-size: 13px; }
+.tally .tt { text-align: center; font: 900 30px/1 'Arial Black', Arial, sans-serif; color: #ffe14a; -webkit-text-stroke: 1px #6b3a10; margin-top: 4px; }
+.callout { position: absolute; left: 4px; z-index: 10; display: flex; align-items: center; gap: 5px; padding: 3px 10px 3px 4px; background: linear-gradient(90deg, rgba(60,30,90,.95), rgba(60,30,90,.6)); border: 2px solid #c084fc; border-radius: 16px; color: #fff; font-size: 12px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.callout .ci { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.callout .ci img { width: 22px; height: 22px; object-fit: contain; }
+.callout .ci .itememoji { font-size: 16px; }
+.callout em { font-style: normal; color: #ffe14a; font-weight: 900; }
+.chestroll { position: absolute; transform: translate(-50%,-50%); z-index: 12; font: 900 34px/1 'Arial Black', Arial, sans-serif; color: #fff; -webkit-text-stroke: 1.5px #6b3a10; text-shadow: 0 3px 0 #6b3a10; pointer-events: none; }
+.chestroll.tease { color: #ffd700; text-shadow: 0 0 14px #ffd700, 0 3px 0 #6b3a10; }
+.chestroll.done { color: #ffe14a; font-size: 42px; }
+.chest .cmin { position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%); font: 900 11px/1 Arial, sans-serif; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; opacity: .9; }
+.chest .ctag { position: absolute; left: 50%; top: -8px; transform: translateX(-50%); font: 900 10px/1 Arial, sans-serif; color: #6b3a10; background: #ffe14a; border-radius: 6px; padding: 2px 4px; box-shadow: 0 0 6px #ffd700; }
+.chest .cbonus { position: absolute; right: -2px; top: 0; font: 900 12px/1 Arial, sans-serif; color: #fff; background: #d4142e; border-radius: 8px; padding: 2px 4px; border: 1px solid #fff; }
+.chest.treasure img { animation: treasureGlow 1.2s ease-in-out infinite; }
+@keyframes treasureGlow { 0%,100% { filter: drop-shadow(0 0 4px #ffd700) brightness(1.05); } 50% { filter: drop-shadow(0 0 12px #ffd700) drop-shadow(0 0 4px #fff) brightness(1.3); } }
+.stamp.treasure .loot { display: block; width: 96px; height: 96px; font-size: 80px; line-height: 96px; filter: drop-shadow(0 0 18px #ffd700); }
+.stamp.treasure .loot img { width: 96px; height: 96px; object-fit: contain; }
+.stamp.treasure small { font-size: 28px; }
+.stamp.treasure i { font-style: normal; font-size: 16px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #000; margin-top: 4px; }
+.stamp.treasure .loot .itememoji { font-size: 80px; line-height: 96px; }
+.stamp.treasure small { white-space: nowrap; font-size: 24px; color: #ffe14a; -webkit-text-stroke: 2px #6b3a10; }
