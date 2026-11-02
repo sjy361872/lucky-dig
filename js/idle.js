@@ -29,10 +29,14 @@
     rainbow:{ name: '무지개', w: 4, hit: 0, u: 4, desc: '가장 많은 그림으로 변신 (콤보 만들기)' },
     egg:   { name: '용의 알', w: 5, hit: 0, u: 6, desc: '금이 30번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
     mimic: { name: '미믹', w: 3, hit: 0, u: 8, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
-    gold:  { name: '황금 곡괭이', w: 6, hit: 3, u: 10, desc: '3타 · 3개 이상이면 잭팟!' },
+    gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 잭팟 · 4개 메가 잭팟 · 5개 그랜드 잭팟!' },
   };
   const COMBO = { 3: 2, 4: 4, 5: 10 };   // 같은 그림 n개 → 대미지 ×
-  const JACKPOT = { 3: 25, 4: 50, 5: 100 };   // 황금 곡괭이 n개 → 콤보 대신 이 배율
+  // 잭팟은 자주 터져야 재미 → 칸 수와 상관없이 약 80번에 한 번 꼴이 되도록 황금 곡괭이 비율을 칸 수에 맞춤
+  //  (3칸이면 3개가 다 나와야 하니 비율을 높게, 5칸이면 낮게). 대신 3개 잭팟의 배율은 적당히, 4·5개는 아주 크게
+  const JACKPOT = { 3: 10, 4: 30, 5: 100 };   // 황금 곡괭이 n개 → 콤보 대신 이 배율
+  const JACK_SEC = { 3: 10, 4: 120, 5: 600 };  // 잭팟 광석 = 몇 초치 수입
+  const GOLD_P = { 3: 0.2, 4: 0.14, 5: 0.10 }; // 슬롯 칸 수 → 황금 곡괭이가 나올 비율
   const EGG_N = 30, DRAGON_T = 30, DRAGON_X = 2, MIMIC_OK = 0.7, MIMIC_BITE = 0.25, WRENCH = 0.12;
   // 무지개가 여럿이 같은 개수일 때 우선 변신할 그림 (좋은 것부터)
   const WILD_PRI = ['gold', 'chest', 'gem', 'tnt', 'mimic', 'egg', 'glass', 'wrench', 'pick', 'coin'];
@@ -61,7 +65,7 @@
   // 밸런스 숫자 (tools/sim_idle.js 에서 환경변수로 바꿔 시험 가능)
   const env = (k, d) => +(globalThis.process && process.env[k]) || d;
   //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
-  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.21), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.6) };
+  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.6) };
   const mobHp = f => Math.round(BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
   const killGold = f => Math.ceil(BAL.KG * Math.pow(BAL.GG, f));
   const isSBoss = f => f % 5 === 4;
@@ -92,7 +96,12 @@
   // ---------- 슬롯 ----------
   const unlocked = st => Object.keys(SYMS).filter(k => (st.best || 0) >= SYMS[k].u);
   function weights(st) {
-    return unlocked(st).map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w]);
+    const list = unlocked(st).filter(k => k !== 'gold').map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w]);
+    if ((st.best || 0) >= SYMS.gold.u) {
+      const tot = list.reduce((a, e) => a + e[1], 0), p = GOLD_P[stat.cells(st.lv.cells)] || 0.1;
+      list.push(['gold', tot * p / (1 - p)]);
+    }
+    return list;
   }
   function pickW(rng, list) {
     let t = 0; for (const e of list) t += e[1];
@@ -158,7 +167,7 @@
       st.egg = (st.egg || 0) + r.cracks;
       if (st.egg >= EGG_N) { st.egg -= EGG_N; st.dragon = (st.dragon || 0) + DRAGON_T; out.hatched = true; }
     }
-    if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * 60 * (r.comboN - 2)); /* 잭팟 = 1~3분치 광석 */ st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
+    if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * JACK_SEC[Math.min(5, r.comboN)]); st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
     return out;
   }
   const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin));
@@ -218,5 +227,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
