@@ -40,6 +40,39 @@
     coin: 'assets/ui/coin.png', chest: 'assets/chests/c5.png', slot: 'assets/ui/cell_slot.png',
     pick3: 'assets/items/pick3.png', spin: 'assets/items/spin.png',
   };
+  // ---------- 곡괭이 진화: 공격력 25레벨마다(= 대미지 2배 되는 순간) 다음 곡괭이 ----------
+  const PICKS = [
+    { name: '나무 곡괭이', c: '#e8d2a8' }, { name: '구리 곡괭이', c: '#ffb27a' }, { name: '철 곡괭이', c: '#cfe3ff' },
+    { name: '황금 곡괭이', c: '#ffd34a' }, { name: '크리스탈 곡괭이', c: '#6fd8ff' }, { name: '용암 곡괭이', c: '#ff6a2a' },
+    { name: '번개 곡괭이', c: '#c08aff' }, { name: '무지개 곡괭이', c: '#ff8af0' },
+  ];
+  const EVOLVE = 25;
+  const tierOf = lv => Math.min(PICKS.length - 1, Math.floor(lv / EVOLVE));
+  const pickSrc = t => `assets/picks/pick${t + 1}.webp`;
+  function showPick() {
+    const t = tierOf(st.lv.atk), el = $('#pick');
+    el.dataset.t = t; el.style.setProperty('--pc', PICKS[t].c);
+    el.querySelector('img').src = pickSrc(t);
+    $('#pickName').textContent = PICKS[t].name;
+  }
+  // 진화 연출: 번쩍 → 새 곡괭이가 커졌다 돌아옴 → 배너
+  async function evolve() {
+    const t = tierOf(st.lv.atk), el = $('#pick');
+    evolving = true; setTimeout(() => evolving = false, 600);
+    Sound.play('drumroll');
+    el.querySelector('img').animate([{ filter: 'brightness(1)' }, { filter: 'brightness(6) saturate(0)' }], { duration: 500, fill: 'forwards' });
+    await wait(500);
+    showPick();
+    flash('#fff', .9, 500);
+    const [x, y] = arenaXY(el);
+    emit({ t: 'ring', x, y, r0: 20, r1: 230, w: 14, color: PICKS[t].c, life: .6 });
+    for (let i = 0; i < 40; i++) { const a = rnd() * 6.28, sp = 200 + rnd() * 500; emit({ t: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: .9, w: 4, color: rnd() < .5 ? PICKS[t].c : '#fff', life: .5 + rnd() * .3 }); }
+    el.querySelector('img').getAnimations().forEach(a => a.cancel());
+    el.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(.95)', offset: .6 }, { transform: 'scale(1)' }], { duration: 600, easing: 'ease-out' });
+    banner(`${PICKS[t].name}로 진화!`, `대미지 ×2 · ${t + 1}단계`, PICKS[t].c, 2000);
+    Sound.play('fanfare');
+    shake($('#arena'), 10, 400);
+  }
   const img = (k, cls = '') => `<img class="${cls}" src="${ICON[k]}" alt="" draggable="false">`;
 
   // ---------- 토스트 ----------
@@ -85,7 +118,7 @@
   // 큰 글씨 배너(잭팟 등): 뒤에서 빛줄기가 돌아감
   function banner(text, sub, color = '#ffd34a', ms = 1500) {
     const d = document.createElement('div');
-    d.className = 'banner'; d.style.setProperty('--c', color);
+    d.className = 'banner' + (text.length > 7 ? ' long' : ''); d.style.setProperty('--c', color);
     d.innerHTML = `<i class="rays"></i><b>${text}</b>${sub ? `<small>${sub}</small>` : ''}`;
     $('#fx').appendChild(d);
     d.animate([
@@ -140,15 +173,16 @@
   }
   const ROCK = ['#8a6a4a', '#c9a26a', '#5a4030', '#e2c393', '#6b5040'];
   const HOT = ['#fff6c0', '#ffd34a', '#ff9a3a'];
+  const hot = () => rnd() < .4 ? PICKS[tierOf(st.lv.atk)].c : pick(HOT);
   const pick = a => a[Math.floor(rnd() * a.length)];
   // 한 대 때릴 때: 베기 궤적 + 불꽃 + 돌 파편 (+크리티컬이면 충격파)
   function hitBurst(x, y, crit, huge) {
     const a = -0.6 + (rnd() - .5) * .8;
-    emit({ t: 'slash', x: x - 10, y, r: crit ? 70 : 55, a, sweep: 2.2, w: crit ? 12 : 8, color: crit ? '#ffd34a' : '#bfefff', life: .22 });
+    emit({ t: 'slash', x: x - 10, y, r: crit ? 70 : 55, a, sweep: 2.2, w: crit ? 12 : 8, color: crit ? '#ffd34a' : PICKS[tierOf(st.lv.atk)].c, life: .22 });
     const n = huge ? 26 : crit ? 16 : 8;
     for (let i = 0; i < n; i++) {
       const ang = rnd() * Math.PI * 2, sp = 250 + rnd() * (crit ? 520 : 300);
-      emit({ t: 'spark', x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, drag: .9, w: 3, color: pick(HOT), life: .25 + rnd() * .2 });
+      emit({ t: 'spark', x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, drag: .9, w: 3, color: hot(), life: .25 + rnd() * .2 });
     }
     for (let i = 0; i < (crit ? 10 : 5); i++) {
       emit({ t: 'shard', x, y, vx: 80 + rnd() * 260, vy: -150 - rnd() * 260, g: 1100, rot: rnd() * 6, vr: (rnd() - .5) * 20, s: 4 + rnd() * 6, color: pick(ROCK), floor: 300, life: .7 + rnd() * .4 });
@@ -265,7 +299,9 @@
   function setMob(card, hp, boss) {
     mob = card; mobHp = mobMax = hp;
     // 전투 화면에선 흰 배경을 잘라낸 스프라이트(assets/mobs/*.webp) → 배경 위에 서 있는 것처럼
-    $('#mobImg').src = C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
+    const spr = C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
+    $('#mobImg').src = spr;
+    const cr = $('#mob .crack'); cr.style.webkitMaskImage = cr.style.maskImage = `url(${spr})`;
     $('#mobName').textContent = (boss ? '👑 ' : '') + card.name;
     $('#mob').className = boss ? 'boss' : '';
     $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'translateX(-8px)', opacity: 1, offset: .7 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'ease-out' });
@@ -277,14 +313,55 @@
     // 흰 잔상 바: 잠깐 남았다가 따라 줄어듦 → 얼마나 깎였는지 보임
     if (reset) { g.style.transition = 'none'; g.style.width = w; void g.offsetWidth; g.style.transition = ''; } else g.style.width = w;
     $('#hpText').textContent = `${fmt(Math.max(0, mobHp))} / ${fmt(mobMax)}`;
+    hurtLook();
+  }
+  // ---------- 맞은 모습: 몬스터별 그림 없이 코드로 ----------
+  //  금 간 무늬를 몬스터 실루엣(투명 배경 그림)대로만 덧씌움 → 체력이 줄수록 금이 늘어남
+  //  체력 30% 아래면 붉어지고 부들부들 떨림
+  const CRACKS = [];
+  function makeCracks() {
+    let seed = 7; const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    let prev = null;
+    for (let stage = 0; stage < 3; stage++) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+      const c = cv.getContext('2d');
+      if (prev) c.drawImage(prev, 0, 0);                     // 앞 단계 금 위에 더 그림
+      const line = (x, y, ang, len, w, depth) => {
+        let px = x, py = y;
+        for (let i = 0; i < len; i++) {
+          ang += (r() - .5) * .9;
+          const nx = px + Math.cos(ang) * 9, ny = py + Math.sin(ang) * 9;
+          c.lineCap = 'round';
+          c.strokeStyle = 'rgba(35,15,5,.95)'; c.lineWidth = w; c.beginPath(); c.moveTo(px, py); c.lineTo(nx, ny); c.stroke();
+          c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = w * .4; c.beginPath(); c.moveTo(px + 1.2, py + 1.2); c.lineTo(nx + 1.2, ny + 1.2); c.stroke();
+          px = nx; py = ny; w *= .93;
+          if (depth < 2 && r() < .18) line(px, py, ang + (r() < .5 ? 1 : -1) * (.6 + r() * .6), len * .5, w * .8, depth + 1);
+        }
+      };
+      for (let k = 0; k < 2 + stage; k++) { const a = r() * 6.28; line(128 + Math.cos(a) * 20, 120 + Math.sin(a) * 20, a, 10 + stage * 2, 7, 0); }
+      CRACKS.push(cv.toDataURL()); prev = cv;
+    }
+  }
+  function hurtLook() {
+    const f = Math.max(0, mobHp / mobMax), m = $('#mob');
+    const stage = f > .75 ? -1 : f > .5 ? 0 : f > .25 ? 1 : 2;
+    const cr = $('#mob .crack');
+    if (cr.dataset.s != stage) { cr.dataset.s = stage; cr.style.backgroundImage = stage < 0 ? 'none' : `url(${CRACKS[stage]})`; }
+    m.classList.toggle('weak', f > 0 && f <= .3);
+  }
+  // 크리티컬: 머리 위로 별이 빙글빙글 (기절)
+  function dizzy() {
+    const s = $('#mob .stars'); s.innerHTML = '<i>⭐</i><i>💫</i><i>⭐</i>';
+    s.classList.remove('on'); void s.offsetWidth; s.classList.add('on');
+    clearTimeout(dizzy.t); dizzy.t = setTimeout(() => { s.classList.remove('on'); s.innerHTML = ''; }, 1000);
   }
   function newMob() { setMob(I.mobCard(C, st.floor, rnd, false), I.mobHp(st.floor), false); alive = true; }
 
   // 공격 한 번: 광부 휘두름 → 몬스터 맞음
   async function hit(r, big) {
-    const mi = $('#miner');
+    const mi = $('#pick');
     mi.classList.remove('swing'); void mi.offsetWidth; mi.classList.add('swing');
-    await wait(120);                                    // 곡괭이가 내려꽂히는 순간에 맞춤
+    await wait(125);                                    // 곡괭이가 내려꽂히는 순간에 맞춤
     const m = $('#mob .mimg'), [x, y] = arenaXY(m);
     const crit = r.combo > 1 || r.chests > 0;
     const huge = r.comboN >= 4 || r.chests >= 2 || (r.combo > 1 && r.chests > 0);
@@ -293,12 +370,13 @@
     m.classList.remove('hurt'); void m.offsetWidth;
     // 히트스톱: 큰 한 방은 화면이 아주 잠깐 멈춤 → '묵직하다'는 느낌
     if (crit) {
-      m.style.filter = 'brightness(4) saturate(0)'; mi.style.animationPlayState = 'paused';
+      m.style.filter = 'brightness(4) saturate(0)'; mi.firstElementChild.style.animationPlayState = 'paused';
       hitBurst(x, y, true, huge);
       await wait(huge ? 150 : 75);
-      m.style.filter = ''; mi.style.animationPlayState = '';
+      m.style.filter = ''; mi.firstElementChild.style.animationPlayState = '';
     } else hitBurst(x, y, false, false);
     m.classList.add(crit ? 'hurtbig' : 'hurt');
+    if (crit) dizzy();
     setTimeout(() => m.classList.remove('hurtbig'), 350);
     floatAt(x + (rnd() - .5) * 40, y - 70, fmt(r.dmg), crit ? 'crit' : '', crit ? 1300 : 800, { dx: (rnd() - .5) * 70, punch: crit ? 1.9 : 1.3 });
     Sound.play('hit', { type: crit ? 'diamond' : 'stone', ratio: .5 });
@@ -454,6 +532,7 @@
     $('#bossBtn').classList.toggle('ready', ready && mode === 'auto');
     const shots = Math.max(1, I.mobHp(st.floor) / Math.max(1, avgCache));
     $('#killHint').textContent = mode === 'boss' ? '' : `평균 ${shots <= 1 ? '한 방' : f2(Math.ceil(shots * 10) / 10) + '방'}에 처치`;
+    syncPick();
     if (tab === 'up') updateButtons();
   }
   function upDesc(k) {
@@ -462,7 +541,11 @@
     const pct = (w, lvx) => Math.round(w / tot(lvx) * 100) + '%';
     const L2 = Object.assign({}, st.lv, { [k]: nx });
     switch (k) {
-      case 'atk': return `공격력 ${fmt(S.atk(lv))} → <b>${fmt(S.atk(nx))}</b>${nx % 25 === 0 ? ' <em>2배!</em>' : ''}`;
+      case 'atk': {
+        const left = EVOLVE - lv % EVOLVE, nt = tierOf(nx);
+        const evo = nx % EVOLVE === 0 ? (nt > tierOf(lv) ? ` <em>2배 + ${PICKS[nt].name}!</em>` : ' <em>2배!</em>') : ` <i class="evo">진화까지 ${left}</i>`;
+        return `공격력 ${fmt(S.atk(lv))} → <b>${fmt(S.atk(nx))}</b>${evo}`;
+      }
       case 'spd': return `초당 ${f2(S.aps(lv))}번 → <b>${f2(S.aps(nx))}번</b>`;
       case 'gem': return `💎 확률 ${pct(S.gemW(lv), st.lv)} → <b>${pct(S.gemW(nx), L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
       case 'chest': return `📦 확률 ${pct(S.chestW(lv), st.lv)} → <b>${pct(S.chestW(nx), L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
@@ -475,7 +558,7 @@
   function renderList() {
     const L = $('#list');
     if (tab === 'up') {
-      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${img(I.UP[k].icon)}</div>
+      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(tierOf(st.lv.atk))}" alt="">` : img(I.UP[k].icon)}</div>
         <div class="ut"><b>${I.UP[k].name} <small>Lv.${st.lv[k]}</small></b><span class="ud"></span></div>
         <button class="ub" data-k="${k}"></button></div>`).join('');
       L.querySelectorAll('.ub').forEach(b => b.onclick = () => {
@@ -487,18 +570,26 @@
         const row = b.closest('.up'); row.animate([{ background: '#fff3a0' }, { background: '' }], { duration: 400 });
         row.querySelector('.ui').animate([{ transform: 'scale(1.35) rotate(-12deg)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.3,1.6,.5,1)' });
         // 강화하면 광부가 잠깐 빛남 → "세졌다"를 화면 위쪽에서도 느끼게
-        $('#miner img').animate([{ filter: 'drop-shadow(0 0 18px #ffd34a) brightness(1.6)' }, { filter: 'drop-shadow(0 6px 4px rgba(0,0,0,.45))' }], { duration: 450 });
-        const [mx, my] = arenaXY($('#miner'));
-        floatAt(mx, my - 60, `${I.UP[k].name} UP!`, 'upf', 900, { punch: 1.3 });
+        $('#pick img').animate([{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }], { duration: 450 });
+        const [mx, my] = arenaXY($('#pick'));
+        floatAt(mx, my - 70, `${I.UP[k].name} UP!`, 'upf', 900, { punch: 1.3 });
+        if (k === 'atk') { renderIcon(); if (st.lv.atk % EVOLVE === 0 && tierOf(st.lv.atk) > tierOf(st.lv.atk - 1)) evolve(); }
         renderRow(k); refreshTop(); save();
       });
       Object.keys(I.UP).forEach(renderRow);
     } else {
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
-      L.innerHTML = `<p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
+      const pt = tierOf(st.lv.atk);
+      L.innerHTML = `<p class="dexh">⛏ 곡괭이 진화 <b>${pt + 1}</b> / ${PICKS.length} · 공격력 ${EVOLVE}레벨마다 진화</p>
+        <div class="pkrow">${PICKS.map((p, i) => `<div class="pk ${i <= pt ? 'on' : ''}"><img src="${pickSrc(i)}" alt=""><small>${i <= pt ? p.name : '???'}</small></div>`).join('')}</div>
+        <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
         <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 몬스터 10마리를 잡고 👑 보스에 도전하세요!</p>'}</div>`;
     }
   }
+  function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(tierOf(st.lv.atk)); }
+  // 진화 연출 없이 단계가 바뀐 경우(불러오기 등)에도 그림을 맞춤
+  function syncPick() { if (+$('#pick').dataset.t !== tierOf(st.lv.atk) && !evolving) showPick(); }
+  let evolving = false;
   function renderRow(k) {
     const row = $(`#list .up[data-k="${k}"]`); if (!row) return;
     row.querySelector('.ut b').innerHTML = `${I.UP[k].name} <small>Lv.${st.lv[k]}</small>`;
@@ -527,7 +618,7 @@
 
   // ---------- 시작 ----------
   function start() {
-    load(); fit();
+    load(); fit(); makeCracks(); showPick();
     const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
     goldShown = st.gold; goldTick();
     buildCells();
@@ -548,7 +639,7 @@
     });
     setInterval(() => { if (!document.hidden) save(); }, 5000);
     offlineReward().then(() => autoLoop());
-    window.__idle = { st: () => st, I, save };
+    window.__idle = { st: () => st, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
   }
   start();
 })();

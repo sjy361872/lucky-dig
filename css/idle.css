@@ -154,3 +154,44 @@ body.bossmode .cell:not(.locked) { cursor: pointer; }
 #mob .mimg img { animation: mobIdle 1.6s ease-in-out infinite; }
 #mob .mimg.hurt { animation: hurt2 .28s ease-out; }
 #mob .mimg.hurtbig { animation: hurt3 .38s ease-out; }
+
+/* ===== 맞은 모습 (금 · 약해짐 · 기절 별) ===== */
+#mob .mimg img { animation: none; }
+#mob .spr { position: relative; width: 100%; height: 100%; animation: mobIdle 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+#mob .spr img { width: 100%; height: 100%; }
+#mob .crack { position: absolute; inset: 0; background-size: 80% 80%; background-position: 50% 45%; background-repeat: no-repeat;
+  -webkit-mask-size: contain; mask-size: contain; -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; pointer-events: none; }
+#mob.weak .spr { animation: weakShake .18s linear infinite; }
+#mob.weak .spr img { filter: drop-shadow(0 0 2px rgba(255,255,255,.6)) sepia(.4) saturate(1.6) hue-rotate(-25deg) brightness(.92); }
+@keyframes weakShake { 0%,100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-2px) rotate(-1.5deg); } 75% { transform: translateX(2px) rotate(1.5deg); } }
+#mob .stars { position: absolute; left: 50%; top: 2%; width: 0; height: 0; }
+#mob .stars i { position: absolute; font-style: normal; font-size: 20px; opacity: 0; }
+#mob .stars.on i { animation: orbit 1s linear forwards; }
+#mob .stars.on i:nth-child(2) { animation-delay: -.33s; } #mob .stars.on i:nth-child(3) { animation-delay: -.66s; }
+@keyframes orbit {
+  0% { transform: translate(-50%,-50%) rotate(0) translateX(46px) rotate(0) scaleY(2); opacity: 1; }
+  100% { transform: translate(-50%,-50%) rotate(360deg) translateX(46px) rotate(-360deg) scaleY(2); opacity: 0; }
+}
+
+/* ===== 곡괭이가 주인공: 사람 없이 곡괭이가 직접 내려침 ===== */
+#pick { position: absolute; left: 34px; top: 66px; width: 170px; z-index: 3; text-align: center; --pc: #fff; }
+#pick img { width: 100%; display: block; transform-origin: 18% 88%; transform: rotate(-22deg);
+  filter: drop-shadow(0 0 10px var(--pc)) drop-shadow(0 6px 4px rgba(0,0,0,.4)); animation: pickIdle 2s ease-in-out infinite; }
+#pick small { position: absolute; left: 0; right: 0; top: 196px; color: #fff; font-weight: 900; font-size: 13px; text-shadow: 0 2px 0 #000, 0 0 8px var(--pc); }
+@keyframes pickIdle { 50% { transform: rotate(-26deg) translateY(-6px); } }
+#pick.swing img { animation: pickSwing .3s cubic-bezier(.4,0,.2,1); }
+@keyframes pickSwing {
+  0% { transform: rotate(-22deg); }
+  38% { transform: rotate(-48deg) translate(-8px, -4px); }
+  52% { transform: rotate(48deg) translate(70px, 6px); }
+  70% { transform: rotate(40deg) translate(64px, 4px); }
+  100% { transform: rotate(-22deg); }
+}
+#pick[data-t="0"] img, #pick[data-t="1"] img { filter: drop-shadow(0 6px 4px rgba(0,0,0,.45)); }
+.up .ud i.evo { font-style: normal; font-size: 11px; color: #8a6a4a; background: #f0dcb4; border-radius: 6px; padding: 0 4px; }
+.pkrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.pk { text-align: center; background: #fffaf0; border: 2px solid #d9b97e; border-radius: 10px; padding: 4px; }
+.pk img { width: 100%; aspect-ratio: 1; object-fit: contain; filter: brightness(0) opacity(.25); }
+.pk.on img { filter: none; }
+.pk small { font-size: 10px; display: block; }
+.banner.long b { font-size: 34px; -webkit-text-stroke: 2px #3a1500; }
