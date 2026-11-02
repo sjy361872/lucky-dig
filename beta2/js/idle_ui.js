@@ -26,7 +26,8 @@
       if (s && s.lv) {
         const old = !s.picks;
         st = Object.assign(I.newState(), s); st.lv = Object.assign(I.newState().lv, s.lv);
-        if (old) { st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25)); st.pkMax = st.eq; }
+        if (old) st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25));
+        if (typeof st.eq === 'number' || (st.picks || []).some(x => typeof x === 'number') || !st.eq) I.migratePicks(st, rnd);   // v1 → v2
         st.allBest = Math.max(st.allBest || 0, st.best || 0);
         I.setRun(st);
         return;
@@ -59,13 +60,15 @@
     { name: '번개 곡괭이', c: '#c08aff' }, { name: '무지개 곡괭이', c: '#ff8af0' },
   ];
   // 곡괭이 모양 = 장착한 곡괭이 등급 (합성으로 얻음)
-  const cur = () => st.eq || 0;
+  const cur = () => Math.min(7, (st.eq && st.eq.g) || 0);          // 그림 등급 (무지개★ 는 무지개 그림)
+  const TY = t => I.PICK.types[t];
+  const stars = g => g > 7 ? `<i class="star">★${g - 7}</i>` : '';
   const pickSrc = t => `assets/picks/pick${t + 1}.webp`;
   function showPick() {
     const t = cur(), el = $('#pick');
-    el.dataset.t = t; el.style.setProperty('--pc', PICKS[t].c);
+    el.dataset.t = t; el.dataset.k = `${st.eq.t}:${st.eq.g}`; el.style.setProperty('--pc', PICKS[t].c);
     el.querySelector('img').src = pickSrc(t);
-    $('#pickName').textContent = PICKS[t].name;
+    $('#pickName').textContent = `${TY(st.eq.t).e} ${I.gradeName(st.eq.g)} ${TY(st.eq.t).name}`;
   }
   // 진화 연출: 번쩍 → 새 곡괭이가 커졌다 돌아옴 → 배너
   async function evolve() {
@@ -81,8 +84,8 @@
     for (let i = 0; i < 40; i++) { const a = rnd() * 6.28, sp = 200 + rnd() * 500; emit({ t: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: .9, w: 4, color: rnd() < .5 ? PICKS[t].c : '#fff', life: .5 + rnd() * .3 }); }
     el.querySelector('img').getAnimations().forEach(a => a.cancel());
     el.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(.95)', offset: .6 }, { transform: 'scale(1)' }], { duration: 600, easing: 'ease-out' });
-    banner(`${PICKS[t].name}!`, `공격력 ×${f2(I.pickMult(st))}`, PICKS[t].c, 2000);
-    if (I.PICK.ability[t]) setTimeout(() => toast(`능력: ${I.PICK.ability[t]}`), 600);
+    banner(`${I.gradeName(st.eq.g)} 곡괭이!`, `${TY(st.eq.t).e} ${TY(st.eq.t).name} · 공격력 ×${f2(I.pickMult(st))}`, PICKS[t].c, 2000);
+    setTimeout(() => toast(`능력: ${I.abilText(st.eq)}`), 600);
     Sound.play('fanfare');
     shake($('#arena'), 10, 400);
   }
@@ -794,67 +797,160 @@
   }
   function hideTip() { clearTimeout(tipT); $('#tip').hidden = true; }
 
-  // ---------- ⛏ 곡괭이 가방 · 합성 ----------
+  // ---------- ⛏ 곡괭이 가방 · 합성 v2 (docs/pickaxe-merge-v2.md) ----------
   let pkSel = -1, pkNew = 0;
   function pkBadge() { const b = $('#tabs button[data-t="pk"]'); if (b) b.dataset.n = pkNew > 0 ? pkNew : ''; }
-  // 곡괭이를 얻음: 몬스터 자리에서 곡괭이가 튀어나와 '곡괭이' 탭으로 날아감
-  function gotPick(g, x, y) {
-    if (g == null || g < 0) return;
+  // 곡괭이 한 칸 그림: 등급 그림 + 종류 색 테두리 + 종류 문양 + 별
+  const pkCell = p => `<img src="${pickSrc(Math.min(7, p.g))}" alt=""><b class="ty">${TY(p.t).e}</b><small>${p.g < 8 ? p.g + 1 : ''}</small>${stars(p.g)}`;
+  // 곡괭이(또는 상자)를 얻음: 몬스터 자리에서 튀어나와 '곡괭이' 탭으로 날아감
+  function gotPick(p, x, y) {
+    if (!p) return;
     pkNew++; pkBadge();
     const app = $('#app').getBoundingClientRect(), sc = app.width / 440, to = $('#tabs button[data-t="pk"]').getBoundingClientRect();
     const ar = $('#arena').getBoundingClientRect();
     const x0 = (ar.left - app.left) / sc + x, y0 = (ar.top - app.top) / sc + y;
     const x1 = (to.left + to.width / 2 - app.left) / sc, y1 = (to.top + to.height / 2 - app.top) / sc;
-    const c = document.createElement('img'); c.src = pickSrc(g); c.className = 'pkfly';
+    const c = document.createElement('img'); c.src = p === 'box' ? 'assets/chests/c5.png' : pickSrc(Math.min(7, p.g)); c.className = 'pkfly';
     c.style.left = x0 + 'px'; c.style.top = y0 + 'px'; $('#app').appendChild(c);
     c.animate([{ transform: 'translate(-50%,-50%) scale(.3) rotate(0)' }, { transform: `translate(-50%,-50%) translate(${(x1 - x0) * .2}px,-70px) scale(1.2) rotate(-200deg)`, offset: .35 },
       { transform: `translate(-50%,-50%) translate(${x1 - x0}px,${y1 - y0}px) scale(.5) rotate(-360deg)` }], { duration: 900, easing: 'ease-in' });
     setTimeout(() => { c.remove(); $('#tabs button[data-t="pk"]').animate([{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 250 }); if (tab === 'pk') renderPk(); }, 900);
-    toast(`🎁 ${I.PICK.names[g]} 획득!`);
+    toast(p === 'box' ? '🎁 곡괭이 상자 획득! (곡괭이 탭에서 열기)' : `🎁 ${I.pickName(p)} 획득!`);
     Sound.play('chestBig');
     save();
   }
-  function renderPk() {
-    const L = $('#list'), e = cur(), full = st.picks.every(x => x != null);
-    const sel = pkSel >= 0 ? st.picks[pkSel] : null;
-    L.innerHTML = `<div class="pkeq" style="--pc:${PICKS[e].c}"><img src="${pickSrc(e)}" alt=""><div><small>장착 중</small><b>${PICKS[e].name}</b>
-        <span>공격력 ×${f2(I.pickMult(st))}${I.PICK.ability[e] ? ' · ' + I.PICK.ability[e] : ''}</span></div></div>
-      <p class="pkhelp">${sel != null ? `<b>${PICKS[sel].name}</b> 선택됨 · 같은 곡괭이를 누르면 합성` : '곡괭이를 누르고 → 같은 곡괭이를 누르면 합성!'}${full ? ' · <em>가방이 꽉 찼어요</em>' : ''}</p>
-      <div class="pkgrid">${st.picks.map((g, i) => `<div class="pkc ${g == null ? 'empty' : ''} ${i === pkSel ? 'sel' : ''} ${sel != null && g === sel && i !== pkSel && g < 7 ? 'match' : ''}" data-i="${i}" style="${g != null ? `--pc:${PICKS[g].c}` : ''}">${g != null ? `<img src="${pickSrc(g)}" alt=""><small>${g + 1}</small>` : ''}</div>`).join('')}</div>
-      <div class="pkbtns"><button id="pkAuto">✨ 자동 합성</button><button id="pkEquip" ${sel == null ? 'disabled' : ''}>⛏ 장착</button></div>
-      ${sel != null ? `<p class="pkinfo"><b>${PICKS[sel].name}</b> · 공격력 ×${f2(Math.pow(I.PICK.X, sel))}${I.PICK.ability[sel] ? ' · ' + I.PICK.ability[sel] : ''}</p>` : ''}`;
-    L.querySelectorAll('.pkc').forEach(c => c.onclick = () => pkTap(+c.dataset.i));
-    $('#pkAuto').onclick = () => {
-      const made = I.autoMerge(st); pkSel = -1;
-      if (!made.length) { toast('합칠 수 있는 곡괭이가 없어요'); return; }
-      Sound.play('fanfare'); toast(`✨ ${made.length}번 합성! 최고 ${I.PICK.names[Math.max(...made)]}`);
-      renderPk(); L.querySelectorAll('.pkc img').forEach(im => im.animate([{ transform: 'scale(1.4)', filter: 'brightness(3)' }, { transform: 'scale(1)', filter: 'none' }], { duration: 400 }));
-      newBest(Math.max(...made)); save();
-    };
-    $('#pkEquip').onclick = () => { if (pkSel < 0) return; equipAt(pkSel); };
+  // 🎁 상자 열기 연출: 흔들림 → 빛 → 열림 → 곡괭이 등장
+  let boxBusy = false;
+  async function boxFx(p) {
+    boxBusy = true;
+    const o = document.createElement('div'); o.className = 'boxfx';
+    o.innerHTML = `<i class="rays"></i><img class="bx" src="assets/chests/c5.png" alt=""><div class="got" hidden></div>`;
+    $('#app').appendChild(o);
+    const bx = o.querySelector('.bx');
+    Sound.play('drumroll');
+    await bx.animate([{ transform: 'scale(.4)' }, { transform: 'scale(1.1)', offset: .5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' }).finished;
+    await bx.animate([0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ transform: `rotate(${i % 2 ? -1 : 1}${4 + i * 1.5}deg) scale(${1 + i * .02})` })), { duration: 700 }).finished;
+    flash('#fff', .9, 350); Sound.play('chestBig');
+    bx.src = 'assets/chests/c5_open.png';
+    const g = o.querySelector('.got'); g.hidden = false;
+    g.style.setProperty('--tc', TY(p.t).c);
+    g.innerHTML = `<div class="gp">${pkCell(p)}</div><b>${I.pickName(p)}</b><small>${I.abilText(p)}</small>`;
+    g.animate([{ transform: 'translateY(40px) scale(.3)', opacity: 0 }, { transform: 'translateY(-10px) scale(1.15)', opacity: 1, offset: .6 }, { transform: 'none', opacity: 1 }], { duration: 450, easing: 'ease-out' });
+    if (p.g >= 2) Sound.play('fanfare');
+    await new Promise(done => { const end = () => { o.remove(); done(); }; o.onclick = end; setTimeout(end, 1800); });
+    boxBusy = false;
   }
-  let pkBest = -1;
-  function newBest(g) { if (g > pkBest) { pkBest = g; if (g > 0) { banner('새 곡괭이!', PICKS[g].name, PICKS[g].c, 1600); flash('#fff', .5, 300); } } }
+  async function openBoxUI(buy) {
+    if (boxBusy) return;
+    if (!st.picks.includes(null)) { I.autoMerge(st); if (!st.picks.includes(null)) return toast('가방이 꽉 찼어요. 판매하거나 분해해 주세요'); }
+    if (buy && st.gold < I.boxPrice(st)) return toast('광석이 부족해요');
+    const p = I.openBox(st, rnd, buy); if (!p) return;
+    save(); refreshTop();
+    await boxFx(p);
+    renderPk();
+  }
+  function renderPk() {
+    const L = $('#list'), e = st.eq, full = !st.picks.includes(null);
+    const sel = pkSel >= 0 ? st.picks[pkSel] : null;
+    const price = I.boxPrice(st);
+    L.innerHTML = `<div class="pkeq" style="--pc:${PICKS[cur()].c};--tc:${TY(e.t).c}"><div class="gp">${pkCell(e)}</div><div><small>장착 중</small><b>${I.pickName(e)}</b>
+        <span>공격력 ×${f2(I.pickMult(st))} · ${I.abilText(e)}</span></div></div>
+      <div class="pkshop">
+        ${st.boxes > 0 ? `<button id="pkOpen" class="hot">🎁 상자 열기 <b>${st.boxes}</b></button>` : ''}
+        <button id="pkBuy" ${st.gold < price ? 'disabled' : ''}>🎁 상자 사기 <b><img src="${ICON.coin}" alt="">${fmt(price)}</b></button>
+        <button id="pkCraft" ${(st.frags || 0) < I.PICK.FRAG ? 'disabled' : ''}>🔩 ${st.frags || 0} · 제작</button>
+      </div>
+      <p class="pkhelp">${sel ? `<b>${I.pickName(sel)}</b> · ${I.abilText(sel)}` : '같은 종류·같은 등급을 <b>끌어서 겹치거나</b> 차례로 누르면 합성!'}${full ? ' · <em>가방이 꽉 찼어요</em>' : ''}</p>
+      <div class="pkgrid">${st.picks.map((p, i) => `<div class="pkc ${p ? '' : 'empty'} ${i === pkSel ? 'sel' : ''} ${sel && i !== pkSel && p && p.t === sel.t && p.g === sel.g ? 'match' : ''}" data-i="${i}" style="${p ? `--pc:${PICKS[Math.min(7, p.g)].c};--tc:${TY(p.t).c}` : ''}">${p ? pkCell(p) : ''}</div>`).join('')}</div>
+      <div class="pkbtns"><button id="pkAuto">✨ 자동 합성</button><button id="pkEquip" ${sel ? '' : 'disabled'}>⛏ 장착</button>
+        <button id="pkSell" ${sel ? '' : 'disabled'}>💰 ${sel ? fmt(I.sellPrice(st, sel)) : '판매'}</button><button id="pkScrap" ${sel ? '' : 'disabled'}>🔩 ${sel ? '+' + fmt(3 * Math.pow(2, Math.min(12, sel.g))) : '분해'}</button></div>`;
+    const ob = $('#pkOpen'); if (ob) ob.onclick = () => openBoxUI(false);
+    $('#pkBuy').onclick = () => openBoxUI(true);
+    $('#pkCraft').onclick = craftUI;
+    $('#pkAuto').onclick = () => {
+      const before = I.dexCount(st), made = I.autoMerge(st); pkSel = -1;
+      if (!made.length) { toast('합칠 수 있는 곡괭이가 없어요'); return; }
+      Sound.play('fanfare');
+      const top = made.reduce((a, b) => b.g > a.g ? b : a);
+      toast(`✨ ${made.length}번 합성! 최고 ${I.pickName(top)}`);
+      renderPk(); L.querySelectorAll('.pkc img').forEach(im => im.animate([{ transform: 'scale(1.4)', filter: 'brightness(3)' }, { transform: 'scale(1)', filter: 'none' }], { duration: 400 }));
+      dexFx(I.dexCount(st) - before); save();
+    };
+    $('#pkEquip').onclick = () => { if (pkSel >= 0) equipAt(pkSel); };
+    $('#pkSell').onclick = () => { if (pkSel < 0) return; const v = I.sellPick(st, pkSel); pkSel = -1; Sound.play('coin'); toast(`💰 광석 +${fmt(v)}`); goldBump(); renderPk(); refreshTop(); save(); };
+    $('#pkScrap').onclick = () => { if (pkSel < 0) return; const v = I.scrapPick(st, pkSel); pkSel = -1; Sound.play('click'); toast(`🔩 조각 +${fmt(v)}`); renderPk(); save(); };
+    bindDrag();
+  }
+  // 새로 도감에 오른 곡괭이가 있으면 축하
+  function dexFx(n) { if (n > 0) { banner('곡괭이 도감 등록!', `공격력 +${n * 2}% (총 +${I.dexCount(st) * 2}%)`, '#ffd34a', 1600); flash('#fff', .4, 300); recalc(); } }
+  function craftUI() {
+    if ((st.frags || 0) < I.PICK.FRAG) return;
+    const m = $('#modal');
+    m.innerHTML = `<div class="box"><h3>🔩 곡괭이 제작</h3><p>조각 ${I.PICK.FRAG}개로 <b>나무 곡괭이</b> 1개를 만들어요.<br>어떤 종류로 만들까요? (보유 조각 ${fmt(st.frags)})</p>
+      <div class="crow">${I.PICK.types.map((T, t) => `<button class="mbtn ty" data-t="${t}" style="--tc:${T.c}">${T.e}<small>${T.name}</small></button>`).join('')}</div>
+      <button class="mbtn ghost" data-t="-1">닫기</button></div>`;
+    m.hidden = false;
+    m.querySelectorAll('.mbtn').forEach(b => b.onclick = () => {
+      const t = +b.dataset.t; m.hidden = true; m.innerHTML = '';
+      if (t < 0) return;
+      const before = I.dexCount(st), p = I.craftPick(st, t);
+      if (!p) return toast('가방이 꽉 찼어요');
+      Sound.play('chestBig'); toast(`🔩 ${I.pickName(p)} 제작!`); renderPk(); dexFx(I.dexCount(st) - before); save();
+    });
+  }
   function equipAt(i) {
-    const before = cur();
+    const before = `${st.eq.t}:${st.eq.g}`;
     if (!I.equipPick(st, i)) return;
     pkSel = -1; Sound.play('click');
-    if (cur() !== before) { evolve(); recalc(); renderIcon(); }
+    if (`${st.eq.t}:${st.eq.g}` !== before) { evolve(); recalc(); renderIcon(); setDur(); }
     renderPk(); refreshTop(); save();
   }
+  function tryMerge(a, b) {
+    const before = I.dexCount(st), n = I.mergePicks(st, a, b);
+    if (!n) return false;
+    pkSel = -1; Sound.play('chestBig'); renderPk();
+    const c = $(`#list .pkc[data-i="${b}"]`);
+    if (c) c.animate([{ transform: 'scale(1.5)', filter: 'brightness(4)' }, { transform: 'scale(.9)', offset: .6 }, { transform: 'scale(1)', filter: 'none' }], { duration: 450, easing: 'ease-out' });
+    toast(`✨ ${I.pickName(n)} 완성!`); dexFx(I.dexCount(st) - before); save();
+    return true;
+  }
   function pkTap(i) {
-    const g = st.picks[i];
-    if (pkSel < 0) { if (g != null) { pkSel = i; Sound.play('click'); } renderPk(); return; }
+    const p = st.picks[i];
+    if (pkSel < 0) { if (p) { pkSel = i; Sound.play('click'); } renderPk(); return; }
     if (i === pkSel) { pkSel = -1; renderPk(); return; }
-    if (g != null && g === st.picks[pkSel] && g < 7) {
-      const ng = I.mergePicks(st, pkSel, i); pkSel = -1;
-      Sound.play('chestBig'); renderPk();
-      const c = $(`#list .pkc[data-i="${i}"]`);
-      if (c) { c.animate([{ transform: 'scale(1.5)', filter: 'brightness(4)' }, { transform: 'scale(.9)', offset: .6 }, { transform: 'scale(1)', filter: 'none' }], { duration: 450, easing: 'ease-out' }); }
-      toast(`✨ ${I.PICK.names[ng]} 완성!`); newBest(ng); save();
-      return;
-    }
-    pkSel = g != null ? i : -1; Sound.play('click'); renderPk();
+    if (tryMerge(pkSel, i)) return;
+    pkSel = p ? i : -1; Sound.play('click'); renderPk();
+  }
+  // 드래그: 곡괭이를 끌어서 같은 곡괭이 위에 놓으면 합성, 빈칸이면 이동. 거의 안 움직였으면 '누르기'
+  function bindDrag() {
+    $('#list').querySelectorAll('.pkc').forEach(c => {
+      c.onpointerdown = e => {
+        const i = +c.dataset.i, p = st.picks[i];
+        if (!p) { c.onclick = () => pkTap(i); return; }
+        e.preventDefault();
+        const x0 = e.clientX, y0 = e.clientY; let ghost = null, moved = false;
+        const app = $('#app').getBoundingClientRect(), sc = app.width / 440;
+        const move = ev => {
+          if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+          if (!moved) { moved = true; ghost = c.cloneNode(true); ghost.className = 'pkc drag'; $('#app').appendChild(ghost); c.classList.add('lift'); pkSel = i; }
+          ghost.style.left = (ev.clientX - app.left) / sc + 'px'; ghost.style.top = (ev.clientY - app.top) / sc + 'px';
+        };
+        const up = ev => {
+          document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
+          if (!moved) { pkTap(i); return; }
+          ghost.remove(); c.classList.remove('lift');
+          ghost.hidden = true;
+          const t = document.elementFromPoint(ev.clientX, ev.clientY), tc = t && t.closest && t.closest('.pkc');
+          const j = tc && tc.dataset.i != null ? +tc.dataset.i : -1;
+          if (j >= 0 && j !== i) {
+            if (tryMerge(i, j)) return;
+            if (!st.picks[j]) { st.picks[j] = st.picks[i]; st.picks[i] = null; pkSel = -1; Sound.play('click'); renderPk(); save(); return; }
+          }
+          pkSel = -1; renderPk();
+        };
+        document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+      };
+    });
   }
 
   // ---------- 💠 환생 ----------
@@ -1028,20 +1124,21 @@
       renderRank();
     } else {
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
-      const pt = st.pkMax || 0;
+      const dx = st.pkDex || {};
       const un = I.unlocked(st);
       const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
         return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(S.u)} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
       L.innerHTML = `<p class="dexh">🎰 슬롯 심볼 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
-        <p class="dexh">⛏ 곡괭이 도감 <b>${pt + 1}</b> / ${PICKS.length} · 같은 곡괭이 2개를 합치면 다음 등급</p>
-        <div class="pkrow">${PICKS.map((p, i) => `<div class="pk ${i <= pt ? 'on' : ''}"><img src="${pickSrc(i)}" alt=""><small>${i <= pt ? p.name : '???'}</small></div>`).join('')}</div>
+        <p class="dexh">⛏ 곡괭이 도감 <b>${I.dexCount(st)}</b> / 40 · 처음 만들 때마다 공격력 +2% (지금 +${I.dexCount(st) * 2}%)</p>
+        <div class="pkdex"><span></span>${PICKS.map((p, g) => `<span class="gh">${g + 1}</span>`).join('')}${I.PICK.types.map((T, t) => `<b style="color:${T.c}">${T.e}</b>${PICKS.map((p, g) => `<div class="pd ${dx[t + ':' + g] ? 'on' : ''}" style="--tc:${T.c}"><img src="${pickSrc(g)}" alt=""></div>`).join('')}`).join('')}</div>
+        <p class="muted" style="text-align:center;font-size:11px">${I.PICK.types.map((T, t) => `${T.e} 최고 ${I.gradeName((st.pkStar || {})[t] || 0)}`).join(' · ')}</p>
         <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
         <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 몬스터 10마리를 잡고 👑 보스에 도전하세요!</p>'}</div>`;
     }
   }
   function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(cur()); }
   // 진화 연출 없이 단계가 바뀐 경우(불러오기 등)에도 그림을 맞춤
-  function syncPick() { if (+$('#pick').dataset.t !== cur() && !evolving) showPick(); }
+  function syncPick() { if ($('#pick').dataset.k !== `${st.eq.t}:${st.eq.g}` && !evolving) showPick(); }
   let evolving = false;
   function renderRow(k) {
     const row = $(`#list .up[data-k="${k}"]`); if (!row) return;
@@ -1071,7 +1168,7 @@
 
   // ---------- 시작 ----------
   function start() {
-    load(); fit(); makeCracks(); showPick(); pkBest = st.pkMax || 0;
+    load(); fit(); makeCracks(); showPick();
     const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
     goldShown = st.gold; goldTick();
     buildCells();
