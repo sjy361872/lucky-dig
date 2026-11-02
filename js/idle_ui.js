@@ -27,10 +27,12 @@
         const old = !s.picks;
         st = Object.assign(I.newState(), s); st.lv = Object.assign(I.newState().lv, s.lv);
         if (old) { st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25)); st.pkMax = st.eq; }
+        st.allBest = Math.max(st.allBest || 0, st.best || 0);
+        I.setRun(st);
         return;
       }
     } catch (e) { /* 새로 시작 */ }
-    st = I.newState();
+    st = I.newState(); I.setRun(st);
   }
   function save() { st.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 저장 불가 */ } }
 
@@ -334,7 +336,9 @@
     if (pre.complete && pre.naturalWidth) show(); else { pre.addEventListener('load', show, { once: true }); setTimeout(show, 1500); }
     // 이전 처치·보스 격파 연출(끝난 뒤에도 '사라진 상태'로 남는 애니메이션)을 확실히 지움
     $('#mob').getAnimations().forEach(a => a.cancel());
-    $('#mobName').textContent = (boss ? '👑 ' : '') + card.name;
+    const z = I.zoneOf(C, st.floor);
+    $('#mob .spr').style.filter = z ? `hue-rotate(${z * 60}deg) saturate(1.3)` : '';
+    $('#mobName').textContent = (boss ? '👑 ' : '') + (z ? '심층 ' : '') + card.name;
     $('#mob').className = boss ? 'boss' : '';
     $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'translateX(-8px)', opacity: 1, offset: .7 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'ease-out' });
     setHp(true);
@@ -694,7 +698,9 @@
       st.dex[key] = (st.dex[key] || 0) + 1;
       const before = I.unlocked(st);
       const bossDrop = I.rollDrop(st, rnd, 'boss');
+      const prevAll = st.allBest || 0;
       const g = I.bossWin(st);
+      if ((st.allBest || 0) > prevAll) rankSubmit();
       gotPick(bossDrop, bx, by);
       const fresh = I.unlocked(st).filter(k => !before.includes(k));
       save();
@@ -851,8 +857,102 @@
     pkSel = g != null ? i : -1; Sound.play('click'); renderPk();
   }
 
+  // ---------- 💠 환생 ----------
+  function renderRb() {
+    const L = $('#list'), got = I.crystalsFor(st), best = st.best || 0;
+    const why = best < I.RB.OPEN ? `5-1에 도착하면 환생할 수 있어요 (지금 ${I.stageNo(best)})` : `시작 지점(${I.stageNo(st.start || 0)})보다 한 챕터 더 내려가야 해요`;
+    const startAt = I.stageNo(I.chapterStart(Math.floor(Math.max(st.allBest || 0, best) / 2)));
+    L.innerHTML = `<div class="rbhead"><b>💠 환생 ${st.rb || 0}단계</b><small>몬스터 ×${f2(I.diff())} 단단함</small>
+        <div class="rbstat"><span>보유 결정 <b>${fmt(st.crystals || 0)}</b></span><span>결정 보너스 <b>+${fmt((I.holdX(st) - 1) * 100)}%</b></span></div></div>
+      <div class="rbgo">
+        <p>이번 최고 <b>${I.stageNo(best)}</b> · 역대 <b>${I.stageNo(Math.max(st.allBest || 0, best))}</b></p>
+        ${got ? `<p>지금 환생하면 💠 <b>${fmt(got)}</b>개 · <b>${startAt}</b>부터 다시 (난이도 ↑)</p>` : `<p class="muted">${why}</p>`}
+        <button id="rbBtn" ${got ? '' : 'disabled'}>💠 환생하기</button>
+        <small>초기화: 스테이지 · 광석 · 강화 / 유지: 곡괭이 · 도감 · 심볼 · 결정 · 기록</small>
+      </div>
+      <p class="dexh">💠 영구 강화 (환생해도 유지)</p>
+      ${Object.keys(I.CUP).map(k => { const U = I.CUP[k], lv = I.cLv(st, k), mx = U.max && lv >= U.max, c = U.cost(lv);
+        return `<div class="up"><div class="ui"><span class="emo">${U.icon}</span></div><div class="ut"><b>${U.name} <small>Lv.${lv}</small></b><span class="ud">${U.desc}</span></div>
+          <button class="ub cub" data-k="${k}" ${mx || (st.crystals || 0) < c ? 'disabled' : ''}>${mx ? 'MAX' : `💠 ${fmt(c)}`}</button></div>`; }).join('')}`;
+    L.querySelectorAll('.cub').forEach(b => b.onclick = () => { if (I.buyC(st, b.dataset.k)) { Sound.play('coin'); recalc(); setDur(); renderRb(); refreshTop(); save(); } });
+    const rb = $('#rbBtn'); if (rb) rb.onclick = doPrestige;
+  }
+  async function doPrestige() {
+    const got = I.crystalsFor(st); if (!got || mode !== 'auto') return;
+    const startAt = I.stageNo(I.chapterStart(Math.floor(Math.max(st.allBest || 0, st.best || 0) / 2)));
+    const ok = await new Promise(done => {
+      const m = $('#modal');
+      m.innerHTML = `<div class="box"><h3>💠 환생할까요?</h3><p>결정 <b>${fmt(got)}</b>개를 받고 <b>${startAt}</b>부터 다시 시작해요.<br>몬스터는 조금 더 단단해져요.</p>
+        <small class="muted">광석 · 강화는 초기화 / 곡괭이 · 도감 · 결정 · 기록은 유지</small>
+        <div class="mrow"><button class="mbtn ghost" data-v="0">더 내려가기</button><button class="mbtn" data-v="1">환생!</button></div></div>`;
+      m.hidden = false;
+      m.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { m.hidden = true; m.innerHTML = ''; done(b.dataset.v === '1'); });
+    });
+    if (!ok || mode !== 'auto') return;
+    mode = 'rebirth';
+    flash('#bff3ff', 1, 900); Sound.play('fanfare');
+    const [x, y] = arenaXY($('#pick'));
+    for (let k = 0; k < 3; k++) setTimeout(() => emit({ t: 'ring', x, y, r0: 10, r1: 300, w: 16, color: '#7ff7ff', life: .7 }), k * 200);
+    I.prestige(st);
+    banner('환생!', `💠 +${fmt(got)} · ${I.stageNo(st.floor)}부터`, '#7ff7ff', 2200);
+    goldShown = 0; recalc(); buildCells(); setEgg(); setDur(); showPick();
+    $('#mob').getAnimations().forEach(a => a.cancel()); newMob(); refresh(); renderList();
+    await wait(1200);
+    mode = 'auto'; renderList(); refresh(); save(); rankSubmit();
+  }
+
+  // ---------- 🏆 층수 랭킹 (Supabase) ----------
+  const ON = window.ONLINE || {};
+  function rankId() {
+    let id; try { id = JSON.parse(localStorage.getItem('pickidle_id')); } catch (e) { /* 없음 */ }
+    if (!id || !id.secret) {
+      const r = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
+      id = { secret: r(16), pid: r(6) };
+      try { localStorage.setItem('pickidle_id', JSON.stringify(id)); } catch (e) { /* 저장 불가 */ }
+    }
+    return id;
+  }
+  async function rpc(fn, body) {
+    if (!ON.SUPABASE_URL || !ON.SUPABASE_ANON_KEY) throw new Error('offline');
+    const key = ON.SUPABASE_ANON_KEY;
+    const H = key.startsWith('sb_') ? { apikey: key, 'Content-Type': 'application/json' } : { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+    const r = await fetch(ON.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method: 'POST', headers: H, body: JSON.stringify(body || {}) });
+    if (!r.ok) throw new Error(fn + ' ' + r.status);
+    const t = await r.text(); return t ? JSON.parse(t) : null;
+  }
+  const myBest = () => Math.max(st.allBest || 0, st.best || 0);
+  let rankT;
+  function rankSubmit() {
+    if (!st.nick) return;
+    clearTimeout(rankT);
+    rankT = setTimeout(() => { const id = rankId(); rpc('idle_submit', { p_secret: id.secret, p_pid: id.pid, p_nick: st.nick, p_best: myBest(), p_rb: st.rb || 0 }).catch(() => {}); }, 800);
+  }
+  async function renderRank() {
+    const L = $('#list');
+    if (!st.nick) {
+      L.innerHTML = `<div class="rkjoin"><h3>🏆 층수 랭킹</h3><p>누가 가장 깊이 내려갔는지 겨뤄요.<br>랭킹에 쓸 닉네임을 정해 주세요.</p>
+        <input id="nickIn" maxlength="12" placeholder="닉네임 (1~12자)"><button id="nickOk">참가하기</button></div>`;
+      $('#nickOk').onclick = () => { const v = $('#nickIn').value.trim(); if (!v) return toast('닉네임을 입력해 주세요'); st.nick = v.slice(0, 12); save(); rankSubmit(); setTimeout(renderRank, 1200); };
+      return;
+    }
+    L.innerHTML = `<p class="dexh">🏆 층수 랭킹 · 역대 최고 스테이지</p><p class="muted" style="text-align:center">불러오는 중…</p>`;
+    try {
+      const id = rankId();
+      await rpc('idle_submit', { p_secret: id.secret, p_pid: id.pid, p_nick: st.nick, p_best: myBest(), p_rb: st.rb || 0 });
+      const [top, me] = await Promise.all([rpc('idle_top', { p_limit: 50 }), rpc('idle_my_rank', { p_pid: id.pid })]);
+      if (tab !== 'rank') return;
+      L.innerHTML = `<p class="dexh">🏆 층수 랭킹 · 역대 최고 스테이지</p>
+        <div class="rkme">내 순위 <b>${me || '-'}위</b> · ${st.nick} · <b>${I.stageNo(myBest())}</b> · 환생 ${st.rb || 0} <button id="nickCh">닉네임 변경</button></div>
+        <div class="rklist">${(top || []).map((r, i) => `<div class="rk ${r.pid === id.pid ? 'me' : ''}"><span class="no">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><b>${escapeHtml(r.nick)}</b><span class="st">${I.stageNo(r.best)}</span><small>환생 ${r.rb}</small></div>`).join('') || '<p class="muted">아직 아무도 없어요. 1등을 노려 보세요!</p>'}</div>`;
+      $('#nickCh').onclick = () => { st.nick = ''; renderRank(); };
+    } catch (e) {
+      if (tab === 'rank') L.innerHTML = `<p class="dexh">🏆 층수 랭킹</p><p class="muted" style="text-align:center">랭킹 서버에 연결하지 못했어요.<br>잠시 뒤 다시 열어 주세요.</p>`;
+    }
+  }
+  const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
   // ---------- 상단 · 강화 목록 ----------
-  const floorName = f => `${I.stageNo(f)} ${C.TIERS[I.mineOf(C, f)].name}`;
+  const floorName = f => { const z = I.zoneOf(C, f); return `${I.stageNo(f)} ${z ? `심층${z + 1} ` : ''}${C.TIERS[I.mineOf(C, f)].name}`; };
   let gpsCache = 0, avgCache = 1, baseCache = 1;
   function recalc() {
     gpsCache = I.goldPerSec(st);
@@ -874,6 +974,7 @@
     const shots = Math.max(1, I.mobHp(st.floor) / Math.max(1, avgCache));
     $('#killHint').textContent = mode === 'boss' ? `반격 ${fmt(I.bossAtk(st.floor))}` : `평균 ${shots <= 1 ? '한 방' : f2(Math.ceil(shots * 10) / 10) + '방'}에 처치 · 반격 ${fmt(I.mobAtk(st.floor))}`;
     syncPick();
+    const rbt = $('#tabs button[data-t="rb"]'); if (rbt) rbt.classList.toggle('glow', I.canPrestige(st));
     if (tab === 'up') updateButtons();
   }
   function upDesc(k) {
@@ -921,6 +1022,10 @@
       Object.keys(I.UP).forEach(renderRow);
     } else if (tab === 'pk') {
       renderPk();
+    } else if (tab === 'rb') {
+      renderRb();
+    } else if (tab === 'rank') {
+      renderRank();
     } else {
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
       const pt = st.pkMax || 0;
