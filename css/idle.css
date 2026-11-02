@@ -308,3 +308,36 @@ body.bossmode #gauge { display: none; }
 .rk { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,.08); font-size: 13px; }
 .rk.me { background: rgba(127,247,255,.25); border-radius: 8px; }
 .rk .no { width: 28px; text-align: center; font-weight: 900; } .rk b { flex: 1; } .rk .st { font-weight: 900; color: #b05a00; } .rk small { width: 52px; text-align: right; opacity: .7; }
+
+/* ---------- ⛏ 곡괭이 합성 v2 ---------- */
+.pkgrid { grid-template-columns: repeat(5, 1fr); }
+.pkc:not(.empty) { border-color: var(--tc); box-shadow: inset 0 0 0 2px rgba(255,255,255,.15), 0 0 6px var(--tc); }
+.pkc .ty, .gp .ty { position: absolute; right: 2px; bottom: 1px; font-size: 14px; font-style: normal; filter: drop-shadow(0 1px 0 #000); }
+.pkc .star, .gp .star { position: absolute; left: 3px; bottom: 1px; font-size: 10px; font-weight: 900; font-style: normal; color: #fff6a0; text-shadow: 0 0 4px #ff8af0, 0 1px 0 #000; }
+.pkc.lift { opacity: .35; }
+.pkc.drag { position: absolute; width: 74px; height: 74px; z-index: 70; pointer-events: none; transform: translate(-50%, -50%) scale(1.1); background: rgba(40,20,0,.85); }
+.pkc.drag img { width: 78%; }
+.gp { position: relative; width: 64px; height: 64px; flex: none; border-radius: 12px; border: 2px solid var(--tc); background: radial-gradient(circle, rgba(255,255,255,.2), rgba(0,0,0,.25)); display: flex; align-items: center; justify-content: center; }
+.gp img { width: 80%; height: 80%; object-fit: contain; }
+.gp small { display: none; }
+.pkeq { border-color: var(--tc); box-shadow: 0 0 14px var(--tc); }
+.pkshop { display: flex; gap: 6px; margin-bottom: 6px; }
+.pkshop button { flex: 1; padding: 8px 4px; border: 0; border-radius: 10px; font-weight: 900; font-size: 12px; background: linear-gradient(#fff3d0, #e8c890); box-shadow: 0 2px 0 #a07840; }
+.pkshop button b { display: inline-flex; align-items: center; gap: 2px; } .pkshop button img { width: 14px; }
+.pkshop button.hot { background: linear-gradient(#ffd34a, #ff9a3a); animation: gaugeReady .5s ease-in-out infinite alternate; }
+.pkshop button:disabled, .pkbtns button:disabled { opacity: .45; }
+.pkbtns { flex-wrap: wrap; } .pkbtns button { flex: 1 1 22%; padding: 9px 2px; font-size: 12.5px; }
+.boxfx { position: absolute; inset: 0; z-index: 80; background: rgba(0,0,0,.72); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.boxfx .rays { position: absolute; left: 50%; top: 45%; width: 600px; height: 600px; margin: -300px; background: repeating-conic-gradient(rgba(255,230,120,.25) 0 10deg, transparent 10deg 20deg); animation: spin 6s linear infinite; border-radius: 50%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.boxfx .bx { position: relative; width: 170px; }
+.boxfx .got { position: relative; margin-top: 8px; text-align: center; color: #fff; }
+.boxfx .got .gp { width: 110px; height: 110px; margin: 0 auto 6px; border-width: 3px; box-shadow: 0 0 24px var(--tc); }
+.boxfx .got .gp .ty { font-size: 24px; }
+.boxfx .got b { display: block; font-size: 20px; text-shadow: 0 2px 0 #000; } .boxfx .got small { display: block; color: #ffe14a; font-size: 13px; }
+.crow { display: flex; gap: 6px; margin: 8px 0; } .crow .mbtn { flex: 1; padding: 8px 0; font-size: 22px; border: 2px solid var(--tc); } .crow small { display: block; font-size: 11px; }
+.pkdex { display: grid; grid-template-columns: 26px repeat(8, 1fr); gap: 3px; align-items: center; margin-bottom: 4px; }
+.pkdex .gh { text-align: center; font-size: 10px; opacity: .6; } .pkdex > b { text-align: center; font-size: 15px; }
+.pkdex .pd { aspect-ratio: 1; border-radius: 6px; background: rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; }
+.pkdex .pd img { width: 80%; filter: brightness(0) opacity(.35); }
+.pkdex .pd.on { background: rgba(255,255,255,.12); box-shadow: inset 0 0 0 2px var(--tc); } .pkdex .pd.on img { filter: none; }
