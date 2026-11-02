@@ -9,7 +9,7 @@
     KILLS: 10,                 // 층마다 잡아야 보스에 도전할 수 있는 몬스터 수
     OFFLINE_MAX: 8 * 3600,     // 접속 안 해도 쌓이는 최대 시간(초)
     OFFLINE_RATE: 0.5,         // 자리 비운 동안은 평소의 50%
-    BOSS_X: 7,                 // 보스 체력 = 그 층 몬스터 체력 × 7
+    BOSS_X: 2.5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
     BOSS_SPINS: 8,             // 보스전 공격 횟수
     BOSS_REROLLS: 3,           // 보스전 다시 돌리기 횟수
     RESPAWN: 0.35,             // 몬스터가 다시 나오기까지(초)
@@ -33,18 +33,24 @@
     coin:  { name: '광석 수집', icon: 'coin', max: 1e9, cost: lv => 30 * Math.pow(1.2, lv) },
     cells: { name: '슬롯 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
   };
+  const ATB = +(globalThis.process && process.env.ATB) || 5;   // 공격력 시작값
   // 강화 레벨 → 실제 수치
   const stat = {
-    atk: lv => (1 + lv) * Math.pow(2, Math.floor(lv / 25)),          // 25레벨마다 2배
+    atk: lv => (ATB + lv) * Math.pow(2, Math.floor(lv / 25)),        // 25레벨마다 2배 · 시작값 ATB가 크면 초반 한 레벨의 체감이 덜 폭발적
     aps: lv => 0.8 + 0.08 * lv,                                         // 초당 공격
     gemW: lv => 10 + 2 * lv, gemX: lv => 3 + 0.25 * lv,
     chestW: lv => 3 + 0.5 * lv, chestX: lv => 3 + 0.2 * lv,
     coinX: lv => 1 + 0.2 * lv,
     cells: lv => 3 + lv,
   };
-  const mobHp = f => Math.round(8 * Math.pow(+(globalThis.process && process.env.HPG) || 1.32, f));
-  const killGold = f => Math.ceil(3 * Math.pow(+(globalThis.process && process.env.GG) || 1.15, f));
-  const bossHp = f => mobHp(f) * IDLE.BOSS_X;
+  // 밸런스 숫자 (tools/sim_idle.js 에서 환경변수로 바꿔 시험 가능)
+  const env = (k, d) => +(globalThis.process && process.env[k]) || d;
+  //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
+  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.4) };
+  const mobHp = f => Math.round(BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
+  const killGold = f => Math.ceil(BAL.KG * Math.pow(BAL.GG, f));
+  const isSBoss = f => f % 5 === 4;                                   // 5층마다 S급 보스 = 더 단단한 벽
+  const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
 
   function newState() {
     return { gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0 }, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0 };
@@ -148,5 +154,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { IDLE, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { IDLE, BAL, isSBoss, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
