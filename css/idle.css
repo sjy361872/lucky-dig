@@ -141,3 +141,16 @@ body.bossmode .cell:not(.locked) { cursor: pointer; }
 @keyframes rays { to { transform: rotate(360deg); } }
 #calc { transition: opacity .12s; }
 #calc.dim { opacity: .3; }
+
+/* ===== 몬스터: 원형 액자 대신 배경 위에 서 있는 스프라이트 ===== */
+#mob .mimg { position: relative; width: 170px; height: 170px; margin: 0 auto -4px; border: 0; border-radius: 0; overflow: visible; background: none; box-shadow: none; }
+#mob .mimg::before { content: ''; position: absolute; left: 18%; right: 18%; bottom: 4px; height: 18px; border-radius: 50%; background: rgba(30,15,0,.45); filter: blur(4px); animation: shadowIdle 1.6s ease-in-out infinite; }
+#mob .mimg img { position: relative; object-fit: contain; filter: drop-shadow(0 0 2px rgba(255,255,255,.6)); transform-origin: 50% 100%; }
+@keyframes shadowIdle { 50% { transform: scaleX(.9); opacity: .8; } }
+#mob.boss .mimg { width: 200px; height: 200px; border: 0; box-shadow: none; }
+#mob.boss .mimg img { filter: drop-shadow(0 0 10px #ffb000) drop-shadow(0 0 3px #fff); }
+#mob { bottom: 22px; }
+#mob .mimg { animation: none; }
+#mob .mimg img { animation: mobIdle 1.6s ease-in-out infinite; }
+#mob .mimg.hurt { animation: hurt2 .28s ease-out; }
+#mob .mimg.hurtbig { animation: hurt3 .38s ease-out; }
