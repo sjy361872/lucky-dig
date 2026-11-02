@@ -276,6 +276,7 @@
   async function spinAnim(syms, ms, keep) {
     const keys = I.unlocked(st), n = syms.length, t0 = performance.now();
     $('#calc').classList.add('dim');
+    $('#cells').querySelectorAll('.clab').forEach(x => x.remove());
     cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest', 'boost', 'jack'); if (!(keep && keep[i])) el.classList.add('spinning'); });
     while (true) {
       const el = performance.now() - t0;
@@ -304,12 +305,25 @@
 
   // ---------- 몬스터 ----------
   let mob = null, mobHp = 0, mobMax = 1, mode = 'auto', alive = true;
+  // 몬스터 그림 미리 받아 두기: 지금 광산 + 다음 광산
+  const sprOf = card => C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
+  const imgCache = {};
+  function preload(src) { return imgCache[src] || (imgCache[src] = Object.assign(new Image(), { src })); }
+  let preMine = null;
+  function preloadMines() {
+    const t = I.mineOf(C, st.floor); if (t === preMine) return; preMine = t;
+    [t, I.mineOf(C, st.floor + I.FLOORS_PER_MINE)].forEach(k => { for (const g of 'SABCDEF') (C.TIERS[k].cards[g] || []).forEach((c, idx) => preload(sprOf({ ...c, tier: k, grade: g, idx }))); });
+  }
   function setMob(card, hp, boss) {
     mob = card; mobHp = mobMax = hp;
     // 전투 화면에선 흰 배경을 잘라낸 스프라이트(assets/mobs/*.webp) → 배경 위에 서 있는 것처럼
-    const spr = C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
-    $('#mobImg').src = spr;
-    const cr = $('#mob .crack'); cr.style.webkitMaskImage = cr.style.maskImage = `url(${spr})`;
+    const spr = sprOf(card);
+    // 그림이 아직 안 받아졌으면(휴대폰 데이터 등) 받아진 뒤에 바꿈 → 빈칸으로 보이는 순간 없게
+    const show = () => { if (mob !== card) return; $('#mobImg').src = spr; const cr = $('#mob .crack'); cr.style.webkitMaskImage = cr.style.maskImage = `url(${spr})`; };
+    const pre = preload(spr);
+    if (pre.complete && pre.naturalWidth) show(); else { pre.addEventListener('load', show, { once: true }); setTimeout(show, 1500); }
+    // 이전 처치·보스 격파 연출(끝난 뒤에도 '사라진 상태'로 남는 애니메이션)을 확실히 지움
+    $('#mob').getAnimations().forEach(a => a.cancel());
     $('#mobName').textContent = (boss ? '👑 ' : '') + card.name;
     $('#mob').className = boss ? 'boss' : '';
     $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'translateX(-8px)', opacity: 1, offset: .7 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'ease-out' });
@@ -401,6 +415,7 @@
       if (r.chests) { floatAt(220, 120, `📦 상자 ×${f2(r.chestMult)}!`, 'chestf', 1300, { punch: 1.6 }); Sound.play('chestBig'); flash('#ffd34a', .35); }
       if (r.mimicOk) { floatAt(220, 95, `👅 미믹 ×${fmt(r.mimicMult)}!`, 'chestf', 1300, { punch: 1.7 }); Sound.play('chestBig'); flash('#ff7ad9', .35); }
     }
+    if (r.basic) { setHp(); shake($('#arena'), 1.5 + frac * 8); r.fx = I.applySpin(st, r); if (r.dragon) setEgg(); return; }
     if (r.boosted.some(Boolean)) { cellEls.forEach((el, i) => { if (r.boosted[i]) el.animate([{ filter: 'brightness(2.5)' }, { filter: 'brightness(1)' }], { duration: 300 }); }); }
     // 효과: 수리 · 미믹 물기 · 알 · 용 · 잭팟 광석
     const fx = I.applySpin(st, r);
@@ -431,30 +446,90 @@
     refresh();
     await wait(I.IDLE.RESPAWN * 1000);
     m.getAnimations().forEach(a => a.cancel());
-    newMob();
+    if (mode === 'auto') newMob();          // 그 사이 보스전이 시작됐으면 보스를 일반 몬스터로 덮어쓰지 않음
   }
 
   // ---------- 자동 사냥 루프 ----------
-  let freeSpins = 0;
+  // 평소엔 곡괭이가 그냥 때림(슬롯 없음) → 때릴 때마다 슬롯 게이지가 참
+  // 게이지가 꽉 차면 슬롯이 반짝 → 터치하면(방치 중이면 잠시 뒤 자동) 큰 슬롯이 천천히 돌아감
+  let gauge = 0, readyAt = 0, pullReq = false, spinning = false;
+  function setGauge() {
+    const n = I.IDLE.GAUGE, full = gauge >= n, el = $('#gauge');
+    el.classList.toggle('ready', full);
+    $('#gaugeFill').style.width = Math.min(100, gauge / n * 100) + '%';
+    $('#gaugeText').textContent = full ? '🎰 터치해서 슬롯 돌리기!' : `🎰 슬롯 충전 ${gauge} / ${n}`;
+    $('#slotbox').classList.toggle('ready', full && mode === 'auto');
+  }
+  async function bigSpin() {
+    spinning = true;
+    try {
+      $('#slotbox').classList.remove('ready'); $('#cells').classList.remove('idle');
+      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms, rnd);
+      Sound.play('drumroll');
+      await spinAnim(syms, 1100);
+      await revealCells(syms, r);
+      showSyms(syms, r);
+      setCalc(calcText(r, syms));
+      await hit(r, true);
+      // ⏳ 한 번 더: 곧바로 또 돌아감
+      if (r.respins) { gauge = I.IDLE.GAUGE; readyAt = performance.now() - I.IDLE.AUTO_PULL * 1000 + 700; }
+      else gauge = 0;
+      setGauge();
+      return r;
+    } finally { spinning = false; }
+  }
+  // 칸마다 무슨 효과인지 이름표를 하나씩 띄움
+  function cellLabel(i, r) {
+    const S = I.stat;
+    switch (r.res[i]) {
+      case 'pick': return '1타';
+      case 'tnt': return '2타·양옆 2배';
+      case 'gem': return `💎 ${f2(S.gemX(st.lv.gem))}타`;
+      case 'coin': return '+광석';
+      case 'chest': return `×${f2(S.chestX(st.lv.chest))}`;
+      case 'wrench': return '🔧 수리';
+      case 'glass': return '⏳ 한 번 더';
+      case 'egg': return '🥚 금!';
+      case 'mimic': return r.mimicOk ? `×${fmt(r.mimicMult)}` : '깨물!';
+      case 'gold': return '황금!';
+    }
+    return '';
+  }
+  async function revealCells(syms, r) {
+    for (let i = 0; i < syms.length; i++) {
+      const el = cellEls[i]; if (!el) continue;
+      const lab = document.createElement('span'); lab.className = 'clab';
+      lab.textContent = (syms[i] === 'rainbow' ? '🌈→' : '') + cellLabel(i, r);
+      el.appendChild(lab);
+      lab.animate([{ transform: 'translate(-50%,6px) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1.15)', opacity: 1, offset: .5 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      popCell(el);
+      Sound.play('click');
+      await wait(140);
+    }
+    await wait(250);
+  }
   async function autoLoop() {
     while (true) {
       if (mode !== 'auto' || document.hidden) { await wait(200); continue; }
       const aps = I.stat.aps(st.lv.spd), period = 1000 / aps;
       const t0 = performance.now();
-      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms, rnd);
-      await spinAnim(syms, Math.min(260, period * 0.5));
-      if (mode !== 'auto' || !alive) continue;
-      showSyms(syms, r);
-      setCalc(calcText(r, syms));
-      await hit(r);
-      if (st.dur <= 0 && mode === 'auto' && !breaking) { await breakPick(); continue; }
+      let r;
+      if (gauge >= I.IDLE.GAUGE && (pullReq || performance.now() - readyAt > I.IDLE.AUTO_PULL * 1000)) {
+        pullReq = false;
+        r = await bigSpin();
+      } else {
+        r = I.basicHit(st, baseCache);
+        await hit(r);
+        if (gauge < I.IDLE.GAUGE) { gauge++; if (gauge >= I.IDLE.GAUGE) { readyAt = performance.now(); Sound.play('stop'); } setGauge(); }
+      }
+      if (mode !== 'auto') continue;
+      if (st.dur <= 0 && !breaking) { await breakPick(); continue; }
       if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);
       if (mobHp <= 0 && alive && mode === 'auto') await killMob();
-      if (r.respins && mode === 'auto') { freeSpins += r.respins; }
       refreshTop();
       // 자동 도전: 켜져 있거나, 이미 깬 스테이지로 되돌아온 경우(파손 뒤 복귀)엔 보스도 자동
       if (mode === 'auto' && I.bossReady(st) && (st.auto || st.floor < st.best)) { await bossFight(true); continue; }
-      if (freeSpins > 0) { freeSpins--; await wait(120); continue; }
+      if (!r.basic) { await wait(250); continue; }
       const rest = period - (performance.now() - t0);
       if (rest > 0) await wait(rest);
     }
@@ -509,7 +584,7 @@
   async function mobLoop() {
     while (true) {
       await wait(I.IDLE.MOB_HIT * 1000);
-      if (mode !== 'auto' || document.hidden || !alive || breaking) continue;
+      if (mode !== 'auto' || document.hidden || !alive || breaking || spinning) continue;
       if (await mobStrike(I.mobAtk(st.floor))) await breakPick();
     }
   }
@@ -627,6 +702,7 @@
     }
     $('#calc').innerHTML = '';
     mode = 'auto';
+    recalc(); $('#cells').classList.add('idle'); setGauge();
     $('#mob').getAnimations().forEach(a => a.cancel());
     newMob(); setDur();
     refresh();
@@ -683,10 +759,10 @@
 
   // ---------- 상단 · 강화 목록 ----------
   const floorName = f => `${I.stageNo(f)} ${C.TIERS[I.mineOf(C, f)].name}`;
-  let gpsCache = 0, avgCache = 1;
+  let gpsCache = 0, avgCache = 1, baseCache = 1;
   function recalc() {
     gpsCache = I.goldPerSec(st);
-    avgCache = I.avgDmg(st).dmg;
+    const a = I.avgDmg(st); avgCache = a.dmg; baseCache = a.base;
   }
   function refreshTop() {
     $('#gps').textContent = `초당 ${fmt(gpsCache)}`;
@@ -694,6 +770,9 @@
     $('#autoBtn').textContent = st.auto ? '자동 도전 ON' : '자동 도전 OFF';
     $('#autoBtn').classList.toggle('on', !!st.auto);
     $('#floorName').textContent = floorName(st.floor);
+    preloadMines();
+    // 안전장치: 사냥 중인데 몬스터가 안 보이는 상태로 남아 있으면 바로 복구
+    if (mode === 'auto' && alive && +getComputedStyle($('#mob')).opacity < .1) $('#mob').getAnimations().forEach(a => a.cancel());
     $('#pips').innerHTML = Array.from({ length: I.IDLE.KILLS }, (_, i) => `<i class="${i < st.kills ? 'on' : ''}"></i>`).join('');
     const ready = I.bossReady(st);
     $('#bossBtn').disabled = !ready || mode !== 'auto';
@@ -809,6 +888,8 @@
     $('#bossBtn').onclick = () => { Sound.unlock(); bossFight(false); };
     $('#autoBtn').onclick = () => { st.auto = !st.auto; Sound.play('click'); toast(st.auto ? '보스가 열리면 자동으로 도전해요' : '보스는 👑 버튼으로 직접 도전해요'); refreshTop(); save(); };
     mobLoop();
+    setGauge(); $('#cells').classList.add('idle');
+    $('#slotbox').addEventListener('click', () => { if (mode === 'auto' && gauge >= I.IDLE.GAUGE) { pullReq = true; Sound.unlock(); } });
     document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) save();
@@ -816,7 +897,7 @@
     });
     setInterval(() => { if (!document.hidden) save(); }, 5000);
     offlineReward().then(() => autoLoop());
-    window.__idle = { st: () => st, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
+    window.__idle = { st: () => st, mode: () => mode, alive: () => alive, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
   }
   start();
 })();

@@ -9,13 +9,18 @@
     KILLS: 10,                 // 층마다 잡아야 보스에 도전할 수 있는 몬스터 수
     OFFLINE_MAX: 8 * 3600,     // 접속 안 해도 쌓이는 최대 시간(초)
     OFFLINE_RATE: 0.5,         // 자리 비운 동안은 평소의 50%
-    BOSS_X: 2.5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
+    BOSS_X: 8.5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
     BOSS_REROLLS: 3,           // 보스전 다시 돌리기 횟수
     MOB_HIT: 1.5,              // 일반 몬스터가 반격하는 간격(초)
     REGEN: 0.15,               // 몬스터를 잡을 때마다 내구도 회복(최대치의 15%)
     STAGES: 5,                 // 챕터(광산)마다 스테이지 수: 1-1 ~ 1-5
     RESPAWN: 0.35,             // 몬스터가 다시 나오기까지(초)
+    GAUGE: 8,                  // 평소엔 곡괭이가 그냥 때림. 이만큼 때리면 슬롯 게이지가 꽉 참 → 큰 슬롯 한 번
+    AUTO_PULL: 2.5,            // 게이지가 찬 뒤 이 시간(초) 안에 안 당기면 자동으로 당김
+    SLOT_TIME: 2.2,            // 큰 슬롯 한 번에 걸리는 시간(초, 연출 포함 · 밸런스 계산용)
   };
+  const SLOT_X = +(globalThis.process && process.env.SLOTX) || 3;
+  const BASIC = +(globalThis.process && process.env.BASIC) || 1;     // 평소 한 대 = 슬롯 평균(잭팟·미믹 뺀) × 이 값 → 보석·상자 강화도 평타에 반영   // 큰 슬롯 대미지 배율 (가끔 오는 만큼 크게)
   // 슬롯 심볼: w = 나오는 비중, hit = 기본 타수, u = 해금 스테이지(최고 기록이 이 층 이상이면 슬롯에 등장)
   //  칸의 '위치'가 의미를 가짐: 💣은 양옆 칸 효과 2배, 🌈은 가장 많은 그림으로 변신
   const SYMS = {
@@ -36,8 +41,8 @@
   //  (3칸이면 3개가 다 나와야 하니 비율을 높게, 5칸이면 낮게). 대신 3개 잭팟의 배율은 적당히, 4·5개는 아주 크게
   const JACKPOT = { 3: 10, 4: 30, 5: 100 };   // 황금 곡괭이 n개 → 콤보 대신 이 배율
   const JACK_SEC = { 3: 10, 4: 120, 5: 600 };  // 잭팟 광석 = 몇 초치 수입
-  const GOLD_P = { 3: 0.2, 4: 0.14, 5: 0.10 }; // 슬롯 칸 수 → 황금 곡괭이가 나올 비율
-  const EGG_N = 30, DRAGON_T = 30, DRAGON_X = 2, MIMIC_OK = 0.7, MIMIC_BITE = 0.25, WRENCH = 0.12;
+  const GOLD_P = { 3: 0.4, 4: 0.25, 5: 0.19 }; // 슬롯 칸 수 → 황금 곡괭이가 나올 비율
+  const EGG_N = 5, DRAGON_T = 30, DRAGON_X = 2, MIMIC_OK = 0.7, MIMIC_BITE = 0.25, WRENCH = 0.12;
   // 무지개가 여럿이 같은 개수일 때 우선 변신할 그림 (좋은 것부터)
   const WILD_PRI = ['gold', 'chest', 'gem', 'tnt', 'mimic', 'egg', 'glass', 'wrench', 'pick', 'coin'];
 
@@ -152,10 +157,16 @@
     const combo = jackpot ? JACKPOT[Math.min(5, cnt.gold)] : (COMBO[best] || 1);
     const dragon = (st.dragon || 0) > 0;
     if (hits === 0) hits = 0.5;                                     // 빈손이어도 살짝
-    const dmg = Math.max(1, Math.round(atk * hits * combo * chestMult * mimicMult * (dragon ? DRAGON_X : 1)));
+    const dmg = Math.max(1, Math.round(atk * hits * combo * chestMult * mimicMult * (dragon ? DRAGON_X : 1) * SLOT_X));
     const boosted = f.map(x => x > 1);
     return { atk, hits, combo, comboSym: combo > 1 ? (jackpot ? 'gold' : bestSym) : null, comboN: jackpot ? cnt.gold : best, chests, chestMult, coins, dmg,
       res, boosted, repair, respins, cracks, mimics, mimicOk: mimics ? mimicOk : null, mimicMult, dragon, jackpot };
+  }
+  // 평소 공격(슬롯 없이 곡괭이로 한 대): hit() 연출이 그대로 쓰도록 슬롯 결과와 같은 모양으로
+  function basicHit(st, base) {
+    const atk = stat.atk(st.lv.atk), dragon = (st.dragon || 0) > 0;
+    return { basic: true, atk, hits: 1, combo: 1, comboSym: null, comboN: 1, chests: 0, chestMult: 1, coins: 0, dmg: Math.max(1, Math.round(base * BASIC * (dragon ? DRAGON_X : 1))),
+      res: [], boosted: [], repair: 0, respins: 0, cracks: 0, mimics: 0, mimicOk: null, mimicMult: 1, dragon, jackpot: false };
   }
   // 공격 뒤 효과 적용: 수리 · 미믹 물기 · 알 금 · 용 · 잭팟 광석.  반환: { bite, hatched, jackGold }
   function applySpin(st, r) {
@@ -178,14 +189,17 @@
     let seed = 12345; const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     let tot = 0, coins = 0;
     const s2 = Object.assign({}, st, { dragon: 0 });               // 용은 잠깐이라 평균에서 뺌
-    for (let i = 0; i < n; i++) { const r = evalSpin(s2, roll(s2, rng), rng); tot += r.dmg * (1 + r.respins); coins += r.coins; }
-    return { dmg: tot / n, coins: coins / n };
+    let base = 0;
+    for (let i = 0; i < n; i++) { const r = evalSpin(s2, roll(s2, rng), rng); tot += r.dmg * (1 + r.respins); coins += r.coins; base += r.dmg / SLOT_X / (r.jackpot ? r.combo : 1) / r.mimicMult; }
+    base /= n;
+    // 공격 한 번당 평균 = 평소 한 대 + 큰 슬롯 몫(GAUGE 번에 한 번)
+    return { dmg: base * BASIC + tot / n / IDLE.GAUGE, coins: coins / n / IDLE.GAUGE, slot: tot / n, base };
   }
   // 초당 광석 (자동 사냥 기준)
   function goldPerSec(st) {
     const a = avgDmg(st), aps = stat.aps(st.lv.spd), hp = mobHp(st.floor);
     const attacksPerKill = Math.max(1, Math.ceil(hp / Math.max(1, a.dmg)));
-    const killTime = attacksPerKill / aps + IDLE.RESPAWN;
+    const killTime = attacksPerKill * (1 / aps + IDLE.SLOT_TIME / IDLE.GAUGE) + IDLE.RESPAWN;
     return goldPerKill(st) / killTime + a.coins * aps * coinGold(st, 1);
   }
   // 접속 안 한 동안 쌓인 광석
@@ -227,5 +241,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
