@@ -260,6 +260,7 @@
     let n = 0;
     syms.forEach((s, i) => {
       const el = cellEls[i]; if (!el) return;
+      el.dataset.sym = s;
       const to = r ? r.res[i] : s;
       el.innerHTML = img(s) + (r && s === 'rainbow' ? `<em class="wildto">${img(to)}</em>` : '') + (r && r.boosted[i] ? '<b class="x2">×2</b>' : '');
       const on = !!(r && r.comboSym && to === r.comboSym);
@@ -276,7 +277,8 @@
   async function spinAnim(syms, ms, keep) {
     const keys = I.unlocked(st), n = syms.length, t0 = performance.now();
     $('#calc').classList.add('dim');
-    cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest', 'boost', 'jack'); if (!(keep && keep[i])) el.classList.add('spinning'); });
+    $('#cells').querySelectorAll('.clab').forEach(x => x.remove());
+    cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest', 'boost', 'jack'); if (!(keep && keep[i])) { el.classList.add('spinning'); el.dataset.sym = ''; } });
     while (true) {
       const el = performance.now() - t0;
       let left = 0;
@@ -284,7 +286,7 @@
         if (keep && keep[i]) continue;
         const stopAt = ms * (0.55 + 0.45 * (i + 1) / n);
         if (el < stopAt) { left++; cellEls[i].innerHTML = img(keys[Math.floor(rnd() * keys.length)]); }
-        else if (cellEls[i].classList.contains('spinning')) { cellEls[i].classList.remove('spinning'); cellEls[i].innerHTML = img(syms[i]); popCell(cellEls[i]); if (ms > 300) Sound.play('stop'); }
+        else if (cellEls[i].classList.contains('spinning')) { cellEls[i].classList.remove('spinning'); cellEls[i].innerHTML = img(syms[i]); cellEls[i].dataset.sym = syms[i]; popCell(cellEls[i]); if (ms > 300) Sound.play('stop'); }
       }
       if (!left) break;
       await wait(ms > 300 ? 60 : 40);
@@ -414,6 +416,7 @@
       if (r.chests) { floatAt(220, 120, `📦 상자 ×${f2(r.chestMult)}!`, 'chestf', 1300, { punch: 1.6 }); Sound.play('chestBig'); flash('#ffd34a', .35); }
       if (r.mimicOk) { floatAt(220, 95, `👅 미믹 ×${fmt(r.mimicMult)}!`, 'chestf', 1300, { punch: 1.7 }); Sound.play('chestBig'); flash('#ff7ad9', .35); }
     }
+    if (r.basic) { setHp(); shake($('#arena'), 1.5 + frac * 8); r.fx = I.applySpin(st, r); if (r.dragon) setEgg(); return; }
     if (r.boosted.some(Boolean)) { cellEls.forEach((el, i) => { if (r.boosted[i]) el.animate([{ filter: 'brightness(2.5)' }, { filter: 'brightness(1)' }], { duration: 300 }); }); }
     // 효과: 수리 · 미믹 물기 · 알 · 용 · 잭팟 광석
     const fx = I.applySpin(st, r);
@@ -448,26 +451,86 @@
   }
 
   // ---------- 자동 사냥 루프 ----------
-  let freeSpins = 0;
+  // 평소엔 곡괭이가 그냥 때림(슬롯 없음) → 때릴 때마다 슬롯 게이지가 참
+  // 게이지가 꽉 차면 슬롯이 반짝 → 터치하면(방치 중이면 잠시 뒤 자동) 큰 슬롯이 천천히 돌아감
+  let gauge = 0, readyAt = 0, pullReq = false, spinning = false;
+  function setGauge() {
+    const n = I.IDLE.GAUGE, full = gauge >= n, el = $('#gauge');
+    el.classList.toggle('ready', full);
+    $('#gaugeFill').style.width = Math.min(100, gauge / n * 100) + '%';
+    $('#gaugeText').textContent = full ? '🎰 슬롯!' : `🎰 슬롯 충전 ${gauge} / ${n}`;
+    $('#slotbox').classList.toggle('ready', full && mode === 'auto');
+  }
+  async function bigSpin() {
+    spinning = true;
+    try {
+      $('#slotbox').classList.remove('ready'); $('#cells').classList.remove('idle');
+      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms, rnd);
+      Sound.play('drumroll');
+      await spinAnim(syms, 850);
+      await revealCells(syms, r);
+      showSyms(syms, r);
+      setCalc(calcText(r, syms));
+      await hit(r, true);
+      // ⏳ 한 번 더: 곧바로 또 돌아감
+      if (r.respins) { gauge = I.IDLE.GAUGE; readyAt = performance.now() - I.IDLE.AUTO_PULL * 1000 + 700; }
+      else gauge = 0;
+      setGauge();
+      return r;
+    } finally { spinning = false; }
+  }
+  // 칸마다 무슨 효과인지 이름표를 하나씩 띄움
+  function cellLabel(i, r) {
+    const S = I.stat;
+    switch (r.res[i]) {
+      case 'pick': return '1타';
+      case 'tnt': return '2타·양옆 2배';
+      case 'gem': return `💎 ${f2(S.gemX(st.lv.gem))}타`;
+      case 'coin': return '+광석';
+      case 'chest': return `×${f2(S.chestX(st.lv.chest))}`;
+      case 'wrench': return '🔧 수리';
+      case 'glass': return '⏳ 한 번 더';
+      case 'egg': return '🥚 금!';
+      case 'mimic': return r.mimicOk ? `×${fmt(r.mimicMult)}` : '깨물!';
+      case 'gold': return '황금!';
+    }
+    return '';
+  }
+  async function revealCells(syms, r) {
+    for (let i = 0; i < syms.length; i++) {
+      const el = cellEls[i]; if (!el) continue;
+      const lab = document.createElement('span'); lab.className = 'clab';
+      lab.textContent = (syms[i] === 'rainbow' ? '🌈→' : '') + cellLabel(i, r);
+      el.appendChild(lab);
+      lab.animate([{ transform: 'translate(-50%,6px) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1.15)', opacity: 1, offset: .5 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      popCell(el);
+      Sound.play('click');
+      await wait(110);
+    }
+    await wait(200);
+  }
   async function autoLoop() {
     while (true) {
       if (mode !== 'auto' || document.hidden) { await wait(200); continue; }
       const aps = I.stat.aps(st.lv.spd), period = 1000 / aps;
       const t0 = performance.now();
-      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms, rnd);
-      await spinAnim(syms, Math.min(260, period * 0.5));
-      if (mode !== 'auto' || !alive) continue;
-      showSyms(syms, r);
-      setCalc(calcText(r, syms));
-      await hit(r);
-      if (st.dur <= 0 && mode === 'auto' && !breaking) { await breakPick(); continue; }
+      let r;
+      if (gauge >= I.IDLE.GAUGE && (pullReq || performance.now() - readyAt > I.IDLE.AUTO_PULL * 1000)) {
+        pullReq = false;
+        r = await bigSpin();
+      } else {
+        r = I.basicHit(st, baseCache);
+        await hit(r);
+        if (gauge < I.IDLE.GAUGE) { gauge++; if (gauge >= I.IDLE.GAUGE) { readyAt = performance.now(); Sound.play('stop'); } setGauge(); }
+      }
+      if (mode !== 'auto') continue;
+      if (st.dur <= 0 && !breaking) { await breakPick(); continue; }
       if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);
       if (mobHp <= 0 && alive && mode === 'auto') await killMob();
-      if (r.respins && mode === 'auto') { freeSpins += r.respins; }
       refreshTop();
       // 자동 도전: 켜져 있거나, 이미 깬 스테이지로 되돌아온 경우(파손 뒤 복귀)엔 보스도 자동
       if (mode === 'auto' && I.bossReady(st) && (st.auto || st.floor < st.best)) { await bossFight(true); continue; }
-      if (freeSpins > 0) { freeSpins--; await wait(120); continue; }
+      if (!r.basic) { await wait(250); continue; }
       const rest = period - (performance.now() - t0);
       if (rest > 0) await wait(rest);
     }
@@ -522,7 +585,7 @@
   async function mobLoop() {
     while (true) {
       await wait(I.IDLE.MOB_HIT * 1000);
-      if (mode !== 'auto' || document.hidden || !alive || breaking) continue;
+      if (mode !== 'auto' || document.hidden || !alive || breaking || spinning) continue;
       if (await mobStrike(I.mobAtk(st.floor))) await breakPick();
     }
   }
@@ -640,6 +703,7 @@
     }
     $('#calc').innerHTML = '';
     mode = 'auto';
+    recalc(); $('#cells').classList.add('idle'); setGauge();
     $('#mob').getAnimations().forEach(a => a.cancel());
     newMob(); setDur();
     refresh();
@@ -694,12 +758,30 @@
     else await modal(`<h3>✨ 새 심볼 해금!</h3><div class="capture"><img src="${ICON[k]}" alt="" style="width:110px;height:110px;object-fit:contain"><b>${S.name}</b><small>${S.desc}</small></div><p>이제 슬롯에 ${S.name}${(S.name.charCodeAt(S.name.length - 1) - 0xac00) % 28 ? '이' : '가'} 나와요</p>`, '좋아요');
   }
 
+  // ---------- 심볼 설명 말풍선: 슬롯 칸에 마우스를 올리거나 터치하면 ----------
+  function symInfo(k) {
+    const S = I.stat, X = I.SYMS[k];
+    const now = { gem: `지금 💎 1개 = ${f2(S.gemX(st.lv.gem))}타`, chest: `지금 배율 ×${f2(S.chestX(st.lv.chest))}`,
+      mimic: `지금 배율 ×${f2(S.chestX(st.lv.chest) * 3)}`, egg: `지금 ${st.egg || 0} / ${I.EGG_N}`, coin: `처치 광석의 30% × ${f2(S.coinX(st.lv.coin))}` }[k];
+    return `<b>${X.name}</b><span>${X.desc}</span>${now ? `<small>${now}</small>` : ''}`;
+  }
+  let tipT;
+  function showTip(el) {
+    const k = el.dataset.sym; if (!k || !I.SYMS[k]) return;
+    const tip = $('#tip'), app = $('#app').getBoundingClientRect(), r = el.getBoundingClientRect(), sc = app.width / 440;
+    tip.innerHTML = symInfo(k); tip.hidden = false;
+    const x = (r.left + r.width / 2 - app.left) / sc, y = (r.top - app.top) / sc;
+    tip.style.left = Math.max(80, Math.min(360, x)) + 'px'; tip.style.top = (y - 8) + 'px';
+    clearTimeout(tipT); tipT = setTimeout(() => tip.hidden = true, 2500);
+  }
+  function hideTip() { clearTimeout(tipT); $('#tip').hidden = true; }
+
   // ---------- 상단 · 강화 목록 ----------
   const floorName = f => `${I.stageNo(f)} ${C.TIERS[I.mineOf(C, f)].name}`;
-  let gpsCache = 0, avgCache = 1;
+  let gpsCache = 0, avgCache = 1, baseCache = 1;
   function recalc() {
     gpsCache = I.goldPerSec(st);
-    avgCache = I.avgDmg(st).dmg;
+    const a = I.avgDmg(st); avgCache = a.dmg; baseCache = a.base;
   }
   function refreshTop() {
     $('#gps').textContent = `초당 ${fmt(gpsCache)}`;
@@ -825,6 +907,11 @@
     $('#bossBtn').onclick = () => { Sound.unlock(); bossFight(false); };
     $('#autoBtn').onclick = () => { st.auto = !st.auto; Sound.play('click'); toast(st.auto ? '보스가 열리면 자동으로 도전해요' : '보스는 👑 버튼으로 직접 도전해요'); refreshTop(); save(); };
     mobLoop();
+    $('#cells').addEventListener('pointerover', e => { if (e.pointerType === 'mouse') { const c = e.target.closest('.cell'); if (c) showTip(c); } });
+    $('#cells').addEventListener('pointerout', e => { if (e.pointerType === 'mouse' && e.target.closest('.cell')) hideTip(); });
+    $('#cells').addEventListener('click', e => { const c = e.target.closest('.cell'); if (c) showTip(c); });
+    setGauge(); $('#cells').classList.add('idle');
+    $('#slotbox').addEventListener('click', () => { if (mode === 'auto' && gauge >= I.IDLE.GAUGE) { pullReq = true; Sound.unlock(); } });
     document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) save();
@@ -832,7 +919,7 @@
     });
     setInterval(() => { if (!document.hidden) save(); }, 5000);
     offlineReward().then(() => autoLoop());
-    window.__idle = { st: () => st, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
+    window.__idle = { st: () => st, mode: () => mode, alive: () => alive, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
   }
   start();
 })();
