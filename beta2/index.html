@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<base href="../">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>곡괭이 키우기 (베타)</title>
+<link rel="stylesheet" href="beta2/css/idle.css?v=1793596134">
+</head>
+<body>
+<div id="vp">
+  <div id="app">
+    <header id="hud">
+      <div class="gold"><img src="assets/ui/coin.png" alt=""><div><b id="gold">0</b><small id="gps">초당 0</small></div></div>
+      <div class="stage"><b id="floorName">풀숲 입구 1층</b><div id="pips"></div></div>
+      <button id="bossBtn" disabled><span>👑</span><small>보스 도전</small></button>
+    </header>
+
+    <section id="arena">
+      <div id="miner"><img src="assets/ui/miner.png" alt="광부"></div>
+      <div id="mob">
+        <div class="mhp"><i id="hpFill"></i><small id="hpText">0</small></div>
+        <div class="mimg"><img id="mobImg" alt=""></div>
+        <b id="mobName">몬스터</b>
+        <small id="killHint"></small>
+      </div>
+      <div id="fx"></div>
+      <div id="bossBar" hidden><b>👑 보스전</b><span id="bossTurns">남은 공격 8</span><button id="bossQuit">포기</button></div>
+    </section>
+
+    <section id="slotbox">
+      <div id="cells"></div>
+      <div id="calc"></div>
+      <div id="bossCtl" hidden>
+        <small id="bossHint">좋은 칸을 눌러 고정 → 나머지만 다시 돌려요</small>
+        <div class="bc-btns"><button id="bReroll">🔄 다시 돌리기</button><button id="bAttack">⚔ 공격!</button></div>
+      </div>
+    </section>
+
+    <section id="panel">
+      <nav id="tabs"><button data-t="up" class="on">⛏ 강화</button><button data-t="dex">📖 도감</button></nav>
+      <div id="list"></div>
+    </section>
+    <div id="toast"></div>
+  </div>
+</div>
+<div id="modal" hidden></div>
+
+<script src="beta2/js/config.js?v=1793596134"></script>
+<script src="beta2/js/sound.js?v=1793596134"></script>
+<script src="beta2/js/idle.js?v=1793596134"></script>
+<script src="beta2/js/idle_ui.js?v=1793596134"></script>
+</body>
+</html>
