@@ -459,6 +459,7 @@
     document.body.classList.add('bossmode');
     $('#bossBar').hidden = false;
     const card = I.mobCard(C, st.floor, rnd, true);
+    $('#bossBar b').textContent = I.isSBoss(st.floor) ? '💀 강적 보스' : '👑 보스전';
     setMob(card, I.bossHp(st.floor), true);
     Sound.play('drumroll');
     floatAt(220, 120, 'BOSS!', 'bossf', 1400);
