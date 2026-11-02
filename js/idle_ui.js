@@ -417,12 +417,14 @@
       const t0 = performance.now();
       const syms = I.roll(st, rnd), r = I.evalSpin(st, syms);
       await spinAnim(syms, Math.min(260, period * 0.5));
-      if (mode !== 'auto') continue;
+      if (mode !== 'auto' || !alive) continue;
       showSyms(syms, r.comboSym);
       setCalc(calcText(r, syms));
       await hit(r);
-      if (mobHp <= 0 && alive) await killMob();
+      if (mobHp <= 0 && alive && mode === 'auto') await killMob();
       refreshTop();
+      // 자동 도전: 켜져 있거나, 이미 깬 스테이지로 되돌아온 경우(파손 뒤 복귀)엔 보스도 자동
+      if (mode === 'auto' && I.bossReady(st) && (st.auto || st.floor < st.best)) { await bossFight(true); continue; }
       const rest = period - (performance.now() - t0);
       if (rest > 0) await wait(rest);
     }
@@ -452,32 +454,100 @@
       $('#bossQuit').onclick = () => { end('quit'); };
     });
   }
-  async function bossFight() {
+  // ---------- 곡괭이 내구도(= 체력) ----------
+  function setDur() {
+    const mx = I.maxDur(st), v = Math.max(0, st.dur);
+    $('#durFill').style.width = (v / mx * 100) + '%';
+    $('#durText').textContent = `${fmt(v)} / ${fmt(mx)}`;
+    $('#durBar').classList.toggle('low', v / mx <= .3);
+  }
+  // 반격: 몬스터가 앞으로 튀어나와 곡괭이를 침 → 내구도 감소. 0이 되면 true
+  async function mobStrike(dmg) {
+    $('#mob').animate([{ transform: 'none' }, { transform: 'translateX(-70px) scale(1.08)', offset: .4 }, { transform: 'none' }], { duration: 320, easing: 'ease-in-out' });
+    await wait(130);
+    st.dur -= dmg;
+    const pk = $('#pick'), [x, y] = arenaXY(pk);
+    pk.animate([{ transform: 'translateX(-12px) rotate(-6deg)', filter: 'sepia(1) saturate(6) hue-rotate(-40deg)' }, { transform: 'none', filter: 'none' }], { duration: 280 });
+    floatAt(x + 10, y - 30, `-${fmt(dmg)}`, 'dmgf', 800, { dx: -30, punch: 1.3 });
+    flash('#ff2a2a', .16, 200);
+    Sound.play('hit', { type: 'stone', ratio: .3 });
+    setDur();
+    return st.dur <= 0;
+  }
+  // 일반 몬스터는 일정 간격으로 반격
+  let breaking = false;
+  async function mobLoop() {
+    while (true) {
+      await wait(I.IDLE.MOB_HIT * 1000);
+      if (mode !== 'auto' || document.hidden || !alive || breaking) continue;
+      if (await mobStrike(I.mobAtk(st.floor))) await breakPick();
+    }
+  }
+  // 곡괭이 파손 → 산산조각 → 챕터 첫 스테이지(x-1)로 돌아가 다시 사냥
+  async function breakPick() {
+    breaking = true; mode = 'break';
+    const pk = $('#pick'), pim = pk.querySelector('img'), [x, y] = arenaXY(pk);
+    const c = PICKS[tierOf(st.lv.atk)].c;
+    pim.animate([{ transform: 'rotate(-22deg)', opacity: 1 }, { transform: 'rotate(60deg) translate(20px,80px)', opacity: 0 }], { duration: 650, fill: 'forwards', easing: 'ease-in' });
+    for (let i = 0; i < 34; i++) { const a = rnd() * 6.28, sp = 120 + rnd() * 420; emit({ t: 'shard', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 150, g: 1000, rot: rnd() * 6, vr: (rnd() - .5) * 24, s: 5 + rnd() * 8, color: rnd() < .5 ? c : '#8a6a4a', floor: 300, life: .9 + rnd() * .4 }); }
+    shake($('#arena'), 14, 450); flash('#000', .4, 450);
+    Sound.play('last');
+    I.breakPick(st);
+    banner('곡괭이가 부러졌어요!', `${I.stageNo(st.floor)}부터 다시 · 내구도를 강화해 보세요`, '#ff7a6a', 2200);
+    await wait(2000);
+    pim.getAnimations().forEach(a => a.cancel());
+    pk.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+    toast('🔧 곡괭이 수리 완료!');
+    recalc(); setDur(); newMob(); refresh(); save();
+    mode = 'auto'; breaking = false;
+  }
+
+  // ---------- 보스전: 한 번 공격할 때마다 보스가 반격 · 내구도가 다 닳으면 패배 ----------
+  //  auto=true 면 자동 도전(칸 고정·다시 돌리기도 알아서)
+  async function autoDecision(syms, rer) {
+    const r = I.evalSpin(st, syms);
+    if (rer <= 0 || r.combo > 1 || r.chests > 0) return 'attack';
+    const cnt = {}; syms.forEach(x => cnt[x] = (cnt[x] || 0) + 1);
+    const top = Object.entries(cnt).filter(([k]) => k !== 'coin').sort((a, b) => b[1] - a[1])[0];
+    held = syms.map(x => (top && x === top[0] && top[1] >= 2) || x === 'gem' || x === 'chest');
+    cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
+    await wait(320);
+    return 'reroll';
+  }
+  let quitReq = false;
+  async function bossFight(auto) {
     if (mode !== 'auto' || !I.bossReady(st)) return;
-    mode = 'boss';
+    mode = 'boss'; quitReq = false;
     await wait(300);
     document.body.classList.add('bossmode');
+    document.body.classList.toggle('autoboss', !!auto);
     $('#bossBar').hidden = false;
+    $('#bossQuit').onclick = () => { quitReq = true; };
     const card = I.mobCard(C, st.floor, rnd, true);
-    $('#bossBar b').textContent = I.isSBoss(st.floor) ? '💀 강적 보스' : '👑 보스전';
+    $('#bossBar b').textContent = (I.isSBoss(st.floor) ? '💀 강적 보스' : '👑 보스전') + (auto ? ' · 자동' : '');
     setMob(card, I.bossHp(st.floor), true);
+    st.dur = I.maxDur(st); setDur();                       // 보스전 시작 전 곡괭이 수리
+    refreshTop();
     Sound.play('drumroll');
     floatAt(220, 120, 'BOSS!', 'bossf', 1400);
-    await wait(900);
-    let rer = I.IDLE.BOSS_REROLLS, quit = false;
-    for (let t = I.IDLE.BOSS_SPINS; t > 0 && mobHp > 0 && !quit; t--) {
-      $('#bossTurns').textContent = `남은 공격 ${t}`;
+    await wait(auto ? 700 : 900);
+    let rer = I.IDLE.BOSS_REROLLS, quit = false, turn = 0;
+    while (mobHp > 0 && st.dur > 0 && !quit) {
+      turn++;
+      $('#bossTurns').textContent = `${turn}턴 · 다시 돌리기 ${rer}`;
       held = [];
       let syms = I.roll(st, rnd);
-      await spinAnim(syms, 650);
+      await spinAnim(syms, auto ? 380 : 650);
       for (;;) {
-        const v = await bossDecision(syms, rer);
-        if (v === 'quit') { quit = true; break; }
+        if (quitReq) { quit = true; break; }
+        const v = auto ? await autoDecision(syms, rer) : await bossDecision(syms, rer);
+        if (v === 'quit' || quitReq) { quit = true; break; }
         if (v === 'attack') break;
         rer--;
+        $('#bossTurns').textContent = `${turn}턴 · 다시 돌리기 ${rer}`;
         const keep = held.slice();
         syms = I.roll(st, rnd, syms, keep);
-        await spinAnim(syms, 550, keep);
+        await spinAnim(syms, auto ? 350 : 550, keep);
       }
       cellEls.forEach(el => el.classList.remove('held'));
       if (quit) break;
@@ -485,40 +555,45 @@
       showSyms(syms, r.comboSym);
       setCalc(calcText(r, syms));
       await hit(r, true);
-      await wait(500);
+      if (mobHp > 0) { await wait(280); await mobStrike(I.bossAtk(st.floor)); }
+      await wait(auto ? 250 : 400);
     }
     $('#bossBar').hidden = true;
-    document.body.classList.remove('bossmode');
+    document.body.classList.remove('bossmode', 'autoboss');
     if (mobHp <= 0) {
-      // 보스 격파 연출: 크게 터지고 → 코인 비 → 배너 → 카드 팝업
+      // 보스 격파 연출: 크게 터지고 → 코인 비 → 배너 → (직접 도전이면) 카드 팝업
       const [bx, by] = arenaXY($('#mob .mimg'));
       killBurst(bx, by, true); flash('#fff', .9, 450); shake($('#arena'), 16, 450);
       $('#mob').animate([{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.25)', filter: 'brightness(5)', offset: .3 }, { transform: 'scale(0)', opacity: 0 }], { duration: 420, fill: 'forwards' });
-      coinShower(30);
-      banner('보스 격파!', floorName(st.floor + 1) + '로', '#ffd34a', 1600);
+      coinShower(auto ? 14 : 30);
+      banner('보스 격파!', '다음 → ' + I.stageNo(st.floor + 1), '#ffd34a', 1600);
       Sound.play('fanfare');
-      await wait(1500);
       const key = C.cardKey(card), isNew = !st.dex[key];
       st.dex[key] = (st.dex[key] || 0) + 1;
       const g = I.bossWin(st);
       save();
-      await modal(`<h3>보스 격파!</h3><div class="capture"><img src="${C.cardImg(card)}" alt=""><b>${card.name}</b><small>${card.grade}상 ${isNew ? '· ✨ 새 카드! 도감 등록' : '· 이미 있는 카드'}</small></div>
-        <p>광석 <b>+${fmt(g)}</b><br>다음 층으로 내려가요 → <b>${floorName(st.floor)}</b></p>`, '계속');
+      if (auto) { await wait(1300); if (isNew) toast(`✨ 새 카드: ${card.name} (도감 등록)`); }
+      else {
+        await wait(1500);
+        await modal(`<h3>보스 격파!</h3><div class="capture"><img src="${C.cardImg(card)}" alt=""><b>${card.name}</b><small>${card.grade}상 ${isNew ? '· ✨ 새 카드! 도감 등록' : '· 이미 있는 카드'}</small></div>
+          <p>광석 <b>+${fmt(g)}</b><br>다음 스테이지 → <b>${floorName(st.floor)}</b></p>`, '계속');
+      }
       buildCells();
     } else {
-      st.bossFails++;
+      I.bossLose(st);
       Sound.play('last');
-      await modal(`<h3>${quit ? '도전 포기' : '아깝다!'}</h3><p>보스 체력이 <b>${fmt(mobHp)}</b> 남았어요.<br>몬스터를 더 잡고 강화한 뒤 다시 도전하세요.</p>`, '돌아가기');
+      if (auto) { banner('보스에게 졌어요', '10마리 더 잡고 다시 도전해요', '#ff8a8a', 1800); await wait(1600); }
+      else await modal(`<h3>${quit ? '도전 포기' : '아깝다!'}</h3><p>${quit ? '도전을 그만뒀어요' : '곡괭이가 버티지 못했어요'}. 보스 체력이 <b>${fmt(mobHp)}</b> 남았어요.<br>몬스터 10마리를 더 잡고 강화한 뒤 다시 도전하세요.</p>`, '돌아가기');
     }
     $('#calc').innerHTML = '';
     mode = 'auto';
     $('#mob').getAnimations().forEach(a => a.cancel());
-    newMob();
+    newMob(); setDur();
     refresh();
   }
 
   // ---------- 상단 · 강화 목록 ----------
-  const floorName = f => `${C.TIERS[I.mineOf(C, f)].name} ${(f % I.FLOORS_PER_MINE) + 1}층`;
+  const floorName = f => `${I.stageNo(f)} ${C.TIERS[I.mineOf(C, f)].name}`;
   let gpsCache = 0, avgCache = 1;
   function recalc() {
     gpsCache = I.goldPerSec(st);
@@ -526,13 +601,16 @@
   }
   function refreshTop() {
     $('#gps').textContent = `초당 ${fmt(gpsCache)}`;
+    setDur();
+    $('#autoBtn').textContent = st.auto ? '자동 도전 ON' : '자동 도전 OFF';
+    $('#autoBtn').classList.toggle('on', !!st.auto);
     $('#floorName').textContent = floorName(st.floor);
     $('#pips').innerHTML = Array.from({ length: I.IDLE.KILLS }, (_, i) => `<i class="${i < st.kills ? 'on' : ''}"></i>`).join('');
     const ready = I.bossReady(st);
     $('#bossBtn').disabled = !ready || mode !== 'auto';
     $('#bossBtn').classList.toggle('ready', ready && mode === 'auto');
     const shots = Math.max(1, I.mobHp(st.floor) / Math.max(1, avgCache));
-    $('#killHint').textContent = mode === 'boss' ? '' : `평균 ${shots <= 1 ? '한 방' : f2(Math.ceil(shots * 10) / 10) + '방'}에 처치`;
+    $('#killHint').textContent = mode === 'boss' ? `반격 ${fmt(I.bossAtk(st.floor))}` : `평균 ${shots <= 1 ? '한 방' : f2(Math.ceil(shots * 10) / 10) + '방'}에 처치 · 반격 ${fmt(I.mobAtk(st.floor))}`;
     syncPick();
     if (tab === 'up') updateButtons();
   }
@@ -551,6 +629,7 @@
       case 'gem': return `💎 확률 ${pct(S.gemW(lv), st.lv)} → <b>${pct(S.gemW(nx), L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
       case 'chest': return `📦 확률 ${pct(S.chestW(lv), st.lv)} → <b>${pct(S.chestW(nx), L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
       case 'coin': return `처치 광석 ×${f2(S.coinX(lv))} → <b>×${f2(S.coinX(nx))}</b>`;
+      case 'dur': return `내구도 ${fmt(S.dur(lv))} → <b>${fmt(S.dur(nx))}</b> · 반격 ${Math.floor(S.dur(nx) / I.mobAtk(st.floor))}대 버팀`;
       case 'cells': return `슬롯 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 콤보·잭팟이 쉬워요`;
     }
     return '';
@@ -559,12 +638,14 @@
   function renderList() {
     const L = $('#list');
     if (tab === 'up') {
-      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(tierOf(st.lv.atk))}" alt="">` : img(I.UP[k].icon)}</div>
+      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(tierOf(st.lv.atk))}" alt="">` : k === 'dur' ? '<span class="emo">🛠️</span>' : img(I.UP[k].icon)}</div>
         <div class="ut"><b>${I.UP[k].name} <small>Lv.${st.lv[k]}</small></b><span class="ud"></span></div>
         <button class="ub" data-k="${k}"></button></div>`).join('');
       L.querySelectorAll('.ub').forEach(b => b.onclick = () => {
         const k = b.dataset.k;
+        const durBefore = I.maxDur(st);
         if (!I.buy(st, k)) return;
+        if (k === 'dur') { st.dur += I.maxDur(st) - durBefore; setDur(); }
         Sound.play('coin');
         recalc();
         if (k === 'cells') { buildCells(); toast('슬롯 칸이 늘었어요!'); }
@@ -632,7 +713,9 @@
       document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
       renderList();
     });
-    $('#bossBtn').onclick = () => { Sound.unlock(); bossFight(); };
+    $('#bossBtn').onclick = () => { Sound.unlock(); bossFight(false); };
+    $('#autoBtn').onclick = () => { st.auto = !st.auto; Sound.play('click'); toast(st.auto ? '보스가 열리면 자동으로 도전해요' : '보스는 👑 버튼으로 직접 도전해요'); refreshTop(); save(); };
+    mobLoop();
     document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) save();

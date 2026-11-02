@@ -195,3 +195,20 @@ body.bossmode .cell:not(.locked) { cursor: pointer; }
 .pk.on img { filter: none; }
 .pk small { font-size: 10px; display: block; }
 .banner.long b { font-size: 34px; -webkit-text-stroke: 2px #3a1500; }
+
+/* ===== 곡괭이 내구도 · 자동 도전 · 스테이지 번호 ===== */
+#durBar { position: absolute; left: 14px; top: 14px; width: 190px; z-index: 6; display: flex; align-items: center; gap: 4px; }
+#durBar span { font-size: 18px; filter: drop-shadow(0 1px 0 #000); }
+#durBar .db { position: relative; flex: 1; height: 18px; border-radius: 9px; background: #1a1a2a; border: 2px solid #000; overflow: hidden; }
+#durBar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#7fe0ff, #2a8ad4); transition: width .2s; }
+#durBar small { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 14px; color: #fff; font-weight: 800; text-shadow: 0 1px 0 #000; }
+#durBar.low i { background: linear-gradient(#ff9a6a, #d4142e); animation: durLow .6s ease-in-out infinite; }
+@keyframes durLow { 50% { filter: brightness(1.6); } }
+body.bossmode #durBar { top: 56px; }
+.fl.dmgf { font-size: 22px; color: #ff5a5a; -webkit-text-stroke: 1px #3a0000; }
+#hud .stage b { font-size: 16px; }
+#autoBtn { margin-top: 4px; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 8px; background: #555; color: #ccc; border: 1px solid #222; }
+#autoBtn.on { background: linear-gradient(#7ed957, #3a9a2a); color: #fff; text-shadow: 0 1px 0 #000; }
+#hud { height: 84px; }
+.up .ui .emo { font-size: 30px; line-height: 1; }
+body.autoboss #bossCtl { display: none; }
