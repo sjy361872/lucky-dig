@@ -2,113 +2,52 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>럭키 디그</title>
-<link rel="stylesheet" href="css/style.css?v=20261101022620">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>곡괭이 키우기</title>
+<link rel="stylesheet" href="css/idle.css?v=1">
 </head>
 <body>
-<div id="bg"></div>
-
-<div id="viewport">
+<div id="vp">
   <div id="app">
-    <!-- 상단 -->
-    <div id="topbar">
-      <div id="logo"><img src="assets/ui/logo.png" alt="LUCKY DIG"><span id="modeBadge">MILD</span></div>
-      <button id="pointsPill" class="pill" title="광석">
-        <span class="coin"></span>
-        <span class="pt-col"><small>보유 광석</small><b id="pointsText">0 pt</b></span>
-        <span class="plus">+</span>
-      </button>
-      <button id="btnRank" class="sidebtn" title="랭킹"><span class="ico">🏆</span><small>랭킹</small></button>
-      <button id="btnMenu" class="sidebtn" title="메뉴"><span class="ico">☰</span><small>메뉴</small></button>
-    </div>
+    <header id="hud">
+      <div class="gold"><img src="assets/ui/coin.png" alt=""><div><b id="gold">0</b><small id="gps">초당 0</small></div></div>
+      <div class="stage"><b id="floorName">풀숲 입구 1층</b><div id="pips"></div></div>
+      <button id="bossBtn" disabled><span>👑</span><small>보스 도전</small></button>
+    </header>
 
-    <!-- 전투 화면 (탐험 중에는 상단바 대신 표시) -->
-    <div id="monster" hidden>
-      <div class="mon-stage"><div class="mon-img"><img id="monImg" alt=""></div><div class="mon-shadow"></div></div>
-      <div class="mon-info">
-        <div class="mon-top"><span id="monGrade" class="chip">F</span><b id="monName">몬스터</b></div>
-        <div class="mon-hp"><div id="monHpGhost"></div><div id="monHpFill"></div><small id="monHpText">0</small></div>
-        <div class="mon-row"><div class="mon-atk" id="monAtkBox"><span id="monActIcon">🗡</span> <span id="monActName">공격</span> <b id="monAtk">3</b>턴 뒤</div><div id="monHearts"></div></div>
-        <small id="monActDesc"></small>
+    <section id="arena">
+      <div id="miner"><img src="assets/ui/miner.png" alt="광부"></div>
+      <div id="mob">
+        <div class="mhp"><i id="hpFill"></i><small id="hpText">0</small></div>
+        <div class="mimg"><img id="mobImg" alt=""></div>
+        <b id="mobName">몬스터</b>
+        <small id="killHint"></small>
       </div>
-    </div>
-    <div id="fx2"></div>
+      <div id="fx"></div>
+      <div id="bossBar" hidden><b>👑 보스전</b><span id="bossTurns">남은 공격 8</span><button id="bossQuit">포기</button></div>
+    </section>
 
-    <div id="middle">
-      <div id="stage">
-        <div id="slot"></div>
-        <div id="board"></div>
-        <div id="fx"></div>
+    <section id="slotbox">
+      <div id="cells"></div>
+      <div id="calc"></div>
+      <div id="bossCtl" hidden>
+        <small id="bossHint">좋은 칸을 눌러 고정 → 나머지만 다시 돌려요</small>
+        <div class="bc-btns"><button id="bReroll">🔄 다시 돌리기</button><button id="bAttack">⚔ 공격!</button></div>
       </div>
-      <div id="rightcol">
-        <button id="btnHelp" class="sidebtn" title="플레이 방법"><span class="ico">?</span><small>플레이 방법</small></button>
-        <button id="btnPrizes" class="sidebtn" title="상품 목록"><span class="ico">🂠</span><small>상품</small></button>
-        <button id="btnBag" class="sidebtn" title="보관함"><span class="ico">🎒</span><small>카드·도감</small></button>
-        <div id="gauge">
-          <div id="gaugeTrack"><div id="gaugeFill"></div></div>
-          <div id="gaugeLabels"></div>
-        </div>
-        <button id="btnSpeed" class="speedbtn" title="고속">⚡</button>
-      </div>
-    </div>
+    </section>
 
-    <div id="chests"></div>
-
-    <div id="panel">
-      <div id="panelIdle">
-        <button id="betMinus" class="roundbtn minus">−</button>
-        <button id="betBox"><small id="betSub">광산</small><b id="betText">풀숲 입구</b></button>
-        <button id="betPlus" class="roundbtn plus">+</button>
-        <button id="btnPlay"><span class="tri"></span><small>탐험</small></button>
-      </div>
-      <div id="panelPlay" hidden>
-        <div class="info">
-          <div><small>층</small><b id="playBet">1층</b></div>
-          <div><small>하트</small><b id="heartText">❤❤❤</b></div>
-          <div class="hide-spins"><small>남은 스핀</small><b id="spinsText">0회</b></div>
-          <div id="deckBtn"><small>덱</small><b id="rerollText">0장</b></div>
-        </div>
-        <div class="scorebox"><small id="cmText">0 × 1</small><b id="scoreText">0</b><small class="sb-l">이번 층 대미지</small></div>
-      </div>
-      <div id="spinActions" hidden>
-        <div id="holdHint">열을 눌러 고정(홀드)한 뒤 리롤할 수 있어요</div>
-        <div class="sa-btns"><button id="btnReroll">🔄 리롤</button><button id="btnConfirm">✔ 이대로 캐기</button></div>
-      </div>
-    </div>
+    <section id="panel">
+      <nav id="tabs"><button data-t="up" class="on">⛏ 강화</button><button data-t="dex">📖 도감</button></nav>
+      <div id="list"></div>
+    </section>
     <div id="toast"></div>
   </div>
 </div>
+<div id="modal" hidden></div>
 
-<div id="title">
-  <div class="title-glow"></div>
-  <img class="title-logo" src="assets/ui/logo.png" alt="LUCKY DIG">
-  <div class="mode-select">
-    <button class="mode-btn" data-mode="mild"><b>MILD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>오래 즐기는 안정형<br>본전 근처가 자주 나와요</small></button>
-    <button class="mode-btn" data-mode="hard"><b>HARD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>한 방을 노리는 승부형<br>S·A상이 약 2배 자주</small></button>
-  </div>
-  <button id="btnStart"><span>GAME START</span></button>
-  <button id="btnWho" class="who"></button>
-  <div class="title-hint">화면을 눌러 시작하세요</div>
-  <div class="title-sparkles"></div>
-</div>
-
-<div id="news"></div>
-<div id="overlay" hidden></div>
-
-<script src="js/config.js?v=20261101022620"></script>
-<script src="js/engine.js?v=20261101022620"></script>
-<script src="js/relics.js?v=20261101022620"></script>
-<script src="js/dig.js?v=20261101022620"></script>
-<script src="js/sound.js?v=20261101022620"></script>
-<script src="js/art.js?v=20261101022620"></script>
-<script src="js/render.js?v=20261101022620"></script>
-<script src="js/online-config.js?v=20261101022620"></script>
-<script src="js/rank.js?v=20261101022620"></script>
-<script src="js/run.js?v=20261101022620"></script>
-<script src="js/ui.js?v=20261101022620"></script>
-<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js?v=20261101022620'; document.body.appendChild(s); });</script>
-<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js?v=20261101022620'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js?v=20261101022620'; document.body.appendChild(s); });</script>
+<script src="js/config.js?v=1"></script>
+<script src="js/sound.js?v=1"></script>
+<script src="js/idle.js?v=1"></script>
+<script src="js/idle_ui.js?v=1"></script>
 </body>
 </html>
