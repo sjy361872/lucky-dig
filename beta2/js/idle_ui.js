@@ -448,7 +448,7 @@
       setCalc(calcText(r, syms));
       await hit(r);
       if (st.dur <= 0 && mode === 'auto' && !breaking) { await breakPick(); continue; }
-      if (r.fx && r.fx.jackGold) await wait(900);
+      if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);
       if (mobHp <= 0 && alive && mode === 'auto') await killMob();
       if (r.respins && mode === 'auto') { freeSpins += r.respins; }
       refreshTop();
@@ -586,7 +586,7 @@
       showSyms(syms, r);
       setCalc(calcText(r, syms));
       await hit(r, true);
-      if (r.fx && r.fx.jackGold) await wait(900);
+      if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);
       // ⏳ 모래시계가 나오면 이번 턴은 보스가 반격 못 함
       if (mobHp > 0 && st.dur > 0) {
         if (r.respins) { floatAt(330, 60, '보스 반격 봉인!', 'glassf', 1000); await wait(300); }
@@ -661,13 +661,16 @@
   }
   // 💰 잭팟: 화면이 금빛으로 몇 번 번쩍 → 코인 폭포 → 광석 대량
   function jackpotFx(r) {
-    document.body.classList.add('jackpot'); setTimeout(() => document.body.classList.remove('jackpot'), 2600);
-    banner('JACKPOT!!', `황금 곡괭이 ${r.comboN}개 · 대미지 ×${fmt(r.combo)}`, '#ffd34a', 2600);
-    Sound.play('chestBig'); Sound.play('fanfare');
-    for (let k = 0; k < 4; k++) setTimeout(() => { flash(k % 2 ? '#fff' : '#ffd34a', .8, 260); shake($('#arena'), 16, 300); }, k * 280);
-    coinShower(70);
+    // 3개 = 잭팟(자주) · 4개 = 메가(가끔) · 5개 = 그랜드(아주 드물게) → 등급이 높을수록 연출이 길고 화려함
+    const lv = Math.min(5, r.comboN) - 3, ms = [1500, 2600, 3800][lv];
+    const name = ['JACKPOT!', 'MEGA JACKPOT!!', 'GRAND JACKPOT!!!'][lv], color = ['#ffd34a', '#ff8af0', '#7ff7ff'][lv];
+    document.body.classList.add('jackpot'); setTimeout(() => document.body.classList.remove('jackpot'), ms);
+    banner(name, `황금 곡괭이 ${r.comboN}개 · 대미지 ×${fmt(r.combo)}`, color, ms);
+    Sound.play('chestBig'); if (lv) Sound.play('fanfare');
+    for (let k = 0; k < [2, 5, 9][lv]; k++) setTimeout(() => { flash(k % 2 ? '#fff' : color, .8, 260); shake($('#arena'), 8 + lv * 5, 300); }, k * 280);
+    coinShower([30, 80, 160][lv]);
     const [x, y] = arenaXY($('#mob .mimg'));
-    for (let k = 0; k < 3; k++) setTimeout(() => emit({ t: 'ring', x, y, r0: 20, r1: 260, w: 14, color: '#ffd34a', life: .6 }), k * 250);
+    for (let k = 0; k < 1 + lv * 2; k++) setTimeout(() => emit({ t: 'ring', x, y, r0: 20, r1: 260, w: 14, color, life: .6 }), k * 250);
     setTimeout(() => { if (r.fx && r.fx.jackGold) { floatAt(220, 170, `+${fmt(r.fx.jackGold)}`, 'goldf big', 1600, { punch: 2.2 }); goldBump(); } }, 500);
   }
   // 새 심볼 해금
@@ -702,8 +705,7 @@
   }
   function upDesc(k) {
     const lv = st.lv[k], S = I.stat, nx = lv + 1;
-    const tot = lvx => 50 + 14 + S.gemW(lvx.gem) + 12 + S.chestW(lvx.chest);
-    const pct = (w, lvx) => Math.round(w / tot(lvx) * 100) + '%';
+    const pctOf = (sym, lvx) => { const w = I.weights(Object.assign({}, st, { lv: lvx })); const t = w.reduce((a, e) => a + e[1], 0); return Math.round((w.find(e => e[0] === sym) || [0, 0])[1] / t * 100) + '%'; };
     const L2 = Object.assign({}, st.lv, { [k]: nx });
     switch (k) {
       case 'atk': {
@@ -712,8 +714,8 @@
         return `공격력 ${fmt(S.atk(lv))} → <b>${fmt(S.atk(nx))}</b>${evo}`;
       }
       case 'spd': return `초당 ${f2(S.aps(lv))}번 → <b>${f2(S.aps(nx))}번</b>`;
-      case 'gem': return `💎 확률 ${pct(S.gemW(lv), st.lv)} → <b>${pct(S.gemW(nx), L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
-      case 'chest': return `📦 확률 ${pct(S.chestW(lv), st.lv)} → <b>${pct(S.chestW(nx), L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
+      case 'gem': return `💎 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
+      case 'chest': return `📦 확률 ${pctOf('chest', st.lv)} → <b>${pctOf('chest', L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
       case 'coin': return `처치 광석 ×${f2(S.coinX(lv))} → <b>×${f2(S.coinX(nx))}</b>`;
       case 'dur': return `내구도 ${fmt(S.dur(lv))} → <b>${fmt(S.dur(nx))}</b> · 반격 ${Math.floor(S.dur(nx) / I.mobAtk(st.floor))}대 버팀`;
       case 'cells': return `슬롯 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 콤보·잭팟이 쉬워요`;
