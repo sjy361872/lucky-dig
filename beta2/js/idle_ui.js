@@ -39,6 +39,8 @@
     pick: 'assets/items/pick2.png', tnt: 'assets/items/tnt.png', gem: 'assets/blocks/diamond.png',
     coin: 'assets/ui/coin.png', chest: 'assets/chests/c5.png', slot: 'assets/ui/cell_slot.png',
     pick3: 'assets/items/pick3.png', spin: 'assets/items/spin.png',
+    rainbow: 'assets/syms/rainbow.webp', mimic: 'assets/syms/mimic.webp', egg: 'assets/syms/egg.webp',
+    wrench: 'assets/syms/wrench.webp', glass: 'assets/syms/glass.webp', gold: 'assets/syms/gold.webp',
   };
   // ---------- 곡괭이 진화: 공격력 25레벨마다(= 대미지 2배 되는 순간) 다음 곡괭이 ----------
   const PICKS = [
@@ -254,24 +256,27 @@
       if (i < n) cellEls.push(d);
     }
   }
-  function showSyms(syms, combo) {
+  function showSyms(syms, r) {
     let n = 0;
     syms.forEach((s, i) => {
       const el = cellEls[i]; if (!el) return;
-      el.innerHTML = img(s);
-      const on = !!(combo && s === combo);
+      const to = r ? r.res[i] : s;
+      el.innerHTML = img(s) + (r && s === 'rainbow' ? `<em class="wildto">${img(to)}</em>` : '') + (r && r.boosted[i] ? '<b class="x2">×2</b>' : '');
+      const on = !!(r && r.comboSym && to === r.comboSym);
       el.classList.toggle('combo', on);
-      el.classList.toggle('chest', s === 'chest');
+      el.classList.toggle('chest', s === 'chest' || s === 'mimic');
+      el.classList.toggle('boost', !!(r && r.boosted[i]));
+      el.classList.toggle('jack', !!(r && r.jackpot && to === 'gold'));
       // 콤보 칸은 왼쪽부터 차례로 통통 튐
-      if (on || s === 'chest') el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.22) translateY(-8px)' }, { transform: 'scale(1)' }], { duration: 260, delay: (n++) * 55, easing: 'ease-out' });
+      if (on || s === 'chest' || s === 'mimic' || (r && r.boosted[i])) el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.22) translateY(-8px)' }, { transform: 'scale(1)' }], { duration: 260, delay: (n++) * 55, easing: 'ease-out' });
     });
   }
   const popCell = el => el.animate([{ transform: 'scale(1.18) translateY(-5px)' }, { transform: 'scale(.96)', offset: .6 }, { transform: 'scale(1)' }], { duration: 170, easing: 'ease-out' });
   // 릴 연출: 고정 안 한 칸은 잠깐 섞였다가 왼쪽부터 멈춤
   async function spinAnim(syms, ms, keep) {
-    const keys = Object.keys(I.SYMS), n = syms.length, t0 = performance.now();
+    const keys = I.unlocked(st), n = syms.length, t0 = performance.now();
     $('#calc').classList.add('dim');
-    cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest'); if (!(keep && keep[i])) el.classList.add('spinning'); });
+    cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest', 'boost', 'jack'); if (!(keep && keep[i])) el.classList.add('spinning'); });
     while (true) {
       const el = performance.now() - t0;
       let left = 0;
@@ -291,6 +296,9 @@
     const parts = [`${f2(r.hits)}타`, `공격력 ${fmt(r.atk)}`];
     if (r.combo > 1) parts.push(`콤보 ×${r.combo}`);
     if (r.chests) parts.push(`상자 ×${f2(r.chestMult)}`);
+    if (r.mimics) parts.push(r.mimicOk === null ? '미믹 ?' : r.mimicOk ? `미믹 ×${fmt(r.mimicMult)}` : '미믹 꽝');
+    if (r.dragon) parts.push(`🐲 ×${I.DRAGON_X}`);
+    if (r.jackpot) parts[parts.indexOf(`콤보 ×${r.combo}`)] = `잭팟 ×${r.combo}`;
     return `${parts.join(' × ')} = <b>${fmt(r.dmg)}</b>`;
   }
 
@@ -363,8 +371,9 @@
     mi.classList.remove('swing'); void mi.offsetWidth; mi.classList.add('swing');
     await wait(125);                                    // 곡괭이가 내려꽂히는 순간에 맞춤
     const m = $('#mob .mimg'), [x, y] = arenaXY(m);
-    const crit = r.combo > 1 || r.chests > 0;
-    const huge = r.comboN >= 4 || r.chests >= 2 || (r.combo > 1 && r.chests > 0);
+    const crit = r.combo > 1 || r.chests > 0 || r.mimicOk;
+    const huge = r.jackpot || r.comboN >= 4 || r.chests >= 2 || (r.combo > 1 && r.chests > 0) || (r.mimicOk && r.combo > 1);
+    if (r.dragon) dragonFire(x, y);
     const frac = Math.min(1, r.dmg / mobMax);           // 체력의 몇 %를 깎았나 → 흔들림 크기
     mobHp -= r.dmg;
     m.classList.remove('hurt'); void m.offsetWidth;
@@ -380,7 +389,8 @@
     setTimeout(() => m.classList.remove('hurtbig'), 350);
     floatAt(x + (rnd() - .5) * 40, y - 70, fmt(r.dmg), crit ? 'crit' : '', crit ? 1300 : 800, { dx: (rnd() - .5) * 70, punch: crit ? 1.9 : 1.3 });
     Sound.play('hit', { type: crit ? 'diamond' : 'stone', ratio: .5 });
-    if (huge) {
+    if (r.jackpot) jackpotFx(r);
+    else if (huge) {
       const t = r.comboN >= 5 ? '잭팟!!' : r.chests >= 2 ? '보물 대박!' : r.combo > 1 && r.chests ? '콤보 + 상자!' : `${r.comboN}콤보!`;
       banner(t, `대미지 ×${fmt(r.combo * r.chestMult)}`, r.chests ? '#ffd34a' : '#7ff7ff');
       flash('#fff', .7, 320);
@@ -389,7 +399,22 @@
     } else {
       if (r.combo > 1) { floatAt(220, 150, `${I.SYMS[r.comboSym].name} ${r.comboN}개 콤보! ×${r.combo}`, 'combo', 1300, { punch: 1.5 }); Sound.play('big'); flash('#7ff7ff', .25); }
       if (r.chests) { floatAt(220, 120, `📦 상자 ×${f2(r.chestMult)}!`, 'chestf', 1300, { punch: 1.6 }); Sound.play('chestBig'); flash('#ffd34a', .35); }
+      if (r.mimicOk) { floatAt(220, 95, `👅 미믹 ×${fmt(r.mimicMult)}!`, 'chestf', 1300, { punch: 1.7 }); Sound.play('chestBig'); flash('#ff7ad9', .35); }
     }
+    if (r.boosted.some(Boolean)) { cellEls.forEach((el, i) => { if (r.boosted[i]) el.animate([{ filter: 'brightness(2.5)' }, { filter: 'brightness(1)' }], { duration: 300 }); }); }
+    // 효과: 수리 · 미믹 물기 · 알 · 용 · 잭팟 광석
+    const fx = I.applySpin(st, r);
+    const [px, py] = arenaXY($('#pick'));
+    if (r.repair) { floatAt(px, py - 50, `🔧 +${fmt(I.maxDur(st) * r.repair)}`, 'repf', 900, { dx: 10 }); setDur(); }
+    if (fx.bite) {
+      $('#pick').animate([{ transform: 'translateX(-14px) rotate(-10deg)', filter: 'sepia(1) saturate(6) hue-rotate(-40deg)' }, { transform: 'none', filter: 'none' }], { duration: 320 });
+      floatAt(px, py - 40, `👅 깨물! -${fmt(fx.bite)}`, 'dmgf', 1100, { punch: 1.5 });
+      flash('#ff2a2a', .3, 260); Sound.play('last'); setDur();
+    }
+    if (r.respins) floatAt(220, 70, `⏳ 한 번 더!${r.respins > 1 ? ' ×' + r.respins : ''}`, 'glassf', 1000, { punch: 1.5 });
+    if (r.cracks || r.dragon || fx.hatched) setEgg(fx.hatched, r.cracks);
+    if (fx.hatched) hatchFx();
+    r.fx = fx;
     if (r.coins) { const g = I.coinGold(st, r.coins); st.gold += g; floatAt(110, 150, `+${fmt(g)}`, 'goldf', 900, { dx: -20 }); goldBump(); }
     setHp();
     shake($('#arena'), 1.5 + frac * 10 + (crit ? 4 : 0) + (huge ? 8 : 0) + (big ? 2 : 0));
@@ -410,21 +435,26 @@
   }
 
   // ---------- 자동 사냥 루프 ----------
+  let freeSpins = 0;
   async function autoLoop() {
     while (true) {
       if (mode !== 'auto' || document.hidden) { await wait(200); continue; }
       const aps = I.stat.aps(st.lv.spd), period = 1000 / aps;
       const t0 = performance.now();
-      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms);
+      const syms = I.roll(st, rnd), r = I.evalSpin(st, syms, rnd);
       await spinAnim(syms, Math.min(260, period * 0.5));
       if (mode !== 'auto' || !alive) continue;
-      showSyms(syms, r.comboSym);
+      showSyms(syms, r);
       setCalc(calcText(r, syms));
       await hit(r);
+      if (st.dur <= 0 && mode === 'auto' && !breaking) { await breakPick(); continue; }
+      if (r.fx && r.fx.jackGold) await wait(900);
       if (mobHp <= 0 && alive && mode === 'auto') await killMob();
+      if (r.respins && mode === 'auto') { freeSpins += r.respins; }
       refreshTop();
       // 자동 도전: 켜져 있거나, 이미 깬 스테이지로 되돌아온 경우(파손 뒤 복귀)엔 보스도 자동
       if (mode === 'auto' && I.bossReady(st) && (st.auto || st.floor < st.best)) { await bossFight(true); continue; }
+      if (freeSpins > 0) { freeSpins--; await wait(120); continue; }
       const rest = period - (performance.now() - t0);
       if (rest > 0) await wait(rest);
     }
@@ -506,10 +536,11 @@
   //  auto=true 면 자동 도전(칸 고정·다시 돌리기도 알아서)
   async function autoDecision(syms, rer) {
     const r = I.evalSpin(st, syms);
-    if (rer <= 0 || r.combo > 1 || r.chests > 0) return 'attack';
+    if (rer <= 0 || r.combo > 1 || r.chests > 0 || r.jackpot) return 'attack';
+
     const cnt = {}; syms.forEach(x => cnt[x] = (cnt[x] || 0) + 1);
-    const top = Object.entries(cnt).filter(([k]) => k !== 'coin').sort((a, b) => b[1] - a[1])[0];
-    held = syms.map(x => (top && x === top[0] && top[1] >= 2) || x === 'gem' || x === 'chest');
+    const top = Object.entries(cnt).filter(([k]) => !['coin', 'rainbow', 'mimic', 'wrench', 'egg'].includes(k)).sort((a, b) => b[1] - a[1])[0];
+    held = syms.map(x => (top && x === top[0] && top[1] >= 2) || ['gem', 'chest', 'gold', 'rainbow', 'glass'].includes(x));
     cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
     await wait(320);
     return 'reroll';
@@ -551,11 +582,16 @@
       }
       cellEls.forEach(el => el.classList.remove('held'));
       if (quit) break;
-      const r = I.evalSpin(st, syms);
-      showSyms(syms, r.comboSym);
+      const r = I.evalSpin(st, syms, rnd);
+      showSyms(syms, r);
       setCalc(calcText(r, syms));
       await hit(r, true);
-      if (mobHp > 0) { await wait(280); await mobStrike(I.bossAtk(st.floor)); }
+      if (r.fx && r.fx.jackGold) await wait(900);
+      // ⏳ 모래시계가 나오면 이번 턴은 보스가 반격 못 함
+      if (mobHp > 0 && st.dur > 0) {
+        if (r.respins) { floatAt(330, 60, '보스 반격 봉인!', 'glassf', 1000); await wait(300); }
+        else { await wait(280); await mobStrike(I.bossAtk(st.floor)); }
+      }
       await wait(auto ? 250 : 400);
     }
     $('#bossBar').hidden = true;
@@ -570,7 +606,9 @@
       Sound.play('fanfare');
       const key = C.cardKey(card), isNew = !st.dex[key];
       st.dex[key] = (st.dex[key] || 0) + 1;
+      const before = I.unlocked(st);
       const g = I.bossWin(st);
+      const fresh = I.unlocked(st).filter(k => !before.includes(k));
       save();
       if (auto) { await wait(1300); if (isNew) toast(`✨ 새 카드: ${card.name} (도감 등록)`); }
       else {
@@ -579,6 +617,8 @@
           <p>광석 <b>+${fmt(g)}</b><br>다음 스테이지 → <b>${floorName(st.floor)}</b></p>`, '계속');
       }
       buildCells();
+      for (const k of fresh) await unlockFx(k, auto);
+      if (fresh.length) setEgg();
     } else {
       I.bossLose(st);
       Sound.play('last');
@@ -590,6 +630,52 @@
     $('#mob').getAnimations().forEach(a => a.cancel());
     newMob(); setDur();
     refresh();
+  }
+
+  // ---------- 🥚 용의 알 · 🐲 새끼 용 ----------
+  function setEgg(hatched, cracks) {
+    const on = I.unlocked(st).includes('egg'), el = $('#eggBar');
+    el.hidden = !on; if (!on) return;
+    const d = st.dragon || 0;
+    el.className = d > 0 ? 'dragon' : '';
+    el.innerHTML = d > 0 ? `<span>🐲</span><b>새끼 용 · 대미지 ×${I.DRAGON_X}</b><small>${d}번 남음</small>`
+      : `<span>🥚</span><b>용의 알</b><small>${st.egg || 0} / ${I.EGG_N}</small><i style="width:${(st.egg || 0) / I.EGG_N * 100}%"></i>`;
+    $('#dragon').hidden = !(d > 0);
+    if (cracks && !hatched && !d) el.animate([{ transform: 'scale(1.15) rotate(-4deg)' }, { transform: 'none' }], { duration: 300 });
+  }
+  async function hatchFx() {
+    const [x, y] = arenaXY($('#pick'));
+    flash('#ffb347', .8, 500); shake($('#arena'), 12, 400);
+    for (let i = 0; i < 30; i++) { const a = rnd() * 6.28, sp = 150 + rnd() * 380; emit({ t: 'shard', x, y: y - 60, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, g: 900, rot: rnd() * 6, vr: (rnd() - .5) * 20, s: 5 + rnd() * 7, color: rnd() < .5 ? '#f3e6c4' : '#a46ad0', floor: 300, life: .8 + rnd() * .4 }); }
+    banner('새끼 용 부화!', `${I.DRAGON_T}번 동안 불을 뿜어요 · 대미지 ×${I.DRAGON_X}`, '#ff9a3a', 1800);
+    Sound.play('fanfare');
+    $('#dragon').animate([{ transform: 'scale(0) rotate(-40deg)' }, { transform: 'scale(1.5)', offset: .6 }, { transform: 'scale(1)' }], { duration: 600, easing: 'ease-out' });
+  }
+  // 용이 몬스터에게 불을 뿜음
+  function dragonFire(tx, ty) {
+    const [x, y] = arenaXY($('#dragon'));
+    for (let i = 0; i < 14; i++) {
+      const dx = tx - x, dy = ty - y, k = .9 + rnd() * .5;
+      emit({ t: 'spark', x, y, vx: dx * 2.6 * k + (rnd() - .5) * 120, vy: dy * 2.6 * k + (rnd() - .5) * 120, drag: .96, w: 6, color: pick(['#fff3a0', '#ffb347', '#ff5a1f']), life: .35 + rnd() * .15 });
+    }
+  }
+  // 💰 잭팟: 화면이 금빛으로 몇 번 번쩍 → 코인 폭포 → 광석 대량
+  function jackpotFx(r) {
+    document.body.classList.add('jackpot'); setTimeout(() => document.body.classList.remove('jackpot'), 2600);
+    banner('JACKPOT!!', `황금 곡괭이 ${r.comboN}개 · 대미지 ×${fmt(r.combo)}`, '#ffd34a', 2600);
+    Sound.play('chestBig'); Sound.play('fanfare');
+    for (let k = 0; k < 4; k++) setTimeout(() => { flash(k % 2 ? '#fff' : '#ffd34a', .8, 260); shake($('#arena'), 16, 300); }, k * 280);
+    coinShower(70);
+    const [x, y] = arenaXY($('#mob .mimg'));
+    for (let k = 0; k < 3; k++) setTimeout(() => emit({ t: 'ring', x, y, r0: 20, r1: 260, w: 14, color: '#ffd34a', life: .6 }), k * 250);
+    setTimeout(() => { if (r.fx && r.fx.jackGold) { floatAt(220, 170, `+${fmt(r.fx.jackGold)}`, 'goldf big', 1600, { punch: 2.2 }); goldBump(); } }, 500);
+  }
+  // 새 심볼 해금
+  async function unlockFx(k, auto) {
+    const S = I.SYMS[k];
+    Sound.play('fanfare');
+    if (auto) { banner('새 심볼!', S.name, '#7ff7ff', 1800); toast(`✨ 새 심볼 ${S.name}: ${S.desc}`); await wait(1500); }
+    else await modal(`<h3>✨ 새 심볼 해금!</h3><div class="capture"><img src="${ICON[k]}" alt="" style="width:110px;height:110px;object-fit:contain"><b>${S.name}</b><small>${S.desc}</small></div><p>이제 슬롯에 ${S.name}${(S.name.charCodeAt(S.name.length - 1) - 0xac00) % 28 ? '이' : '가'} 나와요</p>`, '좋아요');
   }
 
   // ---------- 상단 · 강화 목록 ----------
@@ -662,7 +748,11 @@
     } else {
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
       const pt = tierOf(st.lv.atk);
-      L.innerHTML = `<p class="dexh">⛏ 곡괭이 진화 <b>${pt + 1}</b> / ${PICKS.length} · 공격력 ${EVOLVE}레벨마다 진화</p>
+      const un = I.unlocked(st);
+      const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
+        return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(S.u)} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
+      L.innerHTML = `<p class="dexh">🎰 슬롯 심볼 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
+        <p class="dexh">⛏ 곡괭이 진화 <b>${pt + 1}</b> / ${PICKS.length} · 공격력 ${EVOLVE}레벨마다 진화</p>
         <div class="pkrow">${PICKS.map((p, i) => `<div class="pk ${i <= pt ? 'on' : ''}"><img src="${pickSrc(i)}" alt=""><small>${i <= pt ? p.name : '???'}</small></div>`).join('')}</div>
         <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
         <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 몬스터 10마리를 잡고 👑 보스에 도전하세요!</p>'}</div>`;
@@ -705,6 +795,7 @@
     goldShown = st.gold; goldTick();
     buildCells();
     recalc();
+    setEgg();
     renderList();
     newMob();
     refresh();

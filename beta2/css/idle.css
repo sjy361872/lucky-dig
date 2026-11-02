@@ -212,3 +212,32 @@ body.bossmode #durBar { top: 56px; }
 #hud { height: 84px; }
 .up .ui .emo { font-size: 30px; line-height: 1; }
 body.autoboss #bossCtl { display: none; }
+
+/* ---------- 새 심볼 ---------- */
+.cell .wildto { position: absolute; right: -6px; top: -8px; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 2px solid #ff8af0; display: flex; align-items: center; justify-content: center; }
+.cell .wildto img { width: 22px; height: 22px; }
+.cell .x2 { position: absolute; left: -6px; top: -8px; font-size: 12px; font-weight: 900; color: #fff; background: #e2361e; border: 2px solid #fff; border-radius: 8px; padding: 0 4px; }
+.cell.boost { border-color: #ff7a3a; box-shadow: 0 0 12px #ff7a3a; }
+.cell.jack { border-color: #ffd34a; box-shadow: 0 0 22px #ffd34a, inset 0 0 14px #ffd34a; animation: jackCell .3s ease-in-out infinite alternate; }
+@keyframes jackCell { to { filter: brightness(1.5); } }
+.fl.repf { font-size: 18px; color: #7fffb0; -webkit-text-stroke: 1px #00401a; }
+.fl.glassf { font-size: 20px; color: #9fd8ff; -webkit-text-stroke: 1px #00264a; }
+#eggBar { position: absolute; left: 14px; top: 38px; width: 190px; z-index: 6; display: flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 10px; background: rgba(0,0,0,.55); border: 2px solid #000; overflow: hidden; color: #fff; font-size: 11px; }
+#eggBar span { font-size: 14px; position: relative; z-index: 1; }
+#eggBar b { position: relative; z-index: 1; flex: 1; font-weight: 800; }
+#eggBar small { position: relative; z-index: 1; font-weight: 900; }
+#eggBar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(#c79bff, #7a3fc0); opacity: .7; transition: width .3s; }
+#eggBar.dragon { background: linear-gradient(90deg, #ff5a1f, #ffb347); animation: durLow 1s ease-in-out infinite; }
+body.bossmode #eggBar { top: 80px; }
+#dragon { position: absolute; left: 150px; top: 70px; z-index: 4; font-size: 46px; filter: drop-shadow(0 0 10px #ff8a3a); animation: dragonFloat 1.4s ease-in-out infinite; }
+@keyframes dragonFloat { 50% { translate: 0 -10px; } }
+body.jackpot #app { animation: jackBg .25s steps(2) infinite; }
+@keyframes jackBg { to { filter: brightness(1.25) saturate(1.4); } }
+.syms { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.sym { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; background: rgba(0,0,0,.25); opacity: .55; }
+.sym.on { opacity: 1; background: rgba(255,255,255,.08); }
+.sym:not(.on) img { filter: brightness(0); }
+.sym img { width: 34px; height: 34px; object-fit: contain; flex: none; }
+.sym b { display: block; font-size: 13px; }
+.sym small { display: block; font-size: 10.5px; line-height: 1.3; opacity: .85; }
+#eggBar[hidden] { display: none; }
