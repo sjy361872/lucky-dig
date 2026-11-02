@@ -21,7 +21,15 @@
   // ---------- 저장 ----------
   let st;
   function load() {
-    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.lv) { st = Object.assign(I.newState(), s); st.lv = Object.assign(I.newState().lv, s.lv); return; } } catch (e) { /* 새로 시작 */ }
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (s && s.lv) {
+        const old = !s.picks;
+        st = Object.assign(I.newState(), s); st.lv = Object.assign(I.newState().lv, s.lv);
+        if (old) { st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25)); st.pkMax = st.eq; }
+        return;
+      }
+    } catch (e) { /* 새로 시작 */ }
     st = I.newState();
   }
   function save() { st.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 저장 불가 */ } }
@@ -48,18 +56,18 @@
     { name: '황금 곡괭이', c: '#ffd34a' }, { name: '크리스탈 곡괭이', c: '#6fd8ff' }, { name: '용암 곡괭이', c: '#ff6a2a' },
     { name: '번개 곡괭이', c: '#c08aff' }, { name: '무지개 곡괭이', c: '#ff8af0' },
   ];
-  const EVOLVE = 25;
-  const tierOf = lv => Math.min(PICKS.length - 1, Math.floor(lv / EVOLVE));
+  // 곡괭이 모양 = 장착한 곡괭이 등급 (합성으로 얻음)
+  const cur = () => st.eq || 0;
   const pickSrc = t => `assets/picks/pick${t + 1}.webp`;
   function showPick() {
-    const t = tierOf(st.lv.atk), el = $('#pick');
+    const t = cur(), el = $('#pick');
     el.dataset.t = t; el.style.setProperty('--pc', PICKS[t].c);
     el.querySelector('img').src = pickSrc(t);
     $('#pickName').textContent = PICKS[t].name;
   }
   // 진화 연출: 번쩍 → 새 곡괭이가 커졌다 돌아옴 → 배너
   async function evolve() {
-    const t = tierOf(st.lv.atk), el = $('#pick');
+    const t = cur(), el = $('#pick');
     evolving = true; setTimeout(() => evolving = false, 600);
     Sound.play('drumroll');
     el.querySelector('img').animate([{ filter: 'brightness(1)' }, { filter: 'brightness(6) saturate(0)' }], { duration: 500, fill: 'forwards' });
@@ -71,7 +79,8 @@
     for (let i = 0; i < 40; i++) { const a = rnd() * 6.28, sp = 200 + rnd() * 500; emit({ t: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: .9, w: 4, color: rnd() < .5 ? PICKS[t].c : '#fff', life: .5 + rnd() * .3 }); }
     el.querySelector('img').getAnimations().forEach(a => a.cancel());
     el.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(.95)', offset: .6 }, { transform: 'scale(1)' }], { duration: 600, easing: 'ease-out' });
-    banner(`${PICKS[t].name}로 진화!`, `대미지 ×2 · ${t + 1}단계`, PICKS[t].c, 2000);
+    banner(`${PICKS[t].name}!`, `공격력 ×${f2(I.pickMult(st))}`, PICKS[t].c, 2000);
+    if (I.PICK.ability[t]) setTimeout(() => toast(`능력: ${I.PICK.ability[t]}`), 600);
     Sound.play('fanfare');
     shake($('#arena'), 10, 400);
   }
@@ -175,12 +184,12 @@
   }
   const ROCK = ['#8a6a4a', '#c9a26a', '#5a4030', '#e2c393', '#6b5040'];
   const HOT = ['#fff6c0', '#ffd34a', '#ff9a3a'];
-  const hot = () => rnd() < .4 ? PICKS[tierOf(st.lv.atk)].c : pick(HOT);
+  const hot = () => rnd() < .4 ? PICKS[cur()].c : pick(HOT);
   const pick = a => a[Math.floor(rnd() * a.length)];
   // 한 대 때릴 때: 베기 궤적 + 불꽃 + 돌 파편 (+크리티컬이면 충격파)
   function hitBurst(x, y, crit, huge) {
     const a = -0.6 + (rnd() - .5) * .8;
-    emit({ t: 'slash', x: x - 10, y, r: crit ? 70 : 55, a, sweep: 2.2, w: crit ? 12 : 8, color: crit ? '#ffd34a' : PICKS[tierOf(st.lv.atk)].c, life: .22 });
+    emit({ t: 'slash', x: x - 10, y, r: crit ? 70 : 55, a, sweep: 2.2, w: crit ? 12 : 8, color: crit ? '#ffd34a' : PICKS[cur()].c, life: .22 });
     const n = huge ? 26 : crit ? 16 : 8;
     for (let i = 0; i < n; i++) {
       const ang = rnd() * Math.PI * 2, sp = 250 + rnd() * (crit ? 520 : 300);
@@ -404,7 +413,7 @@
     setTimeout(() => m.classList.remove('hurtbig'), 350);
     floatAt(x + (rnd() - .5) * 40, y - 70, fmt(r.dmg), crit ? 'crit' : '', crit ? 1300 : 800, { dx: (rnd() - .5) * 70, punch: crit ? 1.9 : 1.3 });
     Sound.play('hit', { type: crit ? 'diamond' : 'stone', ratio: .5 });
-    if (r.jackpot) jackpotFx(r);
+    if (r.jackpot) { jackpotFx(r); const [jx, jy] = arenaXY($('#mob .mimg')); gotPick(I.rollDrop(st, rnd, r.comboN >= 4 ? 'mega' : 'jack'), jx, jy); }
     else if (huge) {
       const t = r.comboN >= 5 ? '잭팟!!' : r.chests >= 2 ? '보물 대박!' : r.combo > 1 && r.chests ? '콤보 + 상자!' : `${r.comboN}콤보!`;
       banner(t, `대미지 ×${fmt(r.combo * r.chestMult)}`, r.chests ? '#ffd34a' : '#7ff7ff');
@@ -443,6 +452,7 @@
     killBurst(x, y, big);
     floatAt(x, y - 110, `+${fmt(g)}`, 'goldf big', 1000, { punch: 1.6 });
     coinFly(big ? 6 : 4);
+    gotPick(I.rollDrop(st, rnd, 'kill'), x, y);
     m.animate([{ opacity: 1, transform: 'scale(1)', filter: 'brightness(1)' }, { opacity: 1, transform: 'scale(1.18)', filter: 'brightness(4)', offset: .3 }, { opacity: 0, transform: 'scale(.2)', filter: 'brightness(4)' }], { duration: 260, fill: 'forwards' });
     refresh();
     await wait(I.IDLE.RESPAWN * 1000);
@@ -593,7 +603,7 @@
   async function breakPick() {
     breaking = true; mode = 'break';
     const pk = $('#pick'), pim = pk.querySelector('img'), [x, y] = arenaXY(pk);
-    const c = PICKS[tierOf(st.lv.atk)].c;
+    const c = PICKS[cur()].c;
     pim.animate([{ transform: 'rotate(-22deg)', opacity: 1 }, { transform: 'rotate(60deg) translate(20px,80px)', opacity: 0 }], { duration: 650, fill: 'forwards', easing: 'ease-in' });
     for (let i = 0; i < 34; i++) { const a = rnd() * 6.28, sp = 120 + rnd() * 420; emit({ t: 'shard', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 150, g: 1000, rot: rnd() * 6, vr: (rnd() - .5) * 24, s: 5 + rnd() * 8, color: rnd() < .5 ? c : '#8a6a4a', floor: 300, life: .9 + rnd() * .4 }); }
     shake($('#arena'), 14, 450); flash('#000', .4, 450);
@@ -683,7 +693,9 @@
       const key = C.cardKey(card), isNew = !st.dex[key];
       st.dex[key] = (st.dex[key] || 0) + 1;
       const before = I.unlocked(st);
+      const bossDrop = I.rollDrop(st, rnd, 'boss');
       const g = I.bossWin(st);
+      gotPick(bossDrop, bx, by);
       const fresh = I.unlocked(st).filter(k => !before.includes(k));
       save();
       if (auto) { await wait(1300); if (isNew) toast(`✨ 새 카드: ${card.name} (도감 등록)`); }
@@ -776,6 +788,69 @@
   }
   function hideTip() { clearTimeout(tipT); $('#tip').hidden = true; }
 
+  // ---------- ⛏ 곡괭이 가방 · 합성 ----------
+  let pkSel = -1, pkNew = 0;
+  function pkBadge() { const b = $('#tabs button[data-t="pk"]'); if (b) b.dataset.n = pkNew > 0 ? pkNew : ''; }
+  // 곡괭이를 얻음: 몬스터 자리에서 곡괭이가 튀어나와 '곡괭이' 탭으로 날아감
+  function gotPick(g, x, y) {
+    if (g == null || g < 0) return;
+    pkNew++; pkBadge();
+    const app = $('#app').getBoundingClientRect(), sc = app.width / 440, to = $('#tabs button[data-t="pk"]').getBoundingClientRect();
+    const ar = $('#arena').getBoundingClientRect();
+    const x0 = (ar.left - app.left) / sc + x, y0 = (ar.top - app.top) / sc + y;
+    const x1 = (to.left + to.width / 2 - app.left) / sc, y1 = (to.top + to.height / 2 - app.top) / sc;
+    const c = document.createElement('img'); c.src = pickSrc(g); c.className = 'pkfly';
+    c.style.left = x0 + 'px'; c.style.top = y0 + 'px'; $('#app').appendChild(c);
+    c.animate([{ transform: 'translate(-50%,-50%) scale(.3) rotate(0)' }, { transform: `translate(-50%,-50%) translate(${(x1 - x0) * .2}px,-70px) scale(1.2) rotate(-200deg)`, offset: .35 },
+      { transform: `translate(-50%,-50%) translate(${x1 - x0}px,${y1 - y0}px) scale(.5) rotate(-360deg)` }], { duration: 900, easing: 'ease-in' });
+    setTimeout(() => { c.remove(); $('#tabs button[data-t="pk"]').animate([{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 250 }); if (tab === 'pk') renderPk(); }, 900);
+    toast(`🎁 ${I.PICK.names[g]} 획득!`);
+    Sound.play('chestBig');
+    save();
+  }
+  function renderPk() {
+    const L = $('#list'), e = cur(), full = st.picks.every(x => x != null);
+    const sel = pkSel >= 0 ? st.picks[pkSel] : null;
+    L.innerHTML = `<div class="pkeq" style="--pc:${PICKS[e].c}"><img src="${pickSrc(e)}" alt=""><div><small>장착 중</small><b>${PICKS[e].name}</b>
+        <span>공격력 ×${f2(I.pickMult(st))}${I.PICK.ability[e] ? ' · ' + I.PICK.ability[e] : ''}</span></div></div>
+      <p class="pkhelp">${sel != null ? `<b>${PICKS[sel].name}</b> 선택됨 · 같은 곡괭이를 누르면 합성` : '곡괭이를 누르고 → 같은 곡괭이를 누르면 합성!'}${full ? ' · <em>가방이 꽉 찼어요</em>' : ''}</p>
+      <div class="pkgrid">${st.picks.map((g, i) => `<div class="pkc ${g == null ? 'empty' : ''} ${i === pkSel ? 'sel' : ''} ${sel != null && g === sel && i !== pkSel && g < 7 ? 'match' : ''}" data-i="${i}" style="${g != null ? `--pc:${PICKS[g].c}` : ''}">${g != null ? `<img src="${pickSrc(g)}" alt=""><small>${g + 1}</small>` : ''}</div>`).join('')}</div>
+      <div class="pkbtns"><button id="pkAuto">✨ 자동 합성</button><button id="pkEquip" ${sel == null ? 'disabled' : ''}>⛏ 장착</button></div>
+      ${sel != null ? `<p class="pkinfo"><b>${PICKS[sel].name}</b> · 공격력 ×${f2(Math.pow(I.PICK.X, sel))}${I.PICK.ability[sel] ? ' · ' + I.PICK.ability[sel] : ''}</p>` : ''}`;
+    L.querySelectorAll('.pkc').forEach(c => c.onclick = () => pkTap(+c.dataset.i));
+    $('#pkAuto').onclick = () => {
+      const made = I.autoMerge(st); pkSel = -1;
+      if (!made.length) { toast('합칠 수 있는 곡괭이가 없어요'); return; }
+      Sound.play('fanfare'); toast(`✨ ${made.length}번 합성! 최고 ${I.PICK.names[Math.max(...made)]}`);
+      renderPk(); L.querySelectorAll('.pkc img').forEach(im => im.animate([{ transform: 'scale(1.4)', filter: 'brightness(3)' }, { transform: 'scale(1)', filter: 'none' }], { duration: 400 }));
+      newBest(Math.max(...made)); save();
+    };
+    $('#pkEquip').onclick = () => { if (pkSel < 0) return; equipAt(pkSel); };
+  }
+  let pkBest = -1;
+  function newBest(g) { if (g > pkBest) { pkBest = g; if (g > 0) { banner('새 곡괭이!', PICKS[g].name, PICKS[g].c, 1600); flash('#fff', .5, 300); } } }
+  function equipAt(i) {
+    const before = cur();
+    if (!I.equipPick(st, i)) return;
+    pkSel = -1; Sound.play('click');
+    if (cur() !== before) { evolve(); recalc(); renderIcon(); }
+    renderPk(); refreshTop(); save();
+  }
+  function pkTap(i) {
+    const g = st.picks[i];
+    if (pkSel < 0) { if (g != null) { pkSel = i; Sound.play('click'); } renderPk(); return; }
+    if (i === pkSel) { pkSel = -1; renderPk(); return; }
+    if (g != null && g === st.picks[pkSel] && g < 7) {
+      const ng = I.mergePicks(st, pkSel, i); pkSel = -1;
+      Sound.play('chestBig'); renderPk();
+      const c = $(`#list .pkc[data-i="${i}"]`);
+      if (c) { c.animate([{ transform: 'scale(1.5)', filter: 'brightness(4)' }, { transform: 'scale(.9)', offset: .6 }, { transform: 'scale(1)', filter: 'none' }], { duration: 450, easing: 'ease-out' }); }
+      toast(`✨ ${I.PICK.names[ng]} 완성!`); newBest(ng); save();
+      return;
+    }
+    pkSel = g != null ? i : -1; Sound.play('click'); renderPk();
+  }
+
   // ---------- 상단 · 강화 목록 ----------
   const floorName = f => `${I.stageNo(f)} ${C.TIERS[I.mineOf(C, f)].name}`;
   let gpsCache = 0, avgCache = 1, baseCache = 1;
@@ -807,9 +882,8 @@
     const L2 = Object.assign({}, st.lv, { [k]: nx });
     switch (k) {
       case 'atk': {
-        const left = EVOLVE - lv % EVOLVE, nt = tierOf(nx);
-        const evo = nx % EVOLVE === 0 ? (nt > tierOf(lv) ? ` <em>2배 + ${PICKS[nt].name}!</em>` : ' <em>2배!</em>') : ` <i class="evo">진화까지 ${left}</i>`;
-        return `공격력 ${fmt(S.atk(lv))} → <b>${fmt(S.atk(nx))}</b>${evo}`;
+        const m = I.pickMult(st);
+        return `공격력 ${fmt(S.atk(lv) * m)} → <b>${fmt(S.atk(nx) * m)}</b> <i class="evo">곡괭이 ×${f2(m)}</i>`;
       }
       case 'spd': return `초당 ${f2(S.aps(lv))}번 → <b>${f2(S.aps(nx))}번</b>`;
       case 'gem': return `💎 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
@@ -824,7 +898,7 @@
   function renderList() {
     const L = $('#list');
     if (tab === 'up') {
-      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(tierOf(st.lv.atk))}" alt="">` : k === 'dur' ? '<span class="emo">🛠️</span>' : img(I.UP[k].icon)}</div>
+      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(cur())}" alt="">` : k === 'dur' ? '<span class="emo">🛠️</span>' : img(I.UP[k].icon)}</div>
         <div class="ut"><b>${I.UP[k].name} <small>Lv.${st.lv[k]}</small></b><span class="ud"></span></div>
         <button class="ub" data-k="${k}"></button></div>`).join('');
       L.querySelectorAll('.ub').forEach(b => b.onclick = () => {
@@ -841,26 +915,28 @@
         $('#pick img').animate([{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }], { duration: 450 });
         const [mx, my] = arenaXY($('#pick'));
         floatAt(mx, my - 70, `${I.UP[k].name} UP!`, 'upf', 900, { punch: 1.3 });
-        if (k === 'atk') { renderIcon(); if (st.lv.atk % EVOLVE === 0 && tierOf(st.lv.atk) > tierOf(st.lv.atk - 1)) evolve(); }
+        if (k === 'atk') renderIcon();
         renderRow(k); refreshTop(); save();
       });
       Object.keys(I.UP).forEach(renderRow);
+    } else if (tab === 'pk') {
+      renderPk();
     } else {
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
-      const pt = tierOf(st.lv.atk);
+      const pt = st.pkMax || 0;
       const un = I.unlocked(st);
       const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
         return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(S.u)} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
       L.innerHTML = `<p class="dexh">🎰 슬롯 심볼 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
-        <p class="dexh">⛏ 곡괭이 진화 <b>${pt + 1}</b> / ${PICKS.length} · 공격력 ${EVOLVE}레벨마다 진화</p>
+        <p class="dexh">⛏ 곡괭이 도감 <b>${pt + 1}</b> / ${PICKS.length} · 같은 곡괭이 2개를 합치면 다음 등급</p>
         <div class="pkrow">${PICKS.map((p, i) => `<div class="pk ${i <= pt ? 'on' : ''}"><img src="${pickSrc(i)}" alt=""><small>${i <= pt ? p.name : '???'}</small></div>`).join('')}</div>
         <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
         <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 몬스터 10마리를 잡고 👑 보스에 도전하세요!</p>'}</div>`;
     }
   }
-  function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(tierOf(st.lv.atk)); }
+  function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(cur()); }
   // 진화 연출 없이 단계가 바뀐 경우(불러오기 등)에도 그림을 맞춤
-  function syncPick() { if (+$('#pick').dataset.t !== tierOf(st.lv.atk) && !evolving) showPick(); }
+  function syncPick() { if (+$('#pick').dataset.t !== cur() && !evolving) showPick(); }
   let evolving = false;
   function renderRow(k) {
     const row = $(`#list .up[data-k="${k}"]`); if (!row) return;
@@ -890,7 +966,7 @@
 
   // ---------- 시작 ----------
   function start() {
-    load(); fit(); makeCracks(); showPick();
+    load(); fit(); makeCracks(); showPick(); pkBest = st.pkMax || 0;
     const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
     goldShown = st.gold; goldTick();
     buildCells();
@@ -901,6 +977,7 @@
     refresh();
     document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
       tab = b.dataset.t; Sound.play('click');
+      if (tab === 'pk') { pkNew = 0; pkBadge(); pkSel = -1; }
       document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
       renderList();
     });

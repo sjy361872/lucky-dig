@@ -32,7 +32,7 @@
     wrench:{ name: '렌치', w: 6, hit: 0, u: 1, desc: '곡괭이 내구도 12% 수리' },
     glass: { name: '모래시계', w: 4, hit: 0, u: 2, desc: '한 번 더 공격 · 보스는 반격 못 함' },
     rainbow:{ name: '무지개', w: 4, hit: 0, u: 4, desc: '가장 많은 그림으로 변신 (콤보 만들기)' },
-    egg:   { name: '용의 알', w: 5, hit: 0, u: 6, desc: '금이 30번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
+    egg:   { name: '용의 알', w: 5, hit: 0, u: 6, desc: '금이 5번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
     mimic: { name: '미믹', w: 3, hit: 0, u: 8, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
     gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 잭팟 · 4개 메가 잭팟 · 5개 그랜드 잭팟!' },
   };
@@ -56,10 +56,65 @@
     cells: { name: '슬롯 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
     dur:   { name: '곡괭이 내구도', icon: 'dur', max: 1e9, cost: lv => 8 * Math.pow(1.14, lv) },
   };
+  // ---------- ⛏ 곡괭이 합성 ----------
+  //  몬스터·보스·잭팟에서 곡괭이가 떨어짐 → 같은 등급 2개를 합치면 다음 등급
+  //  장착한 곡괭이 등급마다 공격력 ×2 + 등급별 고유 능력 (어떤 걸 낄지 고민하게)
+  const PICK = {
+    N: 8, SLOTS: 16, X: +(globalThis.process && process.env.PX) || 1.5,   // 등급마다 공격력 ×1.5
+    DROP: +(globalThis.process && process.env.PDROP) || 0.025,   // 일반 몬스터 처치 시 떨어질 확률
+    JACK: 0.1,                                                   // 잭팟 때 떨어질 확률 (메가·그랜드는 확정)
+    names: ['나무 곡괭이', '구리 곡괭이', '철 곡괭이', '황금 곡괭이', '크리스탈 곡괭이', '용암 곡괭이', '번개 곡괭이', '무지개 곡괭이'],
+    ability: ['', '🪙 코인 광석 +50%', '🔧 렌치 수리량 2배', '⭐ 황금 곡괭이가 더 자주 (잭팟 ↑)', '💎 보석 타수 +2', '💣 TNT 양옆 3배', '⏳ 모래시계가 더 자주', '🌈 무지개가 더 자주'],
+  };
+  const eqOf = st => st.eq || 0;
+  const pickMult = st => Math.pow(PICK.X, eqOf(st));
+  // 떨어지는 등급: 5챕터(25스테이지)마다 한 등급씩 높은 게 나옴 (최대 황금)
+  const dropGrade = f => Math.min(3, Math.floor(f / 25));
+  // 빈칸에 곡괭이 넣기. 꽉 차면 자동으로 합칠 수 있는 걸 합쳐 보고, 그래도 없으면 false
+  function addPick(st, g) {
+    let i = st.picks.indexOf(null);
+    if (i < 0) { autoMerge(st); i = st.picks.indexOf(null); }
+    if (i < 0) return false;
+    st.picks[i] = g; st.pkMax = Math.max(st.pkMax || 0, g);
+    return true;
+  }
+  // 두 칸 합치기 (같은 등급만) → 합친 결과 등급, 안 되면 -1
+  function mergePicks(st, a, b) {
+    const g = st.picks[a];
+    if (a === b || g == null || g !== st.picks[b] || g >= PICK.N - 1) return -1;
+    st.picks[a] = null; st.picks[b] = g + 1;
+    st.pkMax = Math.max(st.pkMax || 0, g + 1);
+    return g + 1;
+  }
+  // 낮은 등급부터 짝지어 전부 합침 → 새로 만든 등급 목록
+  function autoMerge(st) {
+    const made = [];
+    for (let g = 0; g < PICK.N - 1; g++) {
+      for (;;) {
+        const idx = st.picks.map((x, i) => x === g ? i : -1).filter(i => i >= 0);
+        if (idx.length < 2) break;
+        made.push(mergePicks(st, idx[0], idx[1]));
+      }
+    }
+    return made;
+  }
+  // 장착: 칸 i 의 곡괭이와 지금 낀 곡괭이를 바꿈
+  function equipPick(st, i) {
+    const g = st.picks[i]; if (g == null) return false;
+    st.picks[i] = eqOf(st); st.eq = g;
+    return true;
+  }
+  // 몬스터 처치 등에서 드롭 판정 → 떨어진 등급 or -1
+  function rollDrop(st, rng, kind) {
+    const p = kind === 'boss' ? (st.floor >= (st.best || 0) && isSBoss(st.floor) ? 1 : 0) : kind === 'mega' ? 1 : kind === 'jack' ? PICK.JACK : PICK.DROP;   // 강적 보스(x-5)를 처음 깰 때 확정
+    if (rng() >= p) return -1;
+    const g = Math.min(PICK.N - 1, dropGrade(st.floor) + (kind === 'mega' ? 1 : 0));
+    return addPick(st, g) ? g : -1;
+  }
   const ATB = +(globalThis.process && process.env.ATB) || 5;   // 공격력 시작값
   // 강화 레벨 → 실제 수치
   const stat = {
-    atk: lv => (ATB + lv) * Math.pow(2, Math.floor(lv / 25)),        // 25레벨마다 2배 · 시작값 ATB가 크면 초반 한 레벨의 체감이 덜 폭발적
+    atk: lv => ATB + lv,                                                // 강화로 오르는 기본 공격력 (곡괭이 등급 배율은 atkOf 에서 곱함)
     aps: lv => 0.8 + 0.08 * lv,                                         // 초당 공격
     gemW: lv => 10 + 2 * lv, gemX: lv => 3 + 0.25 * lv,
     chestW: lv => 3 + 0.5 * lv, chestX: lv => 3 + 0.2 * lv,
@@ -88,7 +143,7 @@
   const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
 
   function newState() {
-    return { egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
+    return { picks: Array(PICK.SLOTS).fill(null), eq: 0, pkMax: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
   }
   const canBuy = (st, k) => st.lv[k] < UP[k].max && st.gold >= Math.ceil(UP[k].cost(st.lv[k]));
   function buy(st, k) {
@@ -101,9 +156,10 @@
   // ---------- 슬롯 ----------
   const unlocked = st => Object.keys(SYMS).filter(k => (st.best || 0) >= SYMS[k].u);
   function weights(st) {
-    const list = unlocked(st).filter(k => k !== 'gold').map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w]);
+    const eq = eqOf(st);
+    const list = unlocked(st).filter(k => k !== 'gold').map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w * ((k === 'glass' && eq === 6) || (k === 'rainbow' && eq === 7) ? 2.5 : 1)]);
     if ((st.best || 0) >= SYMS.gold.u) {
-      const tot = list.reduce((a, e) => a + e[1], 0), p = GOLD_P[stat.cells(st.lv.cells)] || 0.1;
+      const tot = list.reduce((a, e) => a + e[1], 0), p = (GOLD_P[stat.cells(st.lv.cells)] || 0.1) * (eq === 3 ? 1.35 : 1);
       list.push(['gold', tot * p / (1 - p)]);
     }
     return list;
@@ -131,11 +187,12 @@
   // 슬롯 결과 → 대미지와 효과
   //   rng 를 주면 미믹이 착한지(70%) 지금 정함. 안 주면(미리보기) 미정
   function evalSpin(st, syms, rng) {
-    const atk = stat.atk(st.lv.atk), gemX = stat.gemX(st.lv.gem), chestX = stat.chestX(st.lv.chest);
+    const eq = eqOf(st), atk = stat.atk(st.lv.atk) * pickMult(st), gemX = stat.gemX(st.lv.gem) + (eq === 4 ? 2 : 0), chestX = stat.chestX(st.lv.chest);
     const res = resolveWild(syms), n = res.length;
     // 💣 TNT: 양옆 칸 효과 2배 (TNT 두 개 사이에 끼면 4배)
     const f = res.map(() => 1);
-    res.forEach((s, i) => { if (s === 'tnt') { if (i > 0) f[i - 1] *= 2; if (i < n - 1) f[i + 1] *= 2; } });
+    const tx = eq === 5 ? 3 : 2;    // 용암 곡괭이: TNT 양옆 3배
+    res.forEach((s, i) => { if (s === 'tnt') { if (i > 0) f[i - 1] *= tx; if (i < n - 1) f[i + 1] *= tx; } });
     let hits = 0, chests = 0, chestMult = 1, coins = 0, repair = 0, respins = 0, cracks = 0, mimics = 0, mimicMult = 1;
     const cnt = {};
     const mimicOk = rng ? rng() < MIMIC_OK : null;
@@ -146,7 +203,7 @@
       else if (s === 'gem') hits += gemX * k;
       else if (s === 'chest') { chests++; chestMult *= chestX * k; }
       else if (s === 'coin') coins += k;
-      else if (s === 'wrench') repair += WRENCH * k;
+      else if (s === 'wrench') repair += WRENCH * k * (eq === 2 ? 2 : 1);
       else if (s === 'glass') respins += k;
       else if (s === 'egg') cracks += k;
       else if (s === 'mimic') { mimics++; if (mimicOk) mimicMult *= chestX * 3 * k; }
@@ -164,7 +221,7 @@
   }
   // 평소 공격(슬롯 없이 곡괭이로 한 대): hit() 연출이 그대로 쓰도록 슬롯 결과와 같은 모양으로
   function basicHit(st, base) {
-    const atk = stat.atk(st.lv.atk), dragon = (st.dragon || 0) > 0;
+    const atk = stat.atk(st.lv.atk) * pickMult(st), dragon = (st.dragon || 0) > 0;
     return { basic: true, atk, hits: 1, combo: 1, comboSym: null, comboN: 1, chests: 0, chestMult: 1, coins: 0, dmg: Math.max(1, Math.round(base * BASIC * (dragon ? DRAGON_X : 1))),
       res: [], boosted: [], repair: 0, respins: 0, cracks: 0, mimics: 0, mimicOk: null, mimicMult: 1, dragon, jackpot: false };
   }
@@ -181,7 +238,7 @@
     if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * JACK_SEC[Math.min(5, r.comboN)]); st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
     return out;
   }
-  const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin));
+  const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin) * (eqOf(st) === 1 ? 1.5 : 1));
   const goldPerKill = st => Math.ceil(killGold(st.floor) * stat.coinX(st.lv.coin));
 
   // 평균 초당 대미지 (몬테카를로)
@@ -241,5 +298,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
