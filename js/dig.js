@@ -70,8 +70,9 @@
     const rng = run.rng;
     fl.board = makeBoard(rng, RUN.boardK(run.mine, run.floor, fl.boss));
     fl.chests = makeChests(rng, RUN.chestK(run.mine, run.floor, fl.boss));
+    if (rng() < RUN.TREASURE_P) fl.chests[Math.floor(rng() * C.COLS)].treasure = true;   // 황금 보물상자: 열면 심볼 하나
     fl.initialBoard = fl.board.map(row => row.map(b => (b ? { type: b.type } : null)));
-    fl.initialChests = fl.chests.map(ch => ({ min: ch.min, mult: ch.mult }));
+    fl.initialChests = fl.chests.map(ch => ({ min: ch.min, mult: ch.mult, treasure: !!ch.treasure }));
   }
 
   // ---------- 층 ----------
@@ -82,6 +83,7 @@
     const fl = {
       boss, elite, quota: Math.round(quotaOf(run.mine, run.floor) * (elite ? RUN.ELITE_HP : 1)), monster: pickMonster(run, boss, elite),
       score: 0, floorMult: 0, hits: 0, refills: 0, spinCount: 0, grid: null, cards: null, guard: false, patIdx: 0,
+      rerolls: RUN.REROLLS,
     };
     fl.pattern = makePattern(run, fl);
     setIntent(fl);
@@ -106,6 +108,25 @@
     return { type: 'spin', grid: fl.grid.map(r => r.slice()), pow, spinsLeft: fl.spins };
   }
 
+  // 다시 돌리기: 고정(held)한 열은 그대로, 나머지 열만 덱에서 새로 뽑음. 스핀(턴)은 안 씀
+  function rerollSpin(run, fl, held) {
+    if (!fl.grid || fl.rerolls <= 0) return null;
+    fl.rerolls--;
+    const rng = run.rng, SR = C.SLOT_ROWS, COLS = C.COLS, keep = new Set(), free = [];
+    for (let r = 0; r < SR; r++) for (let c = 0; c < COLS; c++) {
+      if (held[c]) { if (fl.cards[r][c] >= 0) keep.add(fl.cards[r][c]); }
+      else { free.push([r, c]); fl.grid[r][c] = null; fl.cards[r][c] = -1; }
+    }
+    const pick = shuffle(run.deck.map((_, i) => i).filter(i => !keep.has(i)), rng).slice(0, free.length);
+    shuffle(free, rng);
+    pick.forEach((di, k) => { const [r, c] = free[k]; fl.grid[r][c] = run.deck[di].id; fl.cards[r][c] = di; });
+    const pow = fl.grid.map((row, r) => row.map((t, c) => (isPick(t) ? powerOf(run, fl, r, c) : 0)));
+    return { type: 'spin', grid: fl.grid.map(r => r.slice()), pow, held: held.slice(), reroll: true, spinsLeft: fl.spins, rerolls: fl.rerolls };
+  }
+
+  // 보물상자에서 나오는 심볼
+  const LOOT = [['pick5', 3], ['crown', 3], ['key', 2], ['fuse', 2], ['pick7', 1]];
+
   // ---------- 스핀 처리 ----------
   function resolveSpin(run, fl) {
     const rng = run.rng, board = fl.board, g = fl.grid.map(r => r.slice()), cards = fl.cards;
@@ -113,9 +134,14 @@
     const events = [];
     let chips = 0, mult = 1 + fl.floorMult + run.permMult, xmult = 1;
     const curMult = () => Math.round(mult * xmult * 100) / 100;
+    // 대미지 내역 (화면에서 '내 카드가 얼마나 보탰는지' 보여주기용)
+    const baseMult = mult, multParts = [], chipSrc = {}, hitSrc = {};
+    let baseChips = 0, fuses = 0;
+    const addSrc = (o, k, v) => { if (v) o[k] = (o[k] || 0) + v; };
+    const addPart = (label, add) => { const p = multParts.find(x => x.label === label && x.add !== undefined); if (p) p.add += add; else multParts.push({ label, add }); };
     const pw = g.map((row, r) => row.map((t, c) => (isPick(t) ? powerOf(run, fl, r, c) : 0)));
     const colTorch = Array(COLS).fill(0), colMag = Array(COLS).fill(0);
-    const addMult = (r, c, add, label) => { mult += add; events.push({ type: 'mult', r, c, add, label, mult: curMult() }); };
+    const addMult = (r, c, add, label) => { mult += add; addPart(label, add); events.push({ type: 'mult', r, c, add, label, mult: curMult() }); };
     const cStone = cv(run, 'stone'), cRuby = cv(run, 'ruby'), cDia = cv(run, 'diamond'), cLava = cv(run, 'lava'), cRain = cv(run, 'rainbow');
     const tntRad = cLava > 0 ? 2 : 1;
     const used = [];
@@ -124,16 +150,17 @@
       const b = board[r][c];
       let chip = RUN.CHIPS[b.type];
       if (b.type === 'mystery') chip = pickWeighted(rng, RUN.MYSTERY_CHIPS);
-      if (cStone && (b.type === 'grass' || b.type === 'dirt' || b.type === 'stone')) chip += 7 * cStone;
-      if (cDia && (b.type === 'gold' || b.type === 'diamond')) chip *= 1 + 0.5 * cDia;
-      if (colTorch[c] && ORES.has(b.type)) chip *= Math.pow(2, colTorch[c]);
+      baseChips += chip;
+      if (cStone && (b.type === 'grass' || b.type === 'dirt' || b.type === 'stone')) { chip += 7 * cStone; addSrc(chipSrc, '동료 · 돌 다루기', 7 * cStone); }
+      if (cDia && (b.type === 'gold' || b.type === 'diamond')) { const v = chip * 0.5 * cDia; chip += v; addSrc(chipSrc, '동료 · 보석 감정', v); }
+      if (colTorch[c] && ORES.has(b.type)) { const v = chip * (Math.pow(2, colTorch[c]) - 1); chip += v; addSrc(chipSrc, '🔥 횃불', v); }
       // 용암: 범위만 넓어짐
-      chip += 5 * colMag[c];
+      if (colMag[c]) { chip += 5 * colMag[c]; addSrc(chipSrc, '🧲 자석', 5 * colMag[c]); }
       chip = Math.round(chip);
       chips += chip;
       board[r][c] = null;
       events.push({ type: 'break', r, c, block: b.type, chip, chips });
-      if (b.type === 'ruby' && cRuby) addMult(-1, c, cRuby, '루비');
+      if (b.type === 'ruby' && cRuby) addMult(-1, c, cRuby, '동료 · 루비 사냥');
       if (b.type === 'explosive') queue.push({ r, c, center: false, dmg: 2, rad: 1 });
       checkChest(c);
     }
@@ -144,7 +171,10 @@
       ch.opened = true;
       const add = ch.mult - 1 + 0.5 * cRain;
       mult += add;                                   // 상자 배율은 연 스핀에만 (층 내내 쌓이면 시간만 끌면 이기게 됨)
-      events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, add, cur: curMult() });
+      multParts.push({ label: `📦 상자 ×${ch.mult}`, add });
+      let loot = null;
+      if (ch.treasure) { loot = pickWeighted(rng, LOOT); run.deck.push({ id: loot, plus: 0 }); }
+      events.push({ type: 'chest', c, mult: ch.mult, min: ch.min, bonus: ch.bonus || 0, treasure: !!ch.treasure, loot, add, cur: curMult() });
     }
     function damage(r, c, amount, queue, viaBoom) {
       if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
@@ -164,6 +194,7 @@
           if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) cells.push([rr, cc]);
         }
         events.push({ type: 'explode', r: ex.r, c: ex.c, cells });
+        if (fuses) addMult(-1, ex.c, 0.5 * fuses, '🧨 도화선');
         for (const [rr, cc] of cells) damage(rr, cc, ex.dmg, queue, true);
       }
     }
@@ -181,16 +212,16 @@
     });
     // 2) 동료: 곡괭이 강화 (흑요석 = 전부, 사파이어 = 첫 곡괭이)
     const cObs = cv(run, 'obsidian'), cSap = cv(run, 'sapphire');
-    if (cObs) { const n = Math.max(1, Math.floor(cObs)); each((r, c, t) => { if (isPick(t)) pw[r][c] += n; }); }
+    if (cObs) { const n = Math.max(1, Math.floor(cObs)); each((r, c, t) => { if (isPick(t)) { pw[r][c] += n; addSrc(hitSrc, '동료 · 흑요석 날', n); } }); }
     if (cSap) {
       let done = false;
-      for (let c = 0; c < COLS && !done; c++) for (let r = 0; r < SR && !done; r++) if (isPick(g[r][c])) { pw[r][c] += Math.round(4 * cSap); done = true; events.push({ type: 'sym', r, c, sym: 'sap', label: '선봉!', keep: true, ups: [{ r, c, power: pw[r][c] }] }); }
+      for (let c = 0; c < COLS && !done; c++) for (let r = 0; r < SR && !done; r++) if (isPick(g[r][c])) { pw[r][c] += Math.round(4 * cSap); addSrc(hitSrc, '동료 · 선봉', Math.round(4 * cSap)); done = true; events.push({ type: 'sym', r, c, sym: 'sap', label: '선봉!', keep: true, ups: [{ r, c, power: pw[r][c] }] }); }
     }
     // 3) 모루: 바로 위 곡괭이 영구 +1
     each((r, c, t) => {
       if (t !== 'anvil') return;
       const ups = [];
-      if (r > 0 && isPick(g[r - 1][c])) { run.deck[cards[r - 1][c]].plus++; pw[r - 1][c]++; ups.push({ r: r - 1, c, power: pw[r - 1][c] }); }
+      if (r > 0 && isPick(g[r - 1][c])) { run.deck[cards[r - 1][c]].plus++; pw[r - 1][c]++; ups.push({ r: r - 1, c, power: pw[r - 1][c] }); addSrc(hitSrc, '🔨 모루', 1); }
       g[r][c] = null;
       events.push({ type: 'sym', r, c, sym: 'anvil', label: ups.length ? '영구 +1' : '', ups });
     });
@@ -198,7 +229,7 @@
     each((r, c, t) => {
       if (t !== 'book') return;
       const ups = [];
-      for (let rr = r + 1; rr < SR; rr++) if (isPick(g[rr][c])) { pw[rr][c] += 2; ups.push({ r: rr, c, power: pw[rr][c] }); }
+      for (let rr = r + 1; rr < SR; rr++) if (isPick(g[rr][c])) { pw[rr][c] += 2; ups.push({ r: rr, c, power: pw[rr][c] }); addSrc(hitSrc, '📖 강화의 책', 2); }
       g[r][c] = null;
       events.push({ type: 'sym', r, c, sym: 'book', label: ups.length ? `+2타 ×${ups.length}` : '', ups });
     });
@@ -207,6 +238,13 @@
       if (t === 'torch') { colTorch[c]++; g[r][c] = null; events.push({ type: 'sym', r, c, sym: 'torch', label: '광석 ×2', col: [c] }); }
       if (t === 'magnet') { if (c > 0) colMag[c - 1]++; if (c < COLS - 1) colMag[c + 1]++; g[r][c] = null; events.push({ type: 'sym', r, c, sym: 'magnet', label: '옆 열 +5', col: [c - 1, c + 1].filter(x => x >= 0 && x < COLS) }); }
       if (t === 'pebble') g[r][c] = null;
+      if (t === 'fuse') { fuses++; g[r][c] = null; events.push({ type: 'sym', r, c, sym: 'fuse', label: '폭발마다 배율 +0.5' }); }
+      if (t === 'key') {
+        g[r][c] = null;
+        const ch = fl.chests[c];
+        if (!ch.opened) { ch.mult += 3; ch.bonus = (ch.bonus || 0) + 3; }
+        events.push({ type: 'sym', r, c, sym: 'key', label: ch.opened ? '상자가 이미 열렸어요' : '상자 배율 +3', chest: ch.opened ? null : { c, bonus: ch.bonus } });
+      }
     });
     // 6) 클로버: 배율
     let clovers = 0; each((r, c, t) => { if (t === 'clover') clovers++; });
@@ -214,17 +252,26 @@
     each((r, c, t) => {
       if (t !== 'clover') return;
       g[r][c] = null;
-      addMult(r, c, (clovers >= 3 ? 1 : 0.5) + cClo, '🍀');
+      addMult(r, c, (clovers >= 3 ? 1 : 0.5) + cClo, '🍀 클로버');
+    });
+    // 6-2) 황금 왕관: 배율 ×2
+    let crowned = false;   // 왕관은 여러 개 나와도 ×2 한 번만
+    each((r, c, t) => {
+      if (t !== 'crown') return;
+      g[r][c] = null;
+      const first = !crowned;
+      if (first) { crowned = true; xmult *= 2; multParts.push({ label: '👑 황금 왕관', x: 2 }); }
+      events.push({ type: 'sym', r, c, sym: 'crown', label: first ? '배율 ×2!' : '왕관은 하나만 적용', mult: curMult() });
     });
     // 7) 빈칸 (황금 동료)
     const cGold = cv(run, 'gold');
     if (cGold) {
       let empty = 0;
       for (let r = 0; r < SR; r++) for (let c = 0; c < COLS; c++) if (cards[r][c] < 0) empty++;
-      if (empty) addMult(-1, 2, Math.round(0.8 * cGold * empty * 100) / 100, `빈칸 ${empty}`);
+      if (empty) addMult(-1, 2, Math.round(0.8 * cGold * empty * 100) / 100, '동료 · 여백의 미');
     }
     // 8) 잭팟: 가로 한 줄이 전부 곡괭이 → 배율 ×3
-    for (let r = 0; r < SR; r++) if (g[r].every(isPick)) { xmult *= 3; events.push({ type: 'jackpot', r, mult: curMult() }); }
+    for (let r = 0; r < SR; r++) if (g[r].every(isPick)) { xmult *= 3; multParts.push({ label: '🎰 잭팟', x: 3 }); events.push({ type: 'jackpot', r, mult: curMult() }); }
 
     // 9) 왼쪽 열부터: 곡괭이·TNT·번개
     for (let c = 0; c < COLS; c++) for (let r = 0; r < SR; r++) {
@@ -270,10 +317,13 @@
     // 10) 대미지 = 칩 × 배율
     const m = curMult(), guard = fl.guard;
     const dmg = Math.round(chips * m * (guard ? 0.5 : 1));
+    const need = Math.max(0, fl.quota - fl.score);  // 이번 스핀 전 남은 체력
     fl.guard = false;
     fl.score += dmg;
     fl.grid = null;
-    events.push({ type: 'tally', chips, mult: m, dmg, guard, score: fl.score, hp: Math.max(0, fl.quota - fl.score), quota: fl.quota });
+    const round = o => Object.entries(o).map(([label, v]) => ({ label, v: Math.round(v) })).filter(x => x.v > 0);
+    const parts = { baseChips, chipSrc: round(chipSrc), hitSrc: round(hitSrc), baseMult, mult: multParts };
+    events.push({ type: 'tally', chips, mult: m, dmg, guard, need, parts, score: fl.score, hp: Math.max(0, fl.quota - fl.score), quota: fl.quota });
     events.push({ type: 'spinEnd', spinsLeft: fl.spins });
     return events;
   }
@@ -380,5 +430,5 @@
   }
 
   root.Dig = { newRun, createFloor, startSpin, resolveSpin, endTurn, floorDone, isDead, floorResult, advance, shopSize, oreFor, quotaOf, isBoss, isPick,
-    draftOffer, canRemove, addSymbol, removeCard, rewardOffer, takeReward, mineKey, ACTS, routeOffer, rest };
+    draftOffer, canRemove, addSymbol, removeCard, rewardOffer, takeReward, mineKey, ACTS, routeOffer, rest, rerollSpin };
 })(typeof window !== 'undefined' ? window : globalThis);

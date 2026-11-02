@@ -137,6 +137,37 @@
     });
   }
 
+  // ---------- 스핀 결과를 보고 결정: 열 고정 + 다시 돌리기 / 캐기 ----------
+  function decide(held) {
+    return new Promise(done => {
+      const box = $('#spinActions'), slot = $('#slot'), btnR = $('#btnReroll'), btnC = $('#btnConfirm');
+      const paint = () => {
+        R.setHeld(held);
+        const n = held.filter(Boolean).length;
+        btnR.classList.toggle('disabled', fl.rerolls <= 0);
+        btnR.innerHTML = `🔄 다시 돌리기<small>${fl.rerolls > 0 ? `이번 층 ${fl.rerolls}번 남음${n ? ` · ${n}열 고정` : ''}` : '이번 층은 다 썼어요'}</small>`;
+      };
+      $('#holdHint').textContent = fl.rerolls > 0 ? '좋은 열을 눌러 고정하면 나머지 열만 다시 돌려요' : '준비됐으면 캐기!';
+      btnC.innerHTML = '⛏ 캐기!';
+      box.hidden = false; slot.classList.add('pickable');
+      paint();
+      const onSlot = e => {
+        const cell = e.target.closest('.slot-cell');
+        if (!cell || fl.rerolls <= 0) return;
+        const c = +cell.dataset.c; held[c] = !held[c];
+        Sound.play('click'); paint();
+      };
+      slot.addEventListener('click', onSlot);
+      const end = v => { slot.removeEventListener('click', onSlot); slot.classList.remove('pickable'); box.hidden = true; btnR.onclick = btnC.onclick = null; done(v); };
+      btnR.onclick = () => {
+        if (fl.rerolls <= 0) return;
+        if (held.every(Boolean)) { X().toast('전부 고정하면 다시 돌릴 게 없어요'); return; }
+        Sound.play('click'); end(true);
+      };
+      btnC.onclick = () => { Sound.play('click'); end(false); };
+    });
+  }
+
   // ---------- 한 층 ----------
   async function playFloor(kind) {
     fl = D.createFloor(run, kind);
@@ -153,6 +184,11 @@
       const ev = D.startSpin(run, fl);
       setAtk(fl.spins + 1);
       await R.play([ev]);
+      if (!R.state.auto) {            // 고정·다시 돌리기 → 캐기
+        const held = Array(C.COLS).fill(false);
+        while (await decide(held)) await R.play([D.rerollSpin(run, fl, held)]);
+        R.setHeld(Array(C.COLS).fill(false));
+      }
       await R.play(D.resolveSpin(run, fl));
       $('#monster').classList.remove('guarded');
       showInfo();

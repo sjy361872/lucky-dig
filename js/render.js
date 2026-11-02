@@ -73,9 +73,9 @@
     chestEls = chests.map((cfg, c) => {
       const conf = C.CHESTS.find(x => x.min === cfg.min);
       const d = document.createElement('div');
-      d.className = 'chest';
-      d.title = cfg.min === 10 ? '10배 확정' : cfg.min + '배 이상';
-      d.innerHTML = Art.chest(conf, cfg.opened) + (cfg.opened ? `<span class="mult">×${cfg.mult}</span>` : '');
+      d.className = 'chest' + (cfg.treasure ? ' treasure' : '');
+      d.title = cfg.treasure ? '황금 보물상자: 열면 심볼을 하나 줘요' : cfg.min === 10 ? '10배 확정' : cfg.min + '배 이상';
+      d.innerHTML = Art.chest(conf, cfg.opened) + (cfg.opened ? `<span class="mult">×${cfg.mult}</span>` : `<span class="cmin">×${cfg.min}~</span>`) + (cfg.treasure ? '<span class="ctag">보물</span>' : '');
       ch.appendChild(d);
       return d;
     });
@@ -431,6 +431,8 @@
       await anim(el, [{ transform: 'scale(1.25) rotate(0deg)' }, { transform: `scale(1.3) rotate(${-amp}deg)` }, { transform: `scale(1.3) rotate(${amp}deg)` }, { transform: 'scale(1.25) rotate(0deg)' }], 200 - i * 8, { fill: 'none' });
     }
     if (tier >= 3) { $('#app').classList.add('dim'); await wait(250); }
+    // 1-2) 룰렛: 배율 숫자가 돌다가 멈춤 (가끔 최고값을 스쳐 지나감)
+    await chestRoulette(ev, cx, cy, tier);
     // 2) 오픈
     el.innerHTML = Art.chest(conf, true) + `<span class="mult t${tier}">×${ev.mult}</span>`;
     anim(el, [{ transform: 'scale(1.6)' }, { transform: 'scale(1.25)' }], 300);
@@ -456,9 +458,121 @@
     if (ev.add !== undefined) { big.textContent = `배율 +${fmtM(ev.add)}`; setCM(null, ev.cur); }
     else { big.textContent = `${fmt(ev.before)} → ${fmt(ev.score)}`; setScore(ev.score, 700 + tier * 200); }
     await wait(900 + tier * 300);
+    if (ev.treasure && ev.loot) {
+      const S = root.Relics.SYMBOLS[ev.loot];
+      el.classList.remove('treasure');
+      Sound.play('fanfare'); flash('#ffe14a', 380);
+      burst(cx, cy - 10, 40, ['#ffd84a', '#fff3a0', '#f5a800', '#fff'], 200, 9, 1500, 'coin');
+      stamp(`<span class="loot">${Art.item(ev.loot)}</span><small>보물! ${S ? S.name : ''}</small><i>덱에 들어왔어요</i>`, 'treasure');
+      await wait(1500);
+    }
     $('#app').classList.remove('dim');
     el.classList.remove('glow');
     anim(el, [{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], 300);
+  }
+
+  async function chestRoulette(ev, cx, cy, tier) {
+    const bonus = ev.bonus || 0, lo = ev.min + bonus, hi = Math.max(ev.mult, Math.min(10, ev.min + 3) + bonus);
+    if (hi <= lo || state.skipping) return;
+    const d = document.createElement('div');
+    d.className = 'chestroll';
+    d.style.left = cx + 'px'; d.style.top = (cy - 92) + 'px';
+    $('#fx').appendChild(d);
+    const seq = [];
+    const n = 8 + tier * 2;
+    for (let i = 0; i < n; i++) seq.push(lo + Math.floor(Math.random() * (hi - lo + 1)));
+    if (ev.mult < hi && Math.random() < 0.6) seq.push(hi);          // 아깝게 최고값을 스침
+    seq.push(ev.mult);
+    for (let i = 0; i < seq.length; i++) {
+      const last = i === seq.length - 1, tease = !last && seq[i] === hi && i === seq.length - 2;
+      d.textContent = '×' + seq[i];
+      d.className = 'chestroll' + (tease ? ' tease' : '') + (last ? ' done' : '');
+      Sound.play(last ? 'stop' : 'tick');
+      await wait(last ? 0 : 45 + Math.pow(i / seq.length, 2.2) * (tease ? 520 : 260));
+    }
+    anim(d, [{ transform: 'translate(-50%,-50%) scale(1.8)' }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .3 }, { transform: 'translate(-50%,-70%) scale(1)', opacity: 0 }], 900).then(() => d.remove());
+    await wait(200);
+  }
+
+  // ---------- 카드 발동 알림: 슬롯 위에 '무슨 카드가 뭘 했는지' ----------
+  let calloutN = 0;
+  function callout(icon, name, text) {
+    if (state.skipping) return;
+    const d = document.createElement('div');
+    d.className = 'callout';
+    d.innerHTML = `<span class="ci">${icon}</span><b>${name}</b>${text ? `<em>${text}</em>` : ''}`;
+    d.style.top = (6 + (calloutN % 4) * 30) + 'px';
+    calloutN++;
+    $('#fx').appendChild(d);
+    anim(d, [{ transform: 'translateX(-120%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1, offset: .15 }, { transform: 'translateX(0)', opacity: 1, offset: .8 }, { transform: 'translateX(0)', opacity: 0 }], 1500)
+      .then(() => { d.remove(); calloutN = Math.max(0, calloutN - 1); });
+  }
+
+  // ---------- 대미지 계산판: 칩 → 배율을 하나씩 쌓아 올리고, 몬스터 남은 체력과 비교 ----------
+  async function tallyBoard(ev) {
+    const P = ev.parts || { baseChips: ev.chips, chipSrc: [], hitSrc: [], baseMult: ev.mult, mult: [] };
+    const need = ev.need || 0, half = ev.guard ? 0.5 : 1;
+    const box = document.createElement('div');
+    box.className = 'tally';
+    box.innerHTML = `<div class="th"><span class="tc">0</span><i>×</i><span class="tm">1</span></div><div class="tls"></div>
+      <div class="tk"><div class="tk-bar"><i></i></div><small>몬스터 남은 체력 ${fmt(need)}</small></div>`;
+    $('#fx').appendChild(box);
+    anim(box, [{ transform: 'scale(.85)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], 160);
+    const tc = box.querySelector('.tc'), tm = box.querySelector('.tm'), list = box.querySelector('.tls'), bar = box.querySelector('.tk-bar i'), kt = box.querySelector('.tk small');
+    let chips = 0, mult = P.baseMult, lethal = false, step = 0;
+    const pop = el => anim(el, [{ transform: 'scale(1.6)' }, { transform: 'scale(1)' }], 220);
+    const upd = () => {
+      tc.textContent = fmt(chips); tm.textContent = fmtM(mult);
+      const cur = chips * mult * half, f = need ? Math.min(1, cur / need) : 1;
+      bar.style.width = (f * 100) + '%';
+      if (!lethal && need && cur >= need) {
+        lethal = true; box.classList.add('lethal'); kt.textContent = '💀 처치 가능!';
+        Sound.play('big'); shake($('#stage'), 4);
+      }
+    };
+    const row = async (label, val, cls, ms) => {
+      const d = document.createElement('div');
+      d.className = 'tl ' + (cls || '');
+      d.innerHTML = `<span>${label}</span><b>${val}</b>`;
+      list.appendChild(d);
+      anim(d, [{ transform: 'translateX(-24px)', opacity: 0 }, { transform: 'none', opacity: 1 }], 160);
+      step++;
+      await wait(ms);
+    };
+    // 1) 칩
+    const extra = P.chipSrc.reduce((a, x) => a + x.v, 0);
+    chips = Math.max(0, ev.chips - extra);
+    upd(); pop(tc); Sound.play('coin');
+    await row('⛏ 깬 블록', fmt(chips), 'r-chip', 260);
+    if (P.hitSrc.length) await row('추가 타격', P.hitSrc.map(h => `${h.label} +${h.v}`).join(' · '), 'r-hit', 300);
+    for (const s of P.chipSrc) { chips += s.v; upd(); pop(tc); Sound.play('tick'); await row(s.label, '+' + fmt(s.v) + ' 칩', 'r-chip', 240); }
+    chips = ev.chips; upd();
+    // 2) 배율: 더하기 먼저, 곱하기 나중
+    if (P.baseMult !== 1) await row('기본 배율', '×' + fmtM(P.baseMult), 'r-mul', 200);
+    for (const m of P.mult.filter(x => x.add !== undefined)) {
+      mult += m.add; upd(); pop(tm); Sound.play('spinUp');
+      await row(m.label, '+' + fmtM(m.add), 'r-mul', 260);
+    }
+    for (const m of P.mult.filter(x => x.x)) {
+      mult *= m.x; upd(); pop(tm); Sound.play('big'); shake($('#stage'), 6); flash('#ffe14a', 250);
+      await row(m.label, '×' + m.x, 'r-x', 450);
+    }
+    mult = ev.mult; upd();
+    if (ev.guard) await row('🛡 몬스터 방어', '절반', 'r-guard', 300);
+    // 3) 결과
+    const tot = document.createElement('div');
+    tot.className = 'tt';
+    tot.textContent = fmt(ev.dmg);
+    box.appendChild(tot);
+    anim(tot, [{ transform: 'scale(2.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], 260);
+    Sound.play(ev.dmg >= need ? 'chestBig' : 'coin');
+    if (!lethal && need) {
+      const left = need - ev.dmg;
+      kt.textContent = ev.dmg >= need * 0.7 ? `아깝다! ${fmt(left)} 모자라요` : `${fmt(left)} 남아요`;
+      if (ev.dmg >= need * 0.7) box.classList.add('close');
+    }
+    await wait(420);
+    return box;
   }
 
   // ---------- 칩 × 배율 표시 ----------
@@ -665,6 +779,14 @@
           if (el) await anim(el, [{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.4)', filter: 'brightness(1.8)' }, { transform: 'scale(1)', filter: 'brightness(1)', opacity: ev.keep ? 1 : 0 }], 420);
           if (!ev.keep) setSlotItem(ev.r, ev.c, null);
           if (ev.label) floatText(ev.c * CELL + CELL / 2, ev.r * CELL + 6, ev.label, 'symf', 1000);
+          { const S = root.Relics.SYMBOLS[ev.sym]; if (S) callout(Art.item(ev.sym), S.name, ev.label); else if (ev.sym === 'sap') callout('⭐', '동료 · 선봉', ev.label); }
+          if (ev.mult) setCM(null, ev.mult);
+          if (ev.chest && chestEls[ev.chest.c]) {
+            const ce = chestEls[ev.chest.c];
+            let b = ce.querySelector('.cbonus'); if (!b) { b = document.createElement('span'); b.className = 'cbonus'; ce.appendChild(b); }
+            b.textContent = '+' + ev.chest.bonus;
+            anim(ce, [{ transform: 'scale(1.4)', filter: 'brightness(2)' }, { transform: 'scale(1)', filter: 'brightness(1)' }], 500);
+          }
           for (const u of ev.ups || []) { const t = slotEls[u.r][u.c].querySelector('.slot-item img, .slot-item .itememoji'); const type = slotItemType(u.r, u.c); setSlotItem(u.r, u.c, type, 'upgrade', u.power); }
           if (ev.col) colGlow(ev.col, ev.sym);
           await wait(260);
@@ -676,6 +798,7 @@
             if (el) anim(el, [{ transform: 'scale(1)' }, { transform: 'scale(1.5)' }, { transform: 'scale(.2)', opacity: 0 }], 360).then(() => setSlotItem(ev.r, ev.c, null));
             floatText(ev.c * CELL + CELL / 2, ev.r * CELL + 6, `배율 +${fmtM(ev.add)}`, 'multf', 1000);
           } else floatText(ev.c * CELL + CELL / 2, BOARD_TOP - 10, `${ev.label} 배율 +${fmtM(ev.add)}`, 'multf', 1100);
+          if (ev.label && ev.label.startsWith('동료')) callout('🐾', ev.label, `배율 +${fmtM(ev.add)}`);
           Sound.play('spinUp');
           setCM(null, ev.mult);
           await wait(200);
@@ -709,15 +832,11 @@
         }
         case 'tally': {
           setCM(ev.chips, ev.mult);
-          const t = floatText(140, BOARD_TOP + CELL * 1.5, `${fmt(ev.chips)} × ${fmtM(ev.mult)}`, 'tallyf', 1500);
-          Sound.play(ev.dmg >= 1000 ? 'chestBig' : 'coin');
-          await wait(450);
-          t.textContent = ev.guard ? `🛡 절반 = ${fmt(ev.dmg)}` : `= ${fmt(ev.dmg)}`;
-          if (ev.mult >= 5) shake($('#stage'), 5);
-          await wait(250);
+          const tb = await tallyBoard(ev);
           await strike(ev.dmg, ev.quota ? ev.dmg / ev.quota : 0.1);
           setScore(ev.score, 600);
-          await wait(650);
+          await wait(700);
+          anim(tb, [{ opacity: 1 }, { opacity: 0, transform: 'translateY(-10px)' }], 250).then(() => tb.remove());
           break;
         }
         case 'spinEnd': clearSlot(); await wait(260); break;

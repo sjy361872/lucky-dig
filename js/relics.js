@@ -23,9 +23,12 @@
     magnet: { rare: 'R', emoji: '🧲', name: '자석', desc: '바로 옆 열에서 깬 블록 하나당 칩 +5' },
     bolt:   { rare: 'R', emoji: '⚡', name: '번개병', desc: '무작위 3개 열의 맨 위 블록에 번개 (1대미지)' },
     spin:   { rare: 'C', icon: 'spin', name: '모래시계', desc: '몬스터 공격을 1턴 늦춰요 (한 번 쓰면 사라짐)' },
+    crown:  { rare: 'E', emoji: '👑', name: '황금 왕관', desc: '이번 스핀 배율 ×2 (여러 개 나와도 한 번만)' },
+    fuse:   { rare: 'R', emoji: '🧨', name: '도화선', desc: '이번 스핀에 폭발이 터질 때마다 배율 +0.5' },
+    key:    { rare: 'R', emoji: '🗝️', name: '황금 열쇠', desc: '같은 열 보물상자 배율 +3 (이번 층, 안 열린 상자만)' },
     pebble: { rare: 'X', emoji: '🪨', name: '돌멩이', desc: '저주: 아무 효과 없이 칸만 차지해요. 몬스터에게 맞으면 덱에 들어와요' },
   };
-  const DRAFT_POOL = ['pick2', 'pick3', 'pick5', 'tnt', 'book', 'anvil', 'clover', 'torch', 'magnet', 'bolt', 'spin'];
+  const DRAFT_POOL = ['pick2', 'pick3', 'pick5', 'tnt', 'book', 'anvil', 'clover', 'torch', 'magnet', 'bolt', 'spin', 'crown', 'fuse', 'key'];
 
   // 3택1 (같은 심볼 중복 없이). 깊은 층일수록 희귀 비중 ↑
   function draft(run, n, rng) {
