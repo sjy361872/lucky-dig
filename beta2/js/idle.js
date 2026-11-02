@@ -56,6 +56,18 @@
     cells: { name: '슬롯 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
     dur:   { name: '곡괭이 내구도', icon: 'dur', max: 1e9, cost: lv => 8 * Math.pow(1.14, lv) },
   };
+  // 💠 광맥 결정: 환생할 때 받음. 지금까지 받은 결정 1개당 대미지·광석 +2%(써도 유지), 상점에서 영구 강화
+  const CUP = {
+    pow:  { name: '광맥의 힘', icon: '⛏', desc: '모든 대미지 +25%', cost: lv => Math.ceil(2 * Math.pow(1.5, lv)) },
+    rich: { name: '광맥의 부', icon: '🪙', desc: '모든 광석 +25%', cost: lv => Math.ceil(2 * Math.pow(1.5, lv)) },
+    grip: { name: '단단한 손잡이', icon: '🛠️', desc: '곡괭이 내구도 +20%', cost: lv => Math.ceil(3 * Math.pow(1.6, lv)) },
+    rest: { name: '긴 휴식', icon: '💤', desc: '방치 보상 최대 +2시간', cost: lv => Math.ceil(5 * Math.pow(2, lv)), max: 8 },
+  };
+  const cLv = (st, k) => (st.cup && st.cup[k]) || 0;
+  const holdX = st => 1 + (+(globalThis.process && process.env.HOLD) || 0.02) * (st.cTotal || 0);   // 지금까지 받은 결정 총량 기준 → 상점에 써도 줄지 않음
+  const dmgX = st => holdX(st) * (1 + 0.25 * cLv(st, 'pow'));
+  const goldX = st => holdX(st) * (1 + 0.25 * cLv(st, 'rich'));
+
   // ---------- ⛏ 곡괭이 합성 ----------
   //  몬스터·보스·잭팟에서 곡괭이가 떨어짐 → 같은 등급 2개를 합치면 다음 등급
   //  장착한 곡괭이 등급마다 공격력 ×2 + 등급별 고유 능력 (어떤 걸 낄지 고민하게)
@@ -126,24 +138,29 @@
   const env = (k, d) => +(globalThis.process && process.env[k]) || d;
   //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
   const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.6) };
-  const mobHp = f => Math.round(BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
+  // ---------- 💠 환생 ----------
+  //  환생 단계(rb)마다 몬스터가 단단해짐. 계산 함수들이 층(f)만 받으므로 지금 판의 단계를 여기 둠
+  const RB = { D: +(globalThis.process && process.env.RBD) || 1.1, OPEN: 20, rb: 0 };
+  const setRun = st => { RB.rb = st.rb || 0; };
+  const diff = () => Math.pow(RB.D, RB.rb);
+  const mobHp = f => Math.round(diff() * BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
   const killGold = f => Math.ceil(BAL.KG * Math.pow(BAL.GG, f));
   const isSBoss = f => f % 5 === 4;
   // 반격: 일반 몬스터 한 대 · 보스 한 턴 (곡괭이 내구도를 깎음)
   BAL.DA = env('DA', 22); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
   //  처음 두 챕터(10스테이지)는 반격이 약하게 시작해서 서서히 세짐 → 1-1에서 부러지는 일 없게
-  const mobAtk = f => Math.max(1, Math.round(BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f)));
+  const mobAtk = f => Math.max(1, Math.round(diff() * BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f)));
   const bossAtk = f => Math.max(1, Math.round(mobAtk(f) * BAL.BA * (isSBoss(f) ? 1.2 : 1)));
   // 스테이지 번호: 챕터(광산) - 스테이지
   const chapterStart = f => f - f % IDLE.STAGES;
   const stageNo = f => `${Math.floor(f / IDLE.STAGES) + 1}-${f % IDLE.STAGES + 1}`;
-  const maxDur = st => stat.dur(st.lv.dur || 0);
+  const maxDur = st => Math.round(stat.dur(st.lv.dur || 0) * (1 + 0.2 * cLv(st, 'grip')));
   // 곡괭이가 부러짐 → 그 챕터 첫 스테이지(x-1)로 돌아가서 다시 사냥
   function breakPick(st) { st.floor = chapterStart(st.floor); st.kills = 0; st.dur = maxDur(st); st.breaks = (st.breaks || 0) + 1; }                                   // 5층마다 S급 보스 = 더 단단한 벽
   const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
 
   function newState() {
-    return { picks: Array(PICK.SLOTS).fill(null), eq: 0, pkMax: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
+    return { rb: 0, crystals: 0, cup: {}, allBest: 0, start: 0, picks: Array(PICK.SLOTS).fill(null), eq: 0, pkMax: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
   }
   const canBuy = (st, k) => st.lv[k] < UP[k].max && st.gold >= Math.ceil(UP[k].cost(st.lv[k]));
   function buy(st, k) {
@@ -154,11 +171,11 @@
   }
 
   // ---------- 슬롯 ----------
-  const unlocked = st => Object.keys(SYMS).filter(k => (st.best || 0) >= SYMS[k].u);
+  const unlocked = st => Object.keys(SYMS).filter(k => Math.max(st.best || 0, st.allBest || 0) >= SYMS[k].u);
   function weights(st) {
     const eq = eqOf(st);
     const list = unlocked(st).filter(k => k !== 'gold').map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w * ((k === 'glass' && eq === 6) || (k === 'rainbow' && eq === 7) ? 2.5 : 1)]);
-    if ((st.best || 0) >= SYMS.gold.u) {
+    if (Math.max(st.best || 0, st.allBest || 0) >= SYMS.gold.u) {
       const tot = list.reduce((a, e) => a + e[1], 0), p = (GOLD_P[stat.cells(st.lv.cells)] || 0.1) * (eq === 3 ? 1.35 : 1);
       list.push(['gold', tot * p / (1 - p)]);
     }
@@ -187,7 +204,7 @@
   // 슬롯 결과 → 대미지와 효과
   //   rng 를 주면 미믹이 착한지(70%) 지금 정함. 안 주면(미리보기) 미정
   function evalSpin(st, syms, rng) {
-    const eq = eqOf(st), atk = stat.atk(st.lv.atk) * pickMult(st), gemX = stat.gemX(st.lv.gem) + (eq === 4 ? 2 : 0), chestX = stat.chestX(st.lv.chest);
+    const eq = eqOf(st), atk = stat.atk(st.lv.atk) * pickMult(st) * dmgX(st), gemX = stat.gemX(st.lv.gem) + (eq === 4 ? 2 : 0), chestX = stat.chestX(st.lv.chest);
     const res = resolveWild(syms), n = res.length;
     // 💣 TNT: 양옆 칸 효과 2배 (TNT 두 개 사이에 끼면 4배)
     const f = res.map(() => 1);
@@ -221,7 +238,7 @@
   }
   // 평소 공격(슬롯 없이 곡괭이로 한 대): hit() 연출이 그대로 쓰도록 슬롯 결과와 같은 모양으로
   function basicHit(st, base) {
-    const atk = stat.atk(st.lv.atk) * pickMult(st), dragon = (st.dragon || 0) > 0;
+    const atk = stat.atk(st.lv.atk) * pickMult(st) * dmgX(st), dragon = (st.dragon || 0) > 0;
     return { basic: true, atk, hits: 1, combo: 1, comboSym: null, comboN: 1, chests: 0, chestMult: 1, coins: 0, dmg: Math.max(1, Math.round(base * BASIC * (dragon ? DRAGON_X : 1))),
       res: [], boosted: [], repair: 0, respins: 0, cracks: 0, mimics: 0, mimicOk: null, mimicMult: 1, dragon, jackpot: false };
   }
@@ -238,8 +255,8 @@
     if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * JACK_SEC[Math.min(5, r.comboN)]); st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
     return out;
   }
-  const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin) * (eqOf(st) === 1 ? 1.5 : 1));
-  const goldPerKill = st => Math.ceil(killGold(st.floor) * stat.coinX(st.lv.coin));
+  const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin) * (eqOf(st) === 1 ? 1.5 : 1) * goldX(st));
+  const goldPerKill = st => Math.ceil(killGold(st.floor) * stat.coinX(st.lv.coin) * goldX(st));
 
   // 평균 초당 대미지 (몬테카를로)
   function avgDmg(st, n = 600) {
@@ -261,7 +278,7 @@
   }
   // 접속 안 한 동안 쌓인 광석
   function offline(st, now = Date.now()) {
-    const sec = Math.min(IDLE.OFFLINE_MAX, Math.max(0, (now - (st.lastSeen || now)) / 1000));
+    const sec = Math.min(IDLE.OFFLINE_MAX + 2 * 3600 * cLv(st, 'rest'), Math.max(0, (now - (st.lastSeen || now)) / 1000));
     if (sec < 60) return { sec, gold: 0 };
     return { sec, gold: Math.floor(goldPerSec(st) * sec * IDLE.OFFLINE_RATE) };
   }
@@ -279,17 +296,49 @@
   function bossWin(st) {
     st.floor++; st.kills = 0; st.bossWins++; st.dur = maxDur(st);
     st.best = Math.max(st.best, st.floor);
-    const g = killGold(st.floor) * 10;
+    st.allBest = Math.max(st.allBest || 0, st.floor);
+    const g = Math.ceil(killGold(st.floor) * 10 * goldX(st));
     st.gold += g;
     return g;
   }
 
+  // 환생으로 받을 결정: 이번 판 최고 깊이가 깊을수록 급증, 어려운 단계일수록 더 많이
+  const crystalsFor = st => {
+    const b = st.best || 0;
+    if (b < RB.OPEN || b < (st.start || 0) + IDLE.STAGES) return 0;      // 5-1 이전 · 시작 지점에서 한 챕터도 안 내려갔으면 없음
+    // 깊이 한 칸마다 ×CRX (몬스터 체력이 층마다 곱으로 늘어나니, 보상도 곱으로 늘어야 환생할수록 더 깊이 감)
+    return Math.max(1, Math.floor(Math.pow(+(globalThis.process && process.env.CRX) || 1.15, b - 15) * (1 + 0.25 * (st.rb || 0))));
+  };
+  const canPrestige = st => crystalsFor(st) > 0;
+  // 환생: 스테이지·광석·강화 초기화 / 곡괭이·도감·심볼·결정·기록 유지 / 지난 최고 기록의 절반에서 시작
+  function prestige(st) {
+    const got = crystalsFor(st); if (!got) return 0;
+    st.crystals = (st.crystals || 0) + got; st.cTotal = (st.cTotal || 0) + got;
+    st.allBest = Math.max(st.allBest || 0, st.best || 0);
+    st.rb = (st.rb || 0) + 1;
+    const start = chapterStart(Math.floor(st.allBest / 2));
+    Object.keys(st.lv).forEach(k => st.lv[k] = 0);
+    Object.assign(st, { gold: 0, floor: start, best: start, start, kills: 0, egg: 0, dragon: 0 });
+    st.dur = maxDur(st);
+    setRun(st);
+    return got;
+  }
+  function buyC(st, k) {
+    const U = CUP[k], lv = cLv(st, k);
+    if (U.max && lv >= U.max) return false;
+    const c = U.cost(lv); if ((st.crystals || 0) < c) return false;
+    st.crystals -= c; st.cup = st.cup || {}; st.cup[k] = lv + 1;
+    return true;
+  }
+
   // ---------- 층 → 광산(카드 묶음) · 몬스터 ----------
+  //  광산 11곳(55스테이지)을 지나면 '심층 구역': 같은 광산이 색만 바뀌어 다시 나옴 → 끝없이 내려감
   const FLOORS_PER_MINE = 5;
   function mineOf(C, f) {
     const keys = Object.keys(C.TIERS).sort((a, b) => a - b);
-    return keys[Math.min(keys.length - 1, Math.floor(f / FLOORS_PER_MINE))];
+    return keys[Math.floor(f / FLOORS_PER_MINE) % keys.length];
   }
+  const zoneOf = (C, f) => Math.floor(f / (FLOORS_PER_MINE * Object.keys(C.TIERS).length));
   function mobCard(C, f, rng, boss) {
     const tier = mineOf(C, f), inMine = f % FLOORS_PER_MINE;
     const grade = boss ? (inMine === FLOORS_PER_MINE - 1 ? 'S' : ['C', 'B', 'B', 'A'][inMine]) : ['F', 'E', 'D'][Math.floor(rng() * 3)];
@@ -298,5 +347,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
