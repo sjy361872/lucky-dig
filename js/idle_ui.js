@@ -57,14 +57,131 @@
   }
 
   // ---------- 효과 ----------
-  function floatAt(x, y, text, cls = '', ms = 900) {
+  // 숫자 팝업: 크게 튀어나왔다가(punch) 옆으로 휘며 위로 사라짐
+  function floatAt(x, y, text, cls = '', ms = 900, o = {}) {
     const d = document.createElement('div');
     d.className = 'fl ' + cls; d.textContent = text;
     d.style.left = x + 'px'; d.style.top = y + 'px';
     $('#fx').appendChild(d);
-    d.animate([{ transform: 'translate(-50%,0) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,-18px) scale(1.15)', opacity: 1, offset: .2 }, { transform: 'translate(-50%,-48px) scale(1)', opacity: 0 }], { duration: ms, easing: 'ease-out' });
+    const dx = o.dx || 0, p = o.punch || 1.15;
+    d.animate([
+      { transform: `translate(-50%,0) scale(${p * 1.3})`, opacity: 0 },
+      { transform: `translate(-50%,-10px) scale(${p})`, opacity: 1, offset: .1 },
+      { transform: `translate(calc(-50% + ${dx * .4}px),-26px) scale(1)`, opacity: 1, offset: .3 },
+      { transform: `translate(calc(-50% + ${dx}px),-60px) scale(.85)`, opacity: 0 },
+    ], { duration: ms, easing: 'cubic-bezier(.2,.8,.3,1)' });
     setTimeout(() => d.remove(), ms);
   }
+  // 요소 중심의 전투 화면(440×330) 좌표
+  function arenaXY(el) {
+    const a = $('#arena').getBoundingClientRect(), r = el.getBoundingClientRect(), sc = a.width / 440;
+    return [(r.left + r.width / 2 - a.left) / sc, (r.top + r.height / 2 - a.top) / sc];
+  }
+  // 화면 번쩍
+  function flash(color, a = .5, ms = 260) {
+    const f = $('#flash'); f.style.background = color;
+    f.animate([{ opacity: a }, { opacity: 0 }], { duration: ms, easing: 'ease-out' });
+  }
+  // 큰 글씨 배너(잭팟 등): 뒤에서 빛줄기가 돌아감
+  function banner(text, sub, color = '#ffd34a', ms = 1500) {
+    const d = document.createElement('div');
+    d.className = 'banner'; d.style.setProperty('--c', color);
+    d.innerHTML = `<i class="rays"></i><b>${text}</b>${sub ? `<small>${sub}</small>` : ''}`;
+    $('#fx').appendChild(d);
+    d.animate([
+      { transform: 'translate(-50%,-50%) scale(2.8)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) scale(.95)', opacity: 1, offset: .12 },
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .2 },
+      { transform: 'translate(-50%,-50%) scale(1.04)', opacity: 1, offset: .8 },
+      { transform: 'translate(-50%,-50%) scale(.8)', opacity: 0 },
+    ], { duration: ms, easing: 'ease-out' });
+    setTimeout(() => d.remove(), ms);
+  }
+
+  // ---------- 입자(캔버스): 파편 · 불꽃 · 충격파 · 베기 궤적 · 코인 ----------
+  const P = { list: [], cx: null, run: false, last: 0 };
+  const coinImg = new Image(); coinImg.src = ICON.coin;
+  function emit(p) {
+    p.max = p.life; P.list.push(p);
+    if (!P.run) { P.run = true; P.last = 0; requestAnimationFrame(pTick); }
+  }
+  function pTick(t) {
+    const dt = Math.min(.05, P.last ? (t - P.last) / 1000 : .016); P.last = t;
+    const c = P.cx; c.clearRect(0, 0, 440, 330);
+    P.list = P.list.filter(p => {
+      p.life -= dt; if (p.life <= 0) return false;
+      const k = p.life / p.max;               // 1 → 0
+      p.vy += (p.g || 0) * dt; p.vx *= p.drag || 1; p.vy *= p.drag || 1;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.floor && p.y > p.floor) { p.y = p.floor; p.vy *= -.45; p.vx *= .7; }
+      c.save(); c.globalAlpha = Math.min(1, k * 1.6);
+      if (p.t === 'shard') {
+        p.rot += p.vr * dt; c.translate(p.x, p.y); c.rotate(p.rot); c.fillStyle = p.color;
+        c.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .66);
+      } else if (p.t === 'spark') {
+        c.globalCompositeOperation = 'lighter'; c.strokeStyle = p.color; c.lineWidth = p.w * k + .5; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx * .04, p.y - p.vy * .04); c.stroke();
+      } else if (p.t === 'ring') {
+        const r = p.r1 - (p.r1 - p.r0) * k * k;
+        c.strokeStyle = p.color; c.lineWidth = p.w * k; c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.stroke();
+      } else if (p.t === 'slash') {
+        const prog = 1 - k, a0 = p.a - p.sweep / 2, a1 = a0 + p.sweep * Math.min(1, prog * 3);
+        c.globalCompositeOperation = 'lighter'; c.shadowColor = p.color; c.shadowBlur = 16;
+        c.strokeStyle = '#fff'; c.lineWidth = p.w * k; c.lineCap = 'round';
+        c.beginPath(); c.arc(p.x, p.y, p.r, a0, a1); c.stroke();
+      } else if (p.t === 'coin') {
+        p.rot += dt * 12; c.translate(p.x, p.y); c.scale(Math.abs(Math.cos(p.rot)) * .8 + .2, 1);
+        c.drawImage(coinImg, -p.s / 2, -p.s / 2, p.s, p.s);
+      }
+      c.restore();
+      return true;
+    });
+    if (P.list.length) requestAnimationFrame(pTick); else { P.run = false; c.clearRect(0, 0, 440, 330); }
+  }
+  const ROCK = ['#8a6a4a', '#c9a26a', '#5a4030', '#e2c393', '#6b5040'];
+  const HOT = ['#fff6c0', '#ffd34a', '#ff9a3a'];
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  // 한 대 때릴 때: 베기 궤적 + 불꽃 + 돌 파편 (+크리티컬이면 충격파)
+  function hitBurst(x, y, crit, huge) {
+    const a = -0.6 + (rnd() - .5) * .8;
+    emit({ t: 'slash', x: x - 10, y, r: crit ? 70 : 55, a, sweep: 2.2, w: crit ? 12 : 8, color: crit ? '#ffd34a' : '#bfefff', life: .22 });
+    const n = huge ? 26 : crit ? 16 : 8;
+    for (let i = 0; i < n; i++) {
+      const ang = rnd() * Math.PI * 2, sp = 250 + rnd() * (crit ? 520 : 300);
+      emit({ t: 'spark', x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, drag: .9, w: 3, color: pick(HOT), life: .25 + rnd() * .2 });
+    }
+    for (let i = 0; i < (crit ? 10 : 5); i++) {
+      emit({ t: 'shard', x, y, vx: 80 + rnd() * 260, vy: -150 - rnd() * 260, g: 1100, rot: rnd() * 6, vr: (rnd() - .5) * 20, s: 4 + rnd() * 6, color: pick(ROCK), floor: 300, life: .7 + rnd() * .4 });
+    }
+    if (crit) emit({ t: 'ring', x, y, r0: 10, r1: huge ? 150 : 90, w: huge ? 10 : 6, color: huge ? '#ffd34a' : '#fff', life: .35 });
+  }
+  // 처치: 몬스터가 터지며 파편이 사방으로
+  function killBurst(x, y, big) {
+    emit({ t: 'ring', x, y, r0: 20, r1: big ? 220 : 120, w: 12, color: '#fff', life: .4 });
+    for (let i = 0; i < (big ? 50 : 24); i++) {
+      const ang = rnd() * Math.PI * 2, sp = 150 + rnd() * (big ? 600 : 380);
+      emit({ t: 'shard', x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 200, g: 1000, rot: rnd() * 6, vr: (rnd() - .5) * 24, s: 5 + rnd() * 8, color: pick(rnd() < .5 ? ROCK : HOT), floor: 300, life: .8 + rnd() * .5 });
+    }
+    for (let i = 0; i < (big ? 30 : 12); i++) {
+      const ang = rnd() * Math.PI * 2, sp = 300 + rnd() * 500;
+      emit({ t: 'spark', x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, drag: .88, w: 4, color: pick(HOT), life: .35 + rnd() * .2 });
+    }
+  }
+  // 코인 비: 화면 위에서 코인이 쏟아져 바닥에 튕김
+  function coinShower(n) {
+    for (let i = 0; i < n; i++) setTimeout(() => emit({ t: 'coin', x: 30 + rnd() * 380, y: -20, vx: (rnd() - .5) * 80, vy: 100 + rnd() * 200, g: 900, rot: rnd() * 6, s: 22 + rnd() * 10, floor: 290 + rnd() * 20, life: 1.4 + rnd() * .5 }), i * 35);
+  }
+
+  // ---------- 광석 숫자: 바로 바뀌지 않고 촤르륵 올라감 ----------
+  let goldShown = 0;
+  function goldTick() {
+    const target = st.gold, d = target - goldShown;
+    if (Math.abs(d) < 1) goldShown = target; else goldShown += d * .2;
+    const t = fmt(goldShown);
+    if ($('#gold').textContent !== t) $('#gold').textContent = t;
+    requestAnimationFrame(goldTick);
+  }
+  function goldBump() { $('#hud .gold').animate([{ transform: 'scale(1.15)' }, { transform: 'scale(1)' }], { duration: 200, easing: 'ease-out' }); }
   function coinFly(n) {
     const from = $('#mob .mimg').getBoundingClientRect(), to = $('#hud .gold img').getBoundingClientRect(), app = $('#app').getBoundingClientRect();
     const sc = app.width / 440;
@@ -76,10 +193,17 @@
       c.style.left = x0 + 'px'; c.style.top = y0 + 'px';
       $('#app').appendChild(c);
       c.animate([{ transform: 'translate(0,0) scale(.6)' }, { transform: `translate(${(x1 - x0) * .3}px,${-40 + (y1 - y0) * .1}px) scale(1)`, offset: .35 }, { transform: `translate(${x1 - x0}px,${y1 - y0}px) scale(.5)` }], { duration: 650 + i * 60, easing: 'ease-in' });
-      setTimeout(() => c.remove(), 650 + i * 60);
+      setTimeout(() => { c.remove(); goldBump(); }, 650 + i * 60);
     }
   }
-  function shake(el, amp = 5) { el.animate([{ translate: '0 0' }, { translate: `${amp}px 0` }, { translate: `-${amp}px 0` }, { translate: '0 0' }], { duration: 180 }); }
+  // 흔들림: 무작위 방향으로, 점점 약해지게
+  function shake(el, amp = 5, ms = 220) {
+    amp = Math.min(16, amp);
+    const k = [], n = 7;
+    for (let i = 0; i < n; i++) { const d = amp * (1 - i / n); k.push({ translate: `${(rnd() - .5) * 2 * d}px ${(rnd() - .5) * 2 * d}px` }); }
+    k.push({ translate: '0 0' });
+    el.animate(k, { duration: ms });
+  }
 
   // ---------- 슬롯 ----------
   let cellEls = [], held = [];
@@ -97,16 +221,22 @@
     }
   }
   function showSyms(syms, combo) {
+    let n = 0;
     syms.forEach((s, i) => {
       const el = cellEls[i]; if (!el) return;
       el.innerHTML = img(s);
-      el.classList.toggle('combo', !!(combo && s === combo));
+      const on = !!(combo && s === combo);
+      el.classList.toggle('combo', on);
       el.classList.toggle('chest', s === 'chest');
+      // 콤보 칸은 왼쪽부터 차례로 통통 튐
+      if (on || s === 'chest') el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.22) translateY(-8px)' }, { transform: 'scale(1)' }], { duration: 260, delay: (n++) * 55, easing: 'ease-out' });
     });
   }
+  const popCell = el => el.animate([{ transform: 'scale(1.18) translateY(-5px)' }, { transform: 'scale(.96)', offset: .6 }, { transform: 'scale(1)' }], { duration: 170, easing: 'ease-out' });
   // 릴 연출: 고정 안 한 칸은 잠깐 섞였다가 왼쪽부터 멈춤
   async function spinAnim(syms, ms, keep) {
     const keys = Object.keys(I.SYMS), n = syms.length, t0 = performance.now();
+    $('#calc').classList.add('dim');
     cellEls.forEach((el, i) => { el.classList.remove('combo', 'chest'); if (!(keep && keep[i])) el.classList.add('spinning'); });
     while (true) {
       const el = performance.now() - t0;
@@ -115,13 +245,14 @@
         if (keep && keep[i]) continue;
         const stopAt = ms * (0.55 + 0.45 * (i + 1) / n);
         if (el < stopAt) { left++; cellEls[i].innerHTML = img(keys[Math.floor(rnd() * keys.length)]); }
-        else if (cellEls[i].classList.contains('spinning')) { cellEls[i].classList.remove('spinning'); cellEls[i].innerHTML = img(syms[i]); if (ms > 300) Sound.play('stop'); }
+        else if (cellEls[i].classList.contains('spinning')) { cellEls[i].classList.remove('spinning'); cellEls[i].innerHTML = img(syms[i]); popCell(cellEls[i]); if (ms > 300) Sound.play('stop'); }
       }
       if (!left) break;
       await wait(ms > 300 ? 60 : 40);
     }
     showSyms(syms);
   }
+  function setCalc(html) { const c = $('#calc'); c.innerHTML = html; c.classList.remove('dim'); }
   function calcText(r, syms) {
     const parts = [`${f2(r.hits)}타`, `공격력 ${fmt(r.atk)}`];
     if (r.combo > 1) parts.push(`콤보 ×${r.combo}`);
@@ -136,11 +267,14 @@
     $('#mobImg').src = C.cardImg(card);
     $('#mobName').textContent = (boss ? '👑 ' : '') + card.name;
     $('#mob').className = boss ? 'boss' : '';
-    $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'ease-out' });
-    setHp();
+    $('#mob').animate([{ transform: 'translateX(120px)', opacity: 0 }, { transform: 'translateX(-8px)', opacity: 1, offset: .7 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'ease-out' });
+    setHp(true);
   }
-  function setHp() {
-    $('#hpFill').style.width = Math.max(0, mobHp / mobMax * 100) + '%';
+  function setHp(reset) {
+    const w = Math.max(0, mobHp / mobMax * 100) + '%', g = $('#hpGhost');
+    $('#hpFill').style.width = w;
+    // 흰 잔상 바: 잠깐 남았다가 따라 줄어듦 → 얼마나 깎였는지 보임
+    if (reset) { g.style.transition = 'none'; g.style.width = w; void g.offsetWidth; g.style.transition = ''; } else g.style.width = w;
     $('#hpText').textContent = `${fmt(Math.max(0, mobHp))} / ${fmt(mobMax)}`;
   }
   function newMob() { setMob(I.mobCard(C, st.floor, rnd, false), I.mobHp(st.floor), false); alive = true; }
@@ -149,27 +283,47 @@
   async function hit(r, big) {
     const mi = $('#miner');
     mi.classList.remove('swing'); void mi.offsetWidth; mi.classList.add('swing');
-    await wait(90);
-    mobHp -= r.dmg;
-    const m = $('#mob .mimg');
-    m.classList.remove('hurt'); void m.offsetWidth; m.classList.add('hurt');
+    await wait(120);                                    // 곡괭이가 내려꽂히는 순간에 맞춤
+    const m = $('#mob .mimg'), [x, y] = arenaXY(m);
     const crit = r.combo > 1 || r.chests > 0;
-    floatAt(330 + (rnd() - .5) * 50, 70 + rnd() * 30, fmt(r.dmg), crit ? 'crit' : '', crit ? 1200 : 800);
+    const huge = r.comboN >= 4 || r.chests >= 2 || (r.combo > 1 && r.chests > 0);
+    const frac = Math.min(1, r.dmg / mobMax);           // 체력의 몇 %를 깎았나 → 흔들림 크기
+    mobHp -= r.dmg;
+    m.classList.remove('hurt'); void m.offsetWidth;
+    // 히트스톱: 큰 한 방은 화면이 아주 잠깐 멈춤 → '묵직하다'는 느낌
+    if (crit) {
+      m.style.filter = 'brightness(4) saturate(0)'; mi.style.animationPlayState = 'paused';
+      hitBurst(x, y, true, huge);
+      await wait(huge ? 150 : 75);
+      m.style.filter = ''; mi.style.animationPlayState = '';
+    } else hitBurst(x, y, false, false);
+    m.classList.add(crit ? 'hurtbig' : 'hurt');
+    setTimeout(() => m.classList.remove('hurtbig'), 350);
+    floatAt(x + (rnd() - .5) * 40, y - 70, fmt(r.dmg), crit ? 'crit' : '', crit ? 1300 : 800, { dx: (rnd() - .5) * 70, punch: crit ? 1.9 : 1.3 });
     Sound.play('hit', { type: crit ? 'diamond' : 'stone', ratio: .5 });
-    if (r.combo > 1) { floatAt(220, 150, `${I.SYMS[r.comboSym].name} ${r.comboN}개 콤보! ×${r.combo}`, 'combo', 1300); Sound.play('big'); shake($('#arena'), 6); }
-    if (r.chests) { floatAt(220, 120, `📦 상자 ×${f2(r.chestMult)}!`, 'chestf', 1300); Sound.play('chestBig'); shake($('#arena'), 8); }
-    if (r.coins) { const g = I.coinGold(st, r.coins); st.gold += g; floatAt(120, 120, `+${fmt(g)}`, 'goldf', 900); }
+    if (huge) {
+      const t = r.comboN >= 5 ? '잭팟!!' : r.chests >= 2 ? '보물 대박!' : r.combo > 1 && r.chests ? '콤보 + 상자!' : `${r.comboN}콤보!`;
+      banner(t, `대미지 ×${fmt(r.combo * r.chestMult)}`, r.chests ? '#ffd34a' : '#7ff7ff');
+      flash('#fff', .7, 320);
+      if (r.comboN >= 5 || r.chests >= 2) coinShower(16);
+      Sound.play('chestBig');
+    } else {
+      if (r.combo > 1) { floatAt(220, 150, `${I.SYMS[r.comboSym].name} ${r.comboN}개 콤보! ×${r.combo}`, 'combo', 1300, { punch: 1.5 }); Sound.play('big'); flash('#7ff7ff', .25); }
+      if (r.chests) { floatAt(220, 120, `📦 상자 ×${f2(r.chestMult)}!`, 'chestf', 1300, { punch: 1.6 }); Sound.play('chestBig'); flash('#ffd34a', .35); }
+    }
+    if (r.coins) { const g = I.coinGold(st, r.coins); st.gold += g; floatAt(110, 150, `+${fmt(g)}`, 'goldf', 900, { dx: -20 }); goldBump(); }
     setHp();
-    if (big) shake($('#arena'), 4);
+    shake($('#arena'), 1.5 + frac * 10 + (crit ? 4 : 0) + (huge ? 8 : 0) + (big ? 2 : 0));
   }
-  async function killMob() {
+  async function killMob(big) {
     alive = false;
     const g = I.onKill(st);
     Sound.play('coin');
-    floatAt(330, 40, `+${fmt(g)}`, 'goldf big', 1000);
-    coinFly(4);
-    const m = $('#mob');
-    m.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.4) rotate(20deg)' }], { duration: 260, fill: 'forwards' });
+    const m = $('#mob'), [x, y] = arenaXY($('#mob .mimg'));
+    killBurst(x, y, big);
+    floatAt(x, y - 110, `+${fmt(g)}`, 'goldf big', 1000, { punch: 1.6 });
+    coinFly(big ? 6 : 4);
+    m.animate([{ opacity: 1, transform: 'scale(1)', filter: 'brightness(1)' }, { opacity: 1, transform: 'scale(1.18)', filter: 'brightness(4)', offset: .3 }, { opacity: 0, transform: 'scale(.2)', filter: 'brightness(4)' }], { duration: 260, fill: 'forwards' });
     refresh();
     await wait(I.IDLE.RESPAWN * 1000);
     m.getAnimations().forEach(a => a.cancel());
@@ -186,7 +340,7 @@
       await spinAnim(syms, Math.min(260, period * 0.5));
       if (mode !== 'auto') continue;
       showSyms(syms, r.comboSym);
-      $('#calc').innerHTML = calcText(r, syms);
+      setCalc(calcText(r, syms));
       await hit(r);
       if (mobHp <= 0 && alive) await killMob();
       refreshTop();
@@ -205,7 +359,7 @@
         b.disabled = rer <= 0;
         b.innerHTML = `🔄 다시 돌리기<small>${rer > 0 ? `${rer}번 남음` : '다 썼어요'}</small>`;
         const r = I.evalSpin(st, syms);
-        $('#calc').innerHTML = `이대로 공격하면 ${calcText(r, syms)}`;
+        setCalc(`이대로 공격하면 ${calcText(r, syms)}`);
       };
       const onCell = e => {
         const el = e.target.closest('.cell'); if (!el || el.classList.contains('locked') || rer <= 0) return;
@@ -249,14 +403,21 @@
       if (quit) break;
       const r = I.evalSpin(st, syms);
       showSyms(syms, r.comboSym);
-      $('#calc').innerHTML = calcText(r, syms);
+      setCalc(calcText(r, syms));
       await hit(r, true);
       await wait(500);
     }
     $('#bossBar').hidden = true;
     document.body.classList.remove('bossmode');
     if (mobHp <= 0) {
+      // 보스 격파 연출: 크게 터지고 → 코인 비 → 배너 → 카드 팝업
+      const [bx, by] = arenaXY($('#mob .mimg'));
+      killBurst(bx, by, true); flash('#fff', .9, 450); shake($('#arena'), 16, 450);
+      $('#mob').animate([{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.25)', filter: 'brightness(5)', offset: .3 }, { transform: 'scale(0)', opacity: 0 }], { duration: 420, fill: 'forwards' });
+      coinShower(30);
+      banner('보스 격파!', floorName(st.floor + 1) + '로', '#ffd34a', 1600);
       Sound.play('fanfare');
+      await wait(1500);
       const key = C.cardKey(card), isNew = !st.dex[key];
       st.dex[key] = (st.dex[key] || 0) + 1;
       const g = I.bossWin(st);
@@ -271,6 +432,7 @@
     }
     $('#calc').innerHTML = '';
     mode = 'auto';
+    $('#mob').getAnimations().forEach(a => a.cancel());
     newMob();
     refresh();
   }
@@ -283,7 +445,6 @@
     avgCache = I.avgDmg(st).dmg;
   }
   function refreshTop() {
-    $('#gold').textContent = fmt(st.gold);
     $('#gps').textContent = `초당 ${fmt(gpsCache)}`;
     $('#floorName').textContent = floorName(st.floor);
     $('#pips').innerHTML = Array.from({ length: I.IDLE.KILLS }, (_, i) => `<i class="${i < st.kills ? 'on' : ''}"></i>`).join('');
@@ -323,6 +484,11 @@
         recalc();
         if (k === 'cells') { buildCells(); toast('슬롯 칸이 늘었어요!'); }
         const row = b.closest('.up'); row.animate([{ background: '#fff3a0' }, { background: '' }], { duration: 400 });
+        row.querySelector('.ui').animate([{ transform: 'scale(1.35) rotate(-12deg)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+        // 강화하면 광부가 잠깐 빛남 → "세졌다"를 화면 위쪽에서도 느끼게
+        $('#miner img').animate([{ filter: 'drop-shadow(0 0 18px #ffd34a) brightness(1.6)' }, { filter: 'drop-shadow(0 6px 4px rgba(0,0,0,.45))' }], { duration: 450 });
+        const [mx, my] = arenaXY($('#miner'));
+        floatAt(mx, my - 60, `${I.UP[k].name} UP!`, 'upf', 900, { punch: 1.3 });
         renderRow(k); refreshTop(); save();
       });
       Object.keys(I.UP).forEach(renderRow);
@@ -361,6 +527,8 @@
   // ---------- 시작 ----------
   function start() {
     load(); fit();
+    const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
+    goldShown = st.gold; goldTick();
     buildCells();
     recalc();
     renderList();

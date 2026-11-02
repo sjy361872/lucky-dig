@@ -18,11 +18,13 @@
     <section id="arena">
       <div id="miner"><img src="assets/ui/miner.png" alt="광부"></div>
       <div id="mob">
-        <div class="mhp"><i id="hpFill"></i><small id="hpText">0</small></div>
+        <div class="mhp"><i id="hpGhost"></i><i id="hpFill"></i><small id="hpText">0</small></div>
         <div class="mimg"><img id="mobImg" alt=""></div>
         <b id="mobName">몬스터</b>
         <small id="killHint"></small>
       </div>
+      <canvas id="pfx"></canvas>
+      <div id="flash"></div>
       <div id="fx"></div>
       <div id="bossBar" hidden><b>👑 보스전</b><span id="bossTurns">남은 공격 8</span><button id="bossQuit">포기</button></div>
     </section>

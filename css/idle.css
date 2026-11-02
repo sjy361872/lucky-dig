@@ -115,3 +115,29 @@ body.bossmode .cell:not(.locked) { cursor: pointer; }
 #toast { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); background: rgba(0,0,0,.8); color: #fff; padding: 8px 14px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; z-index: 50; pointer-events: none; white-space: nowrap; }
 #toast.on { opacity: 1; }
 #bossBar[hidden], #bossCtl[hidden] { display: none; }
+
+/* ===== 타격감 ===== */
+#pfx { position: absolute; left: 0; top: 0; width: 440px; height: 330px; pointer-events: none; z-index: 4; }
+#flash { position: absolute; inset: 0; pointer-events: none; z-index: 7; opacity: 0; mix-blend-mode: screen; }
+.mhp #hpGhost { background: #fff; transition: width .35s .25s ease-out; }
+#miner.swing { animation: swing2 .28s cubic-bezier(.3,0,.3,1); }
+@keyframes swing2 {
+  0% { transform: rotate(0); }
+  40% { transform: rotate(-16deg) translateX(-10px) scale(.97,1.03); }
+  55% { transform: rotate(16deg) translateX(34px) scale(1.06,.95); }
+  100% { transform: rotate(0); }
+}
+#mob .mimg.hurt { animation: hurt2 .28s ease-out; }
+#mob .mimg.hurtbig { animation: hurt3 .38s ease-out; }
+@keyframes hurt2 { 0% { filter: brightness(2.6) saturate(0); transform: translateX(14px) scale(1.1,.88); } 45% { filter: none; transform: translateX(4px) scale(.96,1.05); } 100% { transform: none; } }
+@keyframes hurt3 { 0% { filter: brightness(3) sepia(1) hue-rotate(-30deg) saturate(4); transform: translateX(26px) scale(1.18,.8) rotate(6deg); } 40% { filter: none; transform: translateX(6px) scale(.92,1.1) rotate(-2deg); } 100% { transform: none; } }
+.fl.upf { font-size: 18px; color: #9dff7a; -webkit-text-stroke: 1px #1a4a0a; }
+.banner { position: absolute; left: 50%; top: 44%; z-index: 9; text-align: center; white-space: nowrap; pointer-events: none; }
+.banner b { position: relative; display: block; font: 900 50px/1 'Arial Black', Arial, sans-serif; color: var(--c); -webkit-text-stroke: 2.5px #3a1500; text-shadow: 0 4px 0 #3a1500, 0 0 24px var(--c); }
+.banner small { position: relative; display: block; margin-top: 6px; font-size: 18px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #000; }
+.banner .rays { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c) 55%, transparent) 0 10deg, transparent 10deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%); mask: radial-gradient(circle, #000 20%, transparent 68%); animation: rays 3s linear infinite; }
+@keyframes rays { to { transform: rotate(360deg); } }
+#calc { transition: opacity .12s; }
+#calc.dim { opacity: .3; }
