@@ -5,18 +5,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>곡괭이 키우기 (베타)</title>
-<link rel="stylesheet" href="beta2/css/idle.css?v=1793606005">
+<link rel="stylesheet" href="beta2/css/idle.css?v=1793607625">
 </head>
 <body>
 <div id="vp">
   <div id="app">
     <header id="hud">
       <div class="gold"><img src="assets/ui/coin.png" alt=""><div><b id="gold">0</b><small id="gps">초당 0</small></div></div>
-      <div class="stage"><b id="floorName">풀숲 입구 1층</b><div id="pips"></div></div>
+      <div class="stage"><b id="floorName">1-1</b><div id="pips"></div><button id="autoBtn" class="on">자동 도전 ON</button></div>
       <button id="bossBtn" disabled><span>👑</span><small>보스 도전</small></button>
     </header>
 
     <section id="arena">
+      <div id="durBar"><span>🛠️</span><div class="db"><i id="durFill"></i><small id="durText"></small></div></div>
       <div id="pick"><img alt="곡괭이"><small id="pickName">나무 곡괭이</small></div>
       <div id="mob">
         <div class="mhp"><i id="hpGhost"></i><i id="hpFill"></i><small id="hpText">0</small></div>
@@ -27,7 +28,7 @@
       <canvas id="pfx"></canvas>
       <div id="flash"></div>
       <div id="fx"></div>
-      <div id="bossBar" hidden><b>👑 보스전</b><span id="bossTurns">남은 공격 8</span><button id="bossQuit">포기</button></div>
+      <div id="bossBar" hidden><b>👑 보스전</b><span id="bossTurns">1턴</span><button id="bossQuit">포기</button></div>
     </section>
 
     <section id="slotbox">
@@ -48,9 +49,9 @@
 </div>
 <div id="modal" hidden></div>
 
-<script src="beta2/js/config.js?v=1793606005"></script>
-<script src="beta2/js/sound.js?v=1793606005"></script>
-<script src="beta2/js/idle.js?v=1793606005"></script>
-<script src="beta2/js/idle_ui.js?v=1793606005"></script>
+<script src="beta2/js/config.js?v=1793607625"></script>
+<script src="beta2/js/sound.js?v=1793607625"></script>
+<script src="beta2/js/idle.js?v=1793607625"></script>
+<script src="beta2/js/idle_ui.js?v=1793607625"></script>
 </body>
 </html>

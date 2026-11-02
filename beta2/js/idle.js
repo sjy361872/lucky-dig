@@ -10,8 +10,10 @@
     OFFLINE_MAX: 8 * 3600,     // 접속 안 해도 쌓이는 최대 시간(초)
     OFFLINE_RATE: 0.5,         // 자리 비운 동안은 평소의 50%
     BOSS_X: 2.5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
-    BOSS_SPINS: 8,             // 보스전 공격 횟수
     BOSS_REROLLS: 3,           // 보스전 다시 돌리기 횟수
+    MOB_HIT: 1.5,              // 일반 몬스터가 반격하는 간격(초)
+    REGEN: 0.15,               // 몬스터를 잡을 때마다 내구도 회복(최대치의 15%)
+    STAGES: 5,                 // 챕터(광산)마다 스테이지 수: 1-1 ~ 1-5
     RESPAWN: 0.35,             // 몬스터가 다시 나오기까지(초)
   };
   // 슬롯 심볼: w = 나오는 비중, hit = 기본 타수
@@ -32,6 +34,7 @@
     chest: { name: '보물상자', icon: 'chest', max: 40, cost: lv => 150 * Math.pow(1.3, lv) },
     coin:  { name: '광석 수집', icon: 'coin', max: 1e9, cost: lv => 30 * Math.pow(1.2, lv) },
     cells: { name: '슬롯 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
+    dur:   { name: '곡괭이 내구도', icon: 'dur', max: 1e9, cost: lv => 8 * Math.pow(1.14, lv) },
   };
   const ATB = +(globalThis.process && process.env.ATB) || 5;   // 공격력 시작값
   // 강화 레벨 → 실제 수치
@@ -42,18 +45,30 @@
     chestW: lv => 3 + 0.5 * lv, chestX: lv => 3 + 0.2 * lv,
     coinX: lv => 1 + 0.2 * lv,
     cells: lv => 3 + lv,
+    dur: lv => Math.round(100 * Math.pow(+(globalThis.process && process.env.DURG) || 1.062, lv)),   // 곡괭이 내구도(= 체력)
   };
   // 밸런스 숫자 (tools/sim_idle.js 에서 환경변수로 바꿔 시험 가능)
   const env = (k, d) => +(globalThis.process && process.env[k]) || d;
   //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
-  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.4) };
+  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.20), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.4) };
   const mobHp = f => Math.round(BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
   const killGold = f => Math.ceil(BAL.KG * Math.pow(BAL.GG, f));
-  const isSBoss = f => f % 5 === 4;                                   // 5층마다 S급 보스 = 더 단단한 벽
+  const isSBoss = f => f % 5 === 4;
+  // 반격: 일반 몬스터 한 대 · 보스 한 턴 (곡괭이 내구도를 깎음)
+  BAL.DA = env('DA', 22); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
+  //  처음 두 챕터(10스테이지)는 반격이 약하게 시작해서 서서히 세짐 → 1-1에서 부러지는 일 없게
+  const mobAtk = f => Math.max(1, Math.round(BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f)));
+  const bossAtk = f => Math.max(1, Math.round(mobAtk(f) * BAL.BA * (isSBoss(f) ? 1.2 : 1)));
+  // 스테이지 번호: 챕터(광산) - 스테이지
+  const chapterStart = f => f - f % IDLE.STAGES;
+  const stageNo = f => `${Math.floor(f / IDLE.STAGES) + 1}-${f % IDLE.STAGES + 1}`;
+  const maxDur = st => stat.dur(st.lv.dur || 0);
+  // 곡괭이가 부러짐 → 그 챕터 첫 스테이지(x-1)로 돌아가서 다시 사냥
+  function breakPick(st) { st.floor = chapterStart(st.floor); st.kills = 0; st.dur = maxDur(st); st.breaks = (st.breaks || 0) + 1; }                                   // 5층마다 S급 보스 = 더 단단한 벽
   const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
 
   function newState() {
-    return { gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0 }, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0 };
+    return { gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
   }
   const canBuy = (st, k) => st.lv[k] < UP[k].max && st.gold >= Math.ceil(UP[k].cost(st.lv[k]));
   function buy(st, k) {
@@ -128,12 +143,14 @@
   function onKill(st) {
     const g = goldPerKill(st);
     st.gold += g; st.totalKills++;
+    st.dur = Math.min(maxDur(st), st.dur + maxDur(st) * IDLE.REGEN);
     if (st.kills < IDLE.KILLS) st.kills++;
     return g;
   }
   const bossReady = st => st.kills >= IDLE.KILLS;
+  function bossLose(st) { st.kills = 0; st.bossFails++; st.dur = maxDur(st); }
   function bossWin(st) {
-    st.floor++; st.kills = 0; st.bossWins++;
+    st.floor++; st.kills = 0; st.bossWins++; st.dur = maxDur(st);
     st.best = Math.max(st.best, st.floor);
     const g = killGold(st.floor) * 10;
     st.gold += g;
@@ -154,5 +171,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { IDLE, BAL, isSBoss, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
