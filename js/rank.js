@@ -76,7 +76,8 @@
   // 랭킹 보드 정의: 점수 계산 + 표시
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
   const BOARDS = [
-    { id: 'rank', name: '랭크 포인트', score: st => st.rankPoints, show: st => fmt(st.rankPoints) + ' pt', sub: st => `${fmt(st.plays)}판` },
+    // 랭크 = 보유 포인트(화면에 보이는 내 포인트). 예전엔 '충전 안 했다면 남았을 포인트'라 크게 잃으면 마이너스가 됐음
+    { id: 'rank', name: '보유 포인트', score: st => st.wallet, show: st => fmt(st.wallet) + ' pt', sub: st => `${fmt(st.plays)}판` },
     { id: 'best', name: '최고 배율', score: st => (st.best ? st.best.mult : 0), show: st => (st.best ? '×' + st.best.mult.toFixed(2) : '—'),
       sub: st => (st.best ? `${st.best.mode.toUpperCase()} ${st.best.grade}상 · ${fmt(st.best.bet)}pt` : '') },
     { id: 'S', name: 'S상 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
@@ -103,7 +104,7 @@
       db.players[nickname] = { nickname, stats, state, updated_at: Date.now() };
       this._put(db);
     },
-    async leaderboard() { return Object.values(this._db().players); },
+    async leaderboard() { return Object.values(this._db().players).map(p => ({ ...p, wallet: p.state && p.state.points })); },
     async addFeed(item) { const db = this._db(); item.id = Date.now(); db.feed.unshift(item); db.feed = db.feed.slice(0, 50); this._put(db); },
     async feed() { return this._db().feed; },
     async players() { return Object.keys(this._db().players); },
@@ -150,7 +151,7 @@
         await req(`players?nickname=eq.${enc(nickname)}&pin_hash=eq.${enc(pin_hash)}`, {
           method: 'PATCH', keepalive: !!keepalive, body: JSON.stringify({ state, stats, updated_at: new Date().toISOString() }) });
       },
-      async leaderboard() { return req('players?select=nickname,stats,updated_at'); },
+      async leaderboard() { return req('players?select=nickname,stats,updated_at,wallet:state->points'); },
       async addFeed(item) { await req('feed', { method: 'POST', body: JSON.stringify(item) }); },
       async feed() { return req('feed?select=*&order=id.desc&limit=30'); },
       async players() { return (await req('players?select=nickname')).map(r => r.nickname); },
@@ -227,6 +228,7 @@
       clearTimeout(Rank._t);
       const me = Rank.me;
       Rank._pending = { me, state: JSON.parse(JSON.stringify(state)) };
+      Rank._wallet = state.points;
       Rank._t = setTimeout(() => Rank.flush(), 1000);
     },
     flush(keepalive) {
@@ -238,10 +240,16 @@
       const def = BOARDS.find(b => b.id === id);
       const rows = (await store.leaderboard()).filter(r => r.stats && !String(r.nickname).startsWith('__')); // '__'로 시작 = 점검용 계정
       // 내 최신 기록은 화면 값으로 덮어씀 (저장 지연 대비)
-      if (Rank.me) { const mine = rows.find(r => r.nickname === Rank.me.nickname); if (mine) mine.stats = Rank.me.stats; else rows.push({ nickname: Rank.me.nickname, stats: Rank.me.stats }); }
+      if (Rank.me) {
+        const mine = rows.find(r => r.nickname === Rank.me.nickname);
+        if (mine) { mine.stats = Rank.me.stats; if (Rank._wallet != null) mine.wallet = Rank._wallet; }
+        else rows.push({ nickname: Rank.me.nickname, stats: Rank.me.stats, wallet: Rank._wallet });
+      }
       const out = [];
       for (const r of rows) {
-        try { const st = r === undefined ? null : (Rank.me && r.nickname === Rank.me.nickname ? r.stats : normStats(r.stats));
+        try { const st0 = Rank.me && r.nickname === Rank.me.nickname ? r.stats : normStats(r.stats);
+          // 보유 포인트: 저장된 게임 상태의 포인트 (없으면 시작 포인트)
+          const st = { ...st0, wallet: Math.max(0, Number.isFinite(+r.wallet) && r.wallet !== null ? +r.wallet : C.START_POINTS) };
           out.push({ nickname: String(r.nickname).slice(0, 10), score: def.score(st), show: def.show(st), sub: def.sub(st) }); } catch (e) { /* 깨진 기록은 건너뜀 */ }
       }
       return out.sort((a, b) => b.score - a.score);
