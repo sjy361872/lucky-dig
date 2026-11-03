@@ -662,7 +662,8 @@
     const top = Object.entries(cnt).filter(([k]) => !['coin', 'rainbow', 'mimic', 'wrench', 'egg'].includes(k)).sort((a, b) => b[1] - a[1])[0];
     held = syms.map(x => (top && x === top[0] && top[1] >= 2) || ['gem', 'chest', 'gold', 'rainbow', 'glass'].includes(x));
     cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
-    await wait(320);
+    floatAt(220, 300, '🔄 좋은 칸은 고정하고 다시 돌려요', 'glassf', 900);
+    await wait(420);
     return 'reroll';
   }
   let quitReq = false;
@@ -683,7 +684,8 @@
     $('#bossBar').hidden = false;
     $('#bossQuit').onclick = () => { quitReq = true; };
     const card = I.mobCard(C, st.floor, rnd, true);
-    $('#bossBar b').textContent = (I.isSBoss(st.floor) ? '💀 강적 보스' : '👑 보스전') + (auto ? ' · 자동' : '');
+    $('#bossBar b').textContent = (I.isSBoss(st.floor) ? '💀 챕터 보스' : '👑 중간 보스') + (auto ? ' (자동)' : '');
+    tip('bossfight', '⚔ 보스전: 슬롯 1번 = 공격 1번! 공격할 때마다 보스도 반격해요. 안 좋은 칸은 3번까지 다시 돌려요');
     setMob(card, I.bossHp(st.floor), true);
     st.dur = I.maxDur(st); setDur();                       // 보스전 시작 전 곡괭이 수리
     refreshTop();
@@ -693,7 +695,7 @@
     let rer = I.IDLE.BOSS_REROLLS, quit = false, turn = 0;
     while (mobHp > 0 && st.dur > 0 && !quit) {
       turn++;
-      $('#bossTurns').textContent = `${turn}턴 · 다시 돌리기 ${rer}`;
+      $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 🔄 ${rer}번 남음`;
       held = [];
       let syms = I.roll(st, rnd);
       await spinAnim(syms, auto ? 380 : 650);
@@ -703,7 +705,7 @@
         if (v === 'quit' || quitReq) { quit = true; break; }
         if (v === 'attack') break;
         rer--;
-        $('#bossTurns').textContent = `${turn}턴 · 다시 돌리기 ${rer}`;
+        $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 🔄 ${rer}번 남음`;
         const keep = held.slice();
         syms = I.roll(st, rnd, syms, keep);
         await spinAnim(syms, auto ? 350 : 550, keep);
