@@ -93,14 +93,15 @@
     const t = cur(), el = $('#pick');
     evolving = true; setTimeout(() => evolving = false, 600);
     Sound.play('drumroll');
-    el.querySelector('img').animate([{ filter: 'brightness(1)' }, { filter: 'brightness(6) saturate(0)' }], { duration: 500, fill: 'forwards' });
+    el.querySelector('img').animate([{ filter: 'brightness(1)' }, { filter: 'brightness(6) saturate(0)' }], { duration: 500 });
+    el.querySelector('img').style.filter = 'brightness(6) saturate(0)';
     await wait(500);
     showPick();
     flash('#fff', .9, 500);
     const [x, y] = arenaXY(el);
     emit({ t: 'ring', x, y, r0: 20, r1: 230, w: 14, color: PICKS[t].c, life: .6 });
     for (let i = 0; i < 40; i++) { const a = rnd() * 6.28, sp = 200 + rnd() * 500; emit({ t: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, drag: .9, w: 4, color: rnd() < .5 ? PICKS[t].c : '#fff', life: .5 + rnd() * .3 }); }
-    el.querySelector('img').getAnimations().forEach(a => a.cancel());
+    el.querySelector('img').getAnimations().forEach(a => a.cancel()); el.querySelector('img').style.filter = '';
     el.animate([{ transform: 'scale(1.6)' }, { transform: 'scale(.95)', offset: .6 }, { transform: 'scale(1)' }], { duration: 600, easing: 'ease-out' });
     banner(`${I.gradeName(st.eq.g)} 곡괭이!`, `${TY(st.eq.t).e} ${TY(st.eq.t).name} · 공격력 ×${f2(I.pickMult(st))}`, PICKS[t].c, 2000);
     setTimeout(() => toast(`능력: ${I.abilText(st.eq)}`), 600);
@@ -358,7 +359,7 @@
     const pre = preload(spr);
     if (pre.complete && pre.naturalWidth) show(); else { pre.addEventListener('load', show, { once: true }); setTimeout(show, 1500); }
     // 이전 처치·보스 격파 연출(끝난 뒤에도 '사라진 상태'로 남는 애니메이션)을 확실히 지움
-    $('#mob').getAnimations().forEach(a => a.cancel());
+    $('#mob').getAnimations().forEach(a => a.cancel()); $('#mob').style.opacity = ''; $('#mob').style.transform = '';
     const z = I.zoneOf(C, st.floor);
     $('#mob .spr').style.filter = z ? `hue-rotate(${z * 60}deg) saturate(1.3)` : '';
     $('#mobName').textContent = (boss ? '👑 ' : '') + (z ? '심층 ' : '') + card.name;
@@ -480,7 +481,8 @@
     floatAt(x, y - 110, `+${fmt(g)}`, 'goldf big', 1000, { punch: 1.6 });
     coinFly(big ? 6 : 4);
     gotPick(I.rollDrop(st, rnd, 'kill'), x, y);
-    m.animate([{ opacity: 1, transform: 'scale(1)', filter: 'brightness(1)' }, { opacity: 1, transform: 'scale(1.18)', filter: 'brightness(4)', offset: .3 }, { opacity: 0, transform: 'scale(.2)', filter: 'brightness(4)' }], { duration: 260, fill: 'forwards' });
+    m.animate([{ opacity: 1, transform: 'scale(1)', filter: 'brightness(1)' }, { opacity: 1, transform: 'scale(1.18)', filter: 'brightness(4)', offset: .3 }, { opacity: 0, transform: 'scale(.2)', filter: 'brightness(4)' }], { duration: 260 });
+    m.style.opacity = '0';     // 끝 상태는 직접 (fill:forwards 안 씀 — 일부 앱 안 브라우저에서 투명이 안 풀림)
     refresh();
     await wait(I.IDLE.RESPAWN * 1000);
     m.getAnimations().forEach(a => a.cancel());
@@ -633,7 +635,8 @@
     breaking = true; mode = 'break';
     const pk = $('#pick'), pim = pk.querySelector('img'), [x, y] = arenaXY(pk);
     const c = PICKS[cur()].c;
-    pim.animate([{ transform: 'rotate(-22deg)', opacity: 1 }, { transform: 'rotate(60deg) translate(20px,80px)', opacity: 0 }], { duration: 650, fill: 'forwards', easing: 'ease-in' });
+    pim.animate([{ transform: 'rotate(-22deg)', opacity: 1 }, { transform: 'rotate(60deg) translate(20px,80px)', opacity: 0 }], { duration: 650, easing: 'ease-in' });
+    pim.style.opacity = '0';
     for (let i = 0; i < 34; i++) { const a = rnd() * 6.28, sp = 120 + rnd() * 420; emit({ t: 'shard', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 150, g: 1000, rot: rnd() * 6, vr: (rnd() - .5) * 24, s: 5 + rnd() * 8, color: rnd() < .5 ? c : '#8a6a4a', floor: 300, life: .9 + rnd() * .4 }); }
     shake($('#arena'), 14, 450); flash('#000', .4, 450);
     Sound.play('last');
@@ -642,7 +645,7 @@
     if (quick) toast(`💥 곡괭이 파손 · ${I.stageNo(st.floor)}부터 다시`);
     else banner('곡괭이가 부러졌어요!', `${I.stageNo(st.floor)}부터 다시 · 내구도를 강화해 보세요`, '#ff7a6a', 2200);
     await wait(2000);
-    pim.getAnimations().forEach(a => a.cancel());
+    pim.getAnimations().forEach(a => a.cancel()); pim.style.opacity = '';
     pk.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.3,1.6,.5,1)' });
     toast('🔧 곡괭이 수리 완료!');
     recalc(); setDur(); newMob(); refresh(); save();
@@ -725,7 +728,8 @@
       // 보스 격파 연출: 크게 터지고 → 코인 비 → 배너 → (직접 도전이면) 카드 팝업
       const [bx, by] = arenaXY($('#mob .mimg'));
       killBurst(bx, by, true); flash('#fff', .9, 450); shake($('#arena'), 16, 450);
-      $('#mob').animate([{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.25)', filter: 'brightness(5)', offset: .3 }, { transform: 'scale(0)', opacity: 0 }], { duration: 420, fill: 'forwards' });
+      $('#mob').animate([{ transform: 'scale(1)', filter: 'brightness(1)' }, { transform: 'scale(1.25)', filter: 'brightness(5)', offset: .3 }, { transform: 'scale(0)', opacity: 0 }], { duration: 420 });
+      $('#mob').style.opacity = '0';
       coinShower(auto ? 14 : 30);
       banner('보스 격파!', '다음 → ' + I.stageNo(st.floor + 1), '#ffd34a', 1600);
       Sound.play('fanfare');
@@ -1162,13 +1166,18 @@
     if (++healBad < 2) return;            // 1초 넘게 계속 안 보일 때만 (연출 중 잠깐은 정상)
     healBad = 0;
     diag('invisible', why.join(' ') + ' | anims:' + m.getAnimations().map(a => a.playState + '/' + a.effect.getTiming().fill).join(','));
-    [m, mi, sp, im].forEach(el => el.getAnimations().forEach(a => a.cancel()));
+    [m, mi, sp, im].forEach(el => { el.getAnimations().forEach(a => a.cancel()); el.style.opacity = ''; });
     mi.style.filter = '';
+    healMob.n = (healMob.n || 0) + 1;
+    if (healMob.n >= 2 && +getComputedStyle(m).opacity < .15) {       // 그래도 투명 → 같은 모양으로 새로 만들어 바꿔 끼움
+      const fresh = m.cloneNode(true); fresh.style.opacity = '1'; m.replaceWith(fresh); healMob.n = 0;
+      diag('replaced', 'mob element re-created');
+    }
     const spr = sprOf(mob); im.src = ''; im.src = spr;
   }
   function showDiag() {
     let d = []; try { d = JSON.parse(localStorage.getItem('pickidle_diag') || '[]'); } catch (e) { /* 없음 */ }
-    modal(`<h3>🩹 문제 기록</h3><p style="text-align:left;font-size:11px;max-height:300px;overflow:auto;word-break:break-all">${d.length ? d.map(x => `<b>${x.at.slice(5, 16)} ${x.kind}</b> ${x.f} ${x.mode}<br>${x.info}`).join('<br><br>') : '기록 없음'}</p>`, '닫기');
+    modal(`<h3>🩹 문제 기록</h3><p style="text-align:left;font-size:11px;max-height:300px;overflow:auto;word-break:break-all">${d.length ? d.map(x => `<b>${x.at.slice(5, 16)} ${x.kind}</b> ${x.f} ${x.mode}<br>${x.info}<br><small>${x.ua || ''}</small>`).join('<br><br>') : '기록 없음'}</p>`, '닫기');
   }
 
   // ---------- 상단 · 강화 목록 ----------
