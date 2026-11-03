@@ -352,3 +352,10 @@ body.bossmode #gauge { display: none; }
 @keyframes fingerGlow { to { box-shadow: 0 0 14px #ffd34a; } }
 @keyframes fingerTap { to { transform: translateY(-6px); } }
 #tabs button.newtab::after { content: 'NEW'; position: absolute; right: 4px; top: 2px; font-size: 9px; font-weight: 900; color: #fff; background: #e2361e; border-radius: 6px; padding: 0 4px; }
+
+/* 보스까지 진행 바 (예전 10칸 점 → 글자 있는 바) */
+#pips { position: relative; display: block; width: 150px; height: 15px; margin: 4px auto 0; border-radius: 8px; background: rgba(0,0,0,.45); border: 1px solid rgba(0,0,0,.6); overflow: hidden; }
+#pips i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; height: auto; border: 0; border-radius: 0; background: linear-gradient(#ff8a3a, #d4142e); transition: width .2s; }
+#pips span { position: absolute; inset: 0; text-align: center; font-size: 10.5px; line-height: 14px; font-weight: 900; color: #fff; text-shadow: 0 1px 0 #000; }
+#pips.ready i { background: linear-gradient(#ffe14a, #e08a00); }
+#pips.ready { box-shadow: 0 0 8px #ffd34a; }
