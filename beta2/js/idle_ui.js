@@ -307,6 +307,7 @@
   const popCell = el => el.animate([{ transform: 'scale(1.18) translateY(-5px)' }, { transform: 'scale(.96)', offset: .6 }, { transform: 'scale(1)' }], { duration: 170, easing: 'ease-out' });
   // 릴 연출: 고정 안 한 칸은 잠깐 섞였다가 왼쪽부터 멈춤
   async function spinAnim(syms, ms, keep) {
+    if (cellEls.length !== syms.length) buildCells();
     const keys = I.unlocked(st), n = syms.length, t0 = performance.now();
     $('#calc').classList.add('dim');
     $('#cells').querySelectorAll('.clab').forEach(x => x.remove());
@@ -663,6 +664,14 @@
   }
   let quitReq = false;
   async function bossFight(auto) {
+    try { await bossFight2(auto); }
+    catch (e) {
+      console.error('bossFight', e); diag('boss-error', String(e && e.message || e));
+      $('#bossBar').hidden = true; $('#bossCtl').hidden = true; document.body.classList.remove('bossmode', 'autoboss');
+      mode = 'auto'; newMob(); refresh();
+    }
+  }
+  async function bossFight2(auto) {
     if (mode !== 'auto' || !I.bossReady(st)) return;
     mode = 'boss'; quitReq = false;
     await wait(300);
@@ -1125,6 +1134,43 @@
     if (I.canPrestige(st)) tip('rb2', `💠 지금 환생하면 결정 ${fmt(I.crystalsFor(st))}개!`, '#tabs button[data-t="rb"]');
   }
 
+  // ---------- 🩹 몬스터가 안 보이면 자동 복구 + 원인 기록 ----------
+  //  "몬스터가 투명해지는데 게임은 진행됨" 재현이 안 돼서, 생기면 고치고 무엇이 문제였는지 남김
+  //  기록 보기: 주소 뒤에 ?diag=1
+  function diag(kind, info) {
+    try {
+      const d = JSON.parse(localStorage.getItem('pickidle_diag') || '[]');
+      d.unshift({ at: new Date().toISOString(), kind, info, f: I.stageNo(st.floor), mode, ua: navigator.userAgent.slice(0, 80) });
+      localStorage.setItem('pickidle_diag', JSON.stringify(d.slice(0, 20)));
+    } catch (e) { /* 무시 */ }
+  }
+  let healBad = 0;
+  function healMob() {
+    if (mode !== 'auto' || !alive || document.hidden || !mob) { healBad = 0; return; }
+    const im = $('#mobImg'), mi = $('#mob .mimg'), sp = $('#mob .spr'), m = $('#mob');
+    const why = [];
+    if (!im.getAttribute('src')) why.push('no-src');
+    else if (im.complete && !im.naturalWidth) why.push('broken:' + im.src.split('/').slice(-2).join('/'));
+    for (const [n, el] of [['mob', m], ['mimg', mi], ['spr', sp], ['img', im]]) {
+      const cs = getComputedStyle(el);
+      if (+cs.opacity < .15) why.push(n + '-opacity:' + cs.opacity);
+      if (cs.visibility !== 'visible') why.push(n + '-hidden');
+      if (/^matrix\(0,/.test(cs.transform)) why.push(n + '-scale0');
+    }
+    if (mi.style.filter) why.push('mimg-filter:' + mi.style.filter);
+    if (!why.length) { healBad = 0; return; }
+    if (++healBad < 2) return;            // 1초 넘게 계속 안 보일 때만 (연출 중 잠깐은 정상)
+    healBad = 0;
+    diag('invisible', why.join(' ') + ' | anims:' + m.getAnimations().map(a => a.playState + '/' + a.effect.getTiming().fill).join(','));
+    [m, mi, sp, im].forEach(el => el.getAnimations().forEach(a => a.cancel()));
+    mi.style.filter = '';
+    const spr = sprOf(mob); im.src = ''; im.src = spr;
+  }
+  function showDiag() {
+    let d = []; try { d = JSON.parse(localStorage.getItem('pickidle_diag') || '[]'); } catch (e) { /* 없음 */ }
+    modal(`<h3>🩹 문제 기록</h3><p style="text-align:left;font-size:11px;max-height:300px;overflow:auto;word-break:break-all">${d.length ? d.map(x => `<b>${x.at.slice(5, 16)} ${x.kind}</b> ${x.f} ${x.mode}<br>${x.info}`).join('<br><br>') : '기록 없음'}</p>`, '닫기');
+  }
+
   // ---------- 상단 · 강화 목록 ----------
   const floorName = f => { const z = I.zoneOf(C, f); return `${I.stageNo(f)} ${z ? `심층${z + 1} ` : ''}${C.TIERS[I.mineOf(C, f)].name}`; };
   let gpsCache = 0, avgCache = 1, baseCache = 1;
@@ -1286,6 +1332,8 @@
       else { offlineReward(); }
     });
     setInterval(() => { if (!document.hidden) save(); }, 5000);
+    setInterval(healMob, 600);
+    if (/[?&]diag=1/.test(location.search)) setTimeout(showDiag, 800);
     offlineReward().then(() => autoLoop());
     window.__idle = { st: () => st, mode: () => mode, alive: () => alive, I, save, hp: f => { mobHp = mobMax * f; setHp(); } };
   }
