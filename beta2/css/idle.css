@@ -370,3 +370,6 @@ body.bossmode #gauge { display: none; }
 #pips.dots b.now { filter: drop-shadow(0 0 4px #ffd34a); transform: scale(1.35); }
 
 .resetbtn { display: block; margin: 18px auto 8px; padding: 8px 16px; border: 1px solid rgba(0,0,0,.25); border-radius: 10px; background: rgba(0,0,0,.06); color: #8a4a3a; font-size: 12px; font-weight: 800; }
+
+/* 몬스터가 싸우는 도중 투명해졌다 깜빡이는 문제 대비: 몬스터 그림을 별도 층으로 고정해 그림 (브라우저 그리기 오류 방지) */
+#mob .mimg, #mob .spr, #mob .spr img { transform: translateZ(0); backface-visibility: hidden; will-change: transform, filter; }
