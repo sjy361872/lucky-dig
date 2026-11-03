@@ -368,3 +368,5 @@ body.bossmode #gauge { display: none; }
 #pips.dots b { font-size: 12px; line-height: 1; filter: grayscale(1) opacity(.5); }
 #pips.dots b.done { filter: none; }
 #pips.dots b.now { filter: drop-shadow(0 0 4px #ffd34a); transform: scale(1.35); }
+
+.resetbtn { display: block; margin: 18px auto 8px; padding: 8px 16px; border: 1px solid rgba(0,0,0,.25); border-radius: 10px; background: rgba(0,0,0,.06); color: #8a4a3a; font-size: 12px; font-weight: 800; }

@@ -38,7 +38,22 @@
     } catch (e) { /* 새로 시작 */ }
     st = I.newState(); I.setRun(st);
   }
-  function save() { st.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 저장 불가 */ } }
+  let wiping = false;   // 초기화 중엔 저장하지 않음 (창을 닫을 때 저장이 다시 덮어쓰지 않게)
+  // 처음부터 다시: 저장 삭제 후 새로고침
+  async function resetAll() {
+    const ok = await new Promise(done => {
+      const m = $('#modal');
+      m.innerHTML = `<div class="box"><h3>🔄 처음부터 다시 하기</h3><p>스테이지 · 광석 · 강화 · 곡괭이 · 환생 · 도감이 <b>전부 지워져요.</b><br>되돌릴 수 없어요.</p>
+        <div class="mrow"><button class="mbtn ghost" data-v="0">취소</button><button class="mbtn" data-v="1">지우고 처음부터</button></div></div>`;
+      m.hidden = false;
+      m.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { m.hidden = true; m.innerHTML = ''; done(b.dataset.v === '1'); });
+    });
+    if (!ok) return;
+    wiping = true;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* 무시 */ }
+    location.replace(location.pathname);
+  }
+  function save() { if (wiping) return; st.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* 저장 불가 */ } }
 
   // ---------- 화면 크기: 440×900 앱을 창에 맞춤 ----------
   function fit() {
@@ -1203,7 +1218,9 @@
         <div class="pkdex"><span></span>${PICKS.map((p, g) => `<span class="gh">${g + 1}</span>`).join('')}${I.PICK.types.map((T, t) => `<b style="color:${T.c}">${T.e}</b>${PICKS.map((p, g) => `<div class="pd ${dx[t + ':' + g] ? 'on' : ''}" style="--tc:${T.c}"><img src="${pickSrc(g)}" alt=""></div>`).join('')}`).join('')}</div>
         <p class="muted" style="text-align:center;font-size:11px">${I.PICK.types.map((T, t) => `${T.e} 최고 ${I.gradeName((st.pkStar || {})[t] || 0)}`).join(' · ')}</p>
         <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
-        <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 5스테이지마다 나오는 👑 보스를 잡아 보세요!</p>'}</div>`;
+        <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 5스테이지마다 나오는 👑 보스를 잡아 보세요!</p>'}</div>
+        <button id="resetBtn" class="resetbtn">🔄 처음부터 다시 하기</button>`;
+      $('#resetBtn').onclick = resetAll;
     }
   }
   function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(cur()); }
@@ -1238,6 +1255,8 @@
 
   // ---------- 시작 ----------
   function start() {
+    // 테스트용: 주소 끝에 ?reset=1 을 붙이면 저장을 지우고 처음부터
+    if (/[?&]reset=1/.test(location.search)) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* 무시 */ } history.replaceState(null, '', location.pathname); }
     load(); fit(); makeCracks(); showPick(); applyTabs();
     const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
     goldShown = st.gold; goldTick();
