@@ -6,14 +6,15 @@
 // =====================================================
 (function (root) {
   const IDLE = {
-    KILLS: 10,                 // 층마다 잡아야 보스에 도전할 수 있는 몬스터 수
+    // 스테이지 v2 (docs/stages-v2.md): 스테이지 1개 = 몬스터 1마리. 챕터 10스테이지, x-5 중간 보스, x-10 챕터 보스
     OFFLINE_MAX: 8 * 3600,     // 접속 안 해도 쌓이는 최대 시간(초)
     OFFLINE_RATE: 0.5,         // 자리 비운 동안은 평소의 50%
-    BOSS_X: 8.5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
+    BOSS_X: 4,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
     BOSS_REROLLS: 3,           // 보스전 다시 돌리기 횟수
     MOB_HIT: 1.5,              // 일반 몬스터가 반격하는 간격(초)
     REGEN: 0.15,               // 몬스터를 잡을 때마다 내구도 회복(최대치의 15%)
-    STAGES: 5,                 // 챕터(광산)마다 스테이지 수: 1-1 ~ 1-5
+    STAGES: 10,                // 챕터(광산)마다 스테이지 수: 1-1 ~ 1-10
+    SC: +(globalThis.process && process.env.SC) || 0.5,   // 스테이지 → 밸런스 단계 환산 (스테이지 2개 = 예전 1층 만큼 세짐)
     RESPAWN: 0.35,             // 몬스터가 다시 나오기까지(초)
     GAUGE: 8,                  // 평소엔 곡괭이가 그냥 때림. 이만큼 때리면 슬롯 게이지가 꽉 참 → 큰 슬롯 한 번
     AUTO_PULL: 0,              // 게이지가 차면 바로 자동으로 돌아감 (터치 필요 없음)
@@ -29,11 +30,11 @@
     gem:   { name: '보석', w: 10, hit: 0, u: 0, desc: '크리티컬 (강화로 타수 증가)' },
     coin:  { name: '코인', w: 10, hit: 0, u: 0, desc: '광석 획득' },
     chest: { name: '보물상자', w: 3, hit: 0, u: 0, desc: '대미지 배율' },
-    wrench:{ name: '렌치', w: 6, hit: 0, u: 1, desc: '곡괭이 내구도 12% 수리' },
-    glass: { name: '모래시계', w: 4, hit: 0, u: 2, desc: '한 번 더 공격 · 보스는 반격 못 함' },
-    rainbow:{ name: '무지개', w: 4, hit: 0, u: 4, desc: '가장 많은 그림으로 변신 (콤보 만들기)' },
-    egg:   { name: '용의 알', w: 5, hit: 0, u: 6, desc: '금이 5번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
-    mimic: { name: '미믹', w: 3, hit: 0, u: 8, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
+    wrench:{ name: '렌치', w: 6, hit: 0, u: 5, desc: '곡괭이 내구도 12% 수리' },
+    glass: { name: '모래시계', w: 4, hit: 0, u: 10, desc: '한 번 더 공격 · 보스는 반격 못 함' },
+    rainbow:{ name: '무지개', w: 4, hit: 0, u: 15, desc: '가장 많은 그림으로 변신 (콤보 만들기)' },
+    egg:   { name: '용의 알', w: 5, hit: 0, u: 20, desc: '금이 5번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
+    mimic: { name: '미믹', w: 3, hit: 0, u: 25, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
     gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 잭팟 · 4개 메가 잭팟 · 5개 그랜드 잭팟!' },
   };
   const COMBO = { 3: 2, 4: 4, 5: 10 };   // 같은 그림 n개 → 대미지 ×
@@ -113,7 +114,7 @@
     return fresh;
   }
   // 떨어지는 등급: 10챕터(50스테이지)마다 +1 (최대 철)
-  const dropGrade = f => Math.min(2, Math.floor(f / 50));
+  const dropGrade = f => Math.min(2, Math.floor(f / 100));
   function addPick(st, p) {
     let i = st.picks.indexOf(null);
     if (i < 0) { autoMerge(st); i = st.picks.indexOf(null); }
@@ -158,8 +159,8 @@
   // 몬스터·잭팟 드롭 → 얻은 곡괭이 or null.  강적 보스는 상자(st.boxes)
   function rollDrop(st, rng, kind) {
     if (kind === 'boss') {
-      // 처음 하는 사람: 1-2 · 1-3 보스에서 ⭐행운 나무 곡괭이 확정 → 3분 안에 첫 합성 경험 (docs/onboarding.md)
-      if (!(st.rb > 0) && (st.floor === 1 || st.floor === 2) && st.floor >= (st.best || 0) && (st.starter || 0) < 2) {
+      // 처음 하는 사람: 1-5 · 1-10 보스에서 ⭐행운 나무 곡괭이 확정 → 3분 안에 첫 합성 경험 (docs/onboarding.md)
+      if (!(st.rb > 0) && (st.floor === 4 || st.floor === 9) && st.floor >= (st.best || 0) && (st.starter || 0) < 2) {
         const p = { t: 2, g: 0 }; if (addPick(st, p)) { st.starter = (st.starter || 0) + 1; return p; }
       }
       if (st.floor >= (st.best || 0) && isSBoss(st.floor)) { st.boxes = (st.boxes || 0) + 1; return 'box'; }
@@ -212,30 +213,32 @@
   // 밸런스 숫자 (tools/sim_idle.js 에서 환경변수로 바꿔 시험 가능)
   const env = (k, d) => +(globalThis.process && process.env[k]) || d;
   //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
-  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.6) };
+  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.4) };
   // ---------- 💠 환생 ----------
   //  환생 단계(rb)마다 몬스터가 단단해짐. 계산 함수들이 층(f)만 받으므로 지금 판의 단계를 여기 둠
-  const RB = { D: +(globalThis.process && process.env.RBD) || 1.1, OPEN: 20, rb: 0 };
+  const RB = { D: +(globalThis.process && process.env.RBD) || 1.1, OPEN: 40, rb: 0 };   // 환생 열림: 5-1 (스테이지 40)
   const setRun = st => { RB.rb = st.rb || 0; };
   const diff = () => Math.pow(RB.D, RB.rb);
-  const mobHp = f => Math.round(diff() * BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF)));
-  const killGold = f => Math.ceil(BAL.KG * Math.pow(BAL.GG, f));
-  const isSBoss = f => f % 5 === 4;
+  const lx = s => s * IDLE.SC;                     // 스테이지 → 밸런스 단계
+  const mobHp = s => { const f = lx(s); return Math.round(diff() * BAL.HPB * Math.pow(BAL.HPE, Math.min(f, BAL.EF)) * Math.pow(BAL.HPG, Math.max(0, f - BAL.EF))); };
+  const killGold = s => Math.ceil(BAL.KG * Math.pow(BAL.GG, lx(s)));
+  const isBossStage = s => s % 5 === 4;            // x-5 중간 보스 · x-10 챕터 보스
+  const isSBoss = s => s % 10 === 9;               // 챕터 보스 = 강적
   // 반격: 일반 몬스터 한 대 · 보스 한 턴 (곡괭이 내구도를 깎음)
-  BAL.DA = env('DA', 22); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
+  BAL.DA = env('DA', 10); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
   //  처음 두 챕터(10스테이지)는 반격이 약하게 시작해서 서서히 세짐 → 1-1에서 부러지는 일 없게
-  const mobAtk = f => Math.max(1, Math.round(diff() * BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f)));
+  const mobAtk = s => { const f = lx(s); return Math.max(1, Math.round(diff() * BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f))); };
   const bossAtk = f => Math.max(1, Math.round(mobAtk(f) * BAL.BA * (isSBoss(f) ? 1.2 : 1)));
   // 스테이지 번호: 챕터(광산) - 스테이지
   const chapterStart = f => f - f % IDLE.STAGES;
   const stageNo = f => `${Math.floor(f / IDLE.STAGES) + 1}-${f % IDLE.STAGES + 1}`;
   const maxDur = st => Math.round(stat.dur(st.lv.dur || 0) * (1 + 0.2 * cLv(st, 'grip')) * abil.dur(st));
   // 곡괭이가 부러짐 → 그 챕터 첫 스테이지(x-1)로 돌아가서 다시 사냥
-  function breakPick(st) { st.floor = chapterStart(st.floor); st.kills = 0; st.dur = maxDur(st); st.breaks = (st.breaks || 0) + 1; }                                   // 5층마다 S급 보스 = 더 단단한 벽
-  const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
+  function breakPick(st) { st.floor = chapterStart(st.floor); st.dur = maxDur(st); st.breaks = (st.breaks || 0) + 1; }                                   // 5층마다 S급 보스 = 더 단단한 벽
+  const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : env('MID', 0.75)));   // x-5 중간 보스는 가볍게, x-10 챕터 보스는 벽
 
   function newState() {
-    return { tabs: ['up'], tips: {}, allUp: false, starter: 0, rb: 0, crystals: 0, cup: {}, allBest: 0, start: 0, picks: Array(PICK.SLOTS).fill(null), eq: { t: 2, g: 0 }, pkDex: { '2:0': 1 }, pkStar: {}, frags: 0, boxes: 0, boxN: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
+    return { stv: 2, tabs: ['up'], tips: {}, allUp: false, starter: 0, rb: 0, crystals: 0, cup: {}, allBest: 0, start: 0, picks: Array(PICK.SLOTS).fill(null), eq: { t: 2, g: 0 }, pkDex: { '2:0': 1 }, pkStar: {}, frags: 0, boxes: 0, boxN: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
   }
   const canBuy = (st, k) => st.lv[k] < UP[k].max && st.gold >= Math.ceil(UP[k].cost(st.lv[k]));
   function buy(st, k) {
@@ -358,20 +361,26 @@
   }
 
   // 몬스터 한 마리 처치 → 광석. 보스 문 열림 여부
+  //  일반 스테이지면 다음 스테이지로. 보스 스테이지에서 기다리는 중(자동 도전 OFF)이면 제자리에서 광석만
   function onKill(st) {
     const g = goldPerKill(st);
     st.gold += g; st.totalKills++;
     st.dur = Math.min(maxDur(st), st.dur + maxDur(st) * IDLE.REGEN);
-    if (st.kills < IDLE.KILLS) st.kills++;
+    if (!isBossStage(st.floor)) advance(st);
     return g;
   }
-  const bossReady = st => st.kills >= IDLE.KILLS;
-  function bossLose(st) { st.kills = 0; st.bossFails++; st.dur = maxDur(st); }
-  function bossWin(st) {
-    st.floor++; st.kills = 0; st.bossWins++; st.dur = maxDur(st);
-    st.best = Math.max(st.best, st.floor);
+  function advance(st) {
+    st.floor++;
+    st.best = Math.max(st.best || 0, st.floor);
     st.allBest = Math.max(st.allBest || 0, st.floor);
-    const g = Math.ceil(killGold(st.floor) * 10 * goldX(st));
+  }
+  const bossReady = st => isBossStage(st.floor);
+  // 보스에게 지면 챕터 처음(x-1)으로
+  function bossLose(st) { st.floor = chapterStart(st.floor); st.bossFails++; st.dur = maxDur(st); }
+  function bossWin(st) {
+    st.bossWins++; st.dur = maxDur(st);
+    advance(st);
+    const g = Math.ceil(killGold(st.floor) * 5 * goldX(st));
     st.gold += g;
     return g;
   }
@@ -381,7 +390,7 @@
     const b = st.best || 0;
     if (b < RB.OPEN || b < (st.start || 0) + IDLE.STAGES) return 0;      // 5-1 이전 · 시작 지점에서 한 챕터도 안 내려갔으면 없음
     // 깊이 한 칸마다 ×CRX (몬스터 체력이 층마다 곱으로 늘어나니, 보상도 곱으로 늘어야 환생할수록 더 깊이 감)
-    return Math.max(1, Math.floor(Math.pow(+(globalThis.process && process.env.CRX) || 1.15, b - 15) * (1 + 0.25 * (st.rb || 0))));
+    return Math.max(1, Math.floor(Math.pow(+(globalThis.process && process.env.CRX) || 1.15, lx(b) - 15) * (1 + 0.25 * (st.rb || 0))));
   };
   const canPrestige = st => crystalsFor(st) > 0;
   // 환생: 스테이지·광석·강화 초기화 / 곡괭이·도감·심볼·결정·기록 유지 / 지난 최고 기록의 절반에서 시작
@@ -392,7 +401,7 @@
     st.rb = (st.rb || 0) + 1;
     const start = chapterStart(Math.floor(st.allBest / 2));
     Object.keys(st.lv).forEach(k => st.lv[k] = 0);
-    Object.assign(st, { gold: 0, floor: start, best: start, start, kills: 0, egg: 0, dragon: 0, boxN: 0 });
+    Object.assign(st, { gold: 0, floor: start, best: start, start, egg: 0, dragon: 0, boxN: 0 });
     st.dur = maxDur(st);
     setRun(st);
     return got;
@@ -405,9 +414,19 @@
     return true;
   }
 
+  // 예전 스테이지(챕터 5개) → v2(챕터 10개): 같은 챕터, 비슷한 위치
+  const oldToV2 = f => Math.floor(f / 5) * 10 + (f % 5) * 2;
+  function migrateStages(st) {
+    if (st.stv === 2) return false;
+    for (const k of ['floor', 'best', 'allBest', 'start']) if (st[k] != null) st[k] = oldToV2(st[k]);
+    st.floor = chapterStart(st.floor);
+    st.stv = 2; delete st.kills;
+    return true;
+  }
+
   // ---------- 층 → 광산(카드 묶음) · 몬스터 ----------
   //  광산 11곳(55스테이지)을 지나면 '심층 구역': 같은 광산이 색만 바뀌어 다시 나옴 → 끝없이 내려감
-  const FLOORS_PER_MINE = 5;
+  const FLOORS_PER_MINE = IDLE.STAGES;
   function mineOf(C, f) {
     const keys = Object.keys(C.TIERS).sort((a, b) => a - b);
     return keys[Math.floor(f / FLOORS_PER_MINE) % keys.length];
@@ -415,11 +434,11 @@
   const zoneOf = (C, f) => Math.floor(f / (FLOORS_PER_MINE * Object.keys(C.TIERS).length));
   function mobCard(C, f, rng, boss) {
     const tier = mineOf(C, f), inMine = f % FLOORS_PER_MINE;
-    const grade = boss ? (inMine === FLOORS_PER_MINE - 1 ? 'S' : ['C', 'B', 'B', 'A'][inMine]) : ['F', 'E', 'D'][Math.floor(rng() * 3)];
+    const grade = boss ? (isSBoss(f) ? 'S' : ['C', 'B', 'A'][Math.floor(rng() * 3)]) : ['F', 'E', 'D'][Math.floor(rng() * 3)];
     const list = C.TIERS[tier].cards[grade];
     const idx = Math.floor(rng() * list.length);
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { isBossStage, migrateStages, advance, lx, gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);

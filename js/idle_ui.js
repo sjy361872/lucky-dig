@@ -28,6 +28,8 @@
         st = Object.assign(I.newState(), s); st.lv = Object.assign(I.newState().lv, s.lv);
         if (old) st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25));
         if (typeof st.eq === 'number' || (st.picks || []).some(x => typeof x === 'number') || !st.eq) I.migratePicks(st, rnd);   // v1 → v2
+        if (!s.stv) st.stv = 1;            // 예전 저장엔 stv 가 없음 (새 상태 기본값 2가 덮지 않게)
+        I.migrateStages(st);
         st.allBest = Math.max(st.allBest || 0, st.best || 0);
         if (!s.tabs) { st.tabs = ['up', 'pk', 'rb', 'dex']; st.allUp = true; st.tips = { old: 1 }; }   // 온보딩 전부터 하던 사람
         I.setRun(st);
@@ -396,7 +398,7 @@
     s.classList.remove('on'); void s.offsetWidth; s.classList.add('on');
     clearTimeout(dizzy.t); dizzy.t = setTimeout(() => { s.classList.remove('on'); s.innerHTML = ''; }, 1000);
   }
-  function newMob() { setMob(I.mobCard(C, st.floor, rnd, false), I.mobHp(st.floor), false); alive = true; }
+  function newMob() { const f = I.bossReady(st) ? st.floor - 1 : st.floor; setMob(I.mobCard(C, f, rnd, false), I.mobHp(f), false); alive = true; }
 
   // 공격 한 번: 광부 휘두름 → 몬스터 맞음
   async function hit(r, big) {
@@ -620,7 +622,9 @@
     shake($('#arena'), 14, 450); flash('#000', .4, 450);
     Sound.play('last');
     I.breakPick(st);
-    banner('곡괭이가 부러졌어요!', `${I.stageNo(st.floor)}부터 다시 · 내구도를 강화해 보세요`, '#ff7a6a', 2200);
+    const quick = Date.now() - (breakPick.last || 0) < 120000; breakPick.last = Date.now();
+    if (quick) toast(`💥 곡괭이 파손 · ${I.stageNo(st.floor)}부터 다시`);
+    else banner('곡괭이가 부러졌어요!', `${I.stageNo(st.floor)}부터 다시 · 내구도를 강화해 보세요`, '#ff7a6a', 2200);
     await wait(2000);
     pim.getAnimations().forEach(a => a.cancel());
     pk.animate([{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.3,1.6,.5,1)' });
@@ -723,8 +727,8 @@
     } else {
       I.bossLose(st);
       Sound.play('last');
-      if (auto) { banner('보스에게 졌어요', '10마리 더 잡고 다시 도전해요', '#ff8a8a', 1800); await wait(1600); }
-      else await modal(`<h3>${quit ? '도전 포기' : '아깝다!'}</h3><p>${quit ? '도전을 그만뒀어요' : '곡괭이가 버티지 못했어요'}. 보스 체력이 <b>${fmt(mobHp)}</b> 남았어요.<br>몬스터 10마리를 더 잡고 강화한 뒤 다시 도전하세요.</p>`, '돌아가기');
+      if (auto) { banner('보스에게 졌어요', `${I.stageNo(st.floor)}부터 다시 올라가요`, '#ff8a8a', 1800); await wait(1600); }
+      else await modal(`<h3>${quit ? '도전 포기' : '아깝다!'}</h3><p>${quit ? '도전을 그만뒀어요' : '곡괭이가 버티지 못했어요'}. 보스 체력이 <b>${fmt(mobHp)}</b> 남았어요.<br><b>${I.stageNo(st.floor)}</b>부터 다시 올라가요. 강화하고 다시 도전하세요.</p>`, '돌아가기');
     }
     $('#calc').innerHTML = '';
     mode = 'auto';
@@ -1097,12 +1101,12 @@
     if (!st.tips || !st.tips.hello) tip('hello', '⛏ 곡괭이가 자동으로 몬스터를 캐요!');
     if (st.gold >= Math.ceil(I.UP.atk.cost(st.lv.atk)) && st.lv.atk === 0) tip('up', '광석으로 곡괭이를 강화해요 👇', '#list .ub[data-k="atk"]');
     if (st.lv.atk > 0) { const f = $('#list .ub[data-k="atk"].finger'); if (f) f.classList.remove('finger'); }
-    if (st.kills >= I.IDLE.KILLS) tip('boss', '👑 보스에 도전할 수 있어요! (자동 도전 중)');
+    if (I.bossReady(st)) tip('boss', '👑 보스 스테이지! 5스테이지마다 보스가 나와요');
     if (Object.keys(st.dex || {}).length) openTab('dex', '📖 잡은 보스는 도감에 모여요');
     if (st.picks.some(Boolean)) openTab('pk', '⛏ 곡괭이를 얻었어요! 같은 곡괭이 2개를 겹치면 더 강해져요');
     if (st.picks.filter(Boolean).length >= 2) tip('merge', '⛏ 곡괭이 탭에서 같은 곡괭이를 끌어서 겹쳐 보세요', '#tabs button[data-t="pk"]');
-    if (Math.max(st.best || 0, st.allBest || 0) >= 5 && !st.allUp) { st.allUp = true; if (tab === 'up') renderList(); tip('up2', '💪 새 강화 4개가 열렸어요!'); }
-    if (Math.max(st.best || 0, st.allBest || 0) >= 15) openTab('rb', '💠 5-1부터 환생할 수 있어요. 처음부터 다시 하지만 훨씬 강해져요');
+    if (Math.max(st.best || 0, st.allBest || 0) >= 10 && !st.allUp) { st.allUp = true; if (tab === 'up') renderList(); tip('up2', '💪 새 강화 4개가 열렸어요!'); }
+    if (Math.max(st.best || 0, st.allBest || 0) >= 30) openTab('rb', '💠 5-1부터 환생할 수 있어요. 처음부터 다시 하지만 훨씬 강해져요');
     if (I.canPrestige(st)) tip('rb2', `💠 지금 환생하면 결정 ${fmt(I.crystalsFor(st))}개!`, '#tabs button[data-t="rb"]');
   }
 
@@ -1124,9 +1128,12 @@
     // 안전장치: 사냥 중인데 몬스터가 안 보이는 상태로 남아 있으면 바로 복구
     if (mode === 'auto' && alive && +getComputedStyle($('#mob')).opacity < .1) $('#mob').getAnimations().forEach(a => a.cancel());
     // 보스까지 남은 몬스터 (스테이지 진행으로 착각하지 않게 글자로 표시)
-    const kn = Math.min(st.kills, I.IDLE.KILLS), kr = kn >= I.IDLE.KILLS;
-    $('#pips').className = kr ? 'ready' : '';
-    $('#pips').innerHTML = `<i style="width:${kn / I.IDLE.KILLS * 100}%"></i><span>${kr ? '👑 보스 도전 가능!' : `👾 보스까지 ${kn} / ${I.IDLE.KILLS}`}</span>`;
+    const cs = I.chapterStart(st.floor), pos = st.floor - cs;
+    $('#pips').className = 'dots';
+    $('#pips').innerHTML = Array.from({ length: I.IDLE.STAGES }, (_, i) => {
+      const f = cs + i, cls = i < pos ? 'done' : i === pos ? 'now' : '';
+      return I.isBossStage(f) ? `<b class="${cls}">${I.isSBoss(f) ? '💀' : '👑'}</b>` : `<i class="${cls}"></i>`;
+    }).join('');
     const ready = I.bossReady(st);
     $('#bossBtn').disabled = !ready || mode !== 'auto';
     $('#bossBtn').classList.toggle('ready', ready && mode === 'auto');
@@ -1190,13 +1197,13 @@
       const dx = st.pkDex || {};
       const un = I.unlocked(st);
       const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
-        return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(S.u)} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
+        return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(Math.max(0, S.u - 1))} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
       L.innerHTML = `<p class="dexh">🎰 슬롯 심볼 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
         <p class="dexh">⛏ 곡괭이 도감 <b>${I.dexCount(st)}</b> / 40 · 처음 만들 때마다 공격력 +2% (지금 +${I.dexCount(st) * 2}%)</p>
         <div class="pkdex"><span></span>${PICKS.map((p, g) => `<span class="gh">${g + 1}</span>`).join('')}${I.PICK.types.map((T, t) => `<b style="color:${T.c}">${T.e}</b>${PICKS.map((p, g) => `<div class="pd ${dx[t + ':' + g] ? 'on' : ''}" style="--tc:${T.c}"><img src="${pickSrc(g)}" alt=""></div>`).join('')}`).join('')}</div>
         <p class="muted" style="text-align:center;font-size:11px">${I.PICK.types.map((T, t) => `${T.e} 최고 ${I.gradeName((st.pkStar || {})[t] || 0)}`).join(' · ')}</p>
         <p class="dexh">보스를 잡으면 카드를 얻어요 · <b>${have.length}</b> / ${all.length}</p>
-        <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 몬스터 10마리를 잡고 👑 보스에 도전하세요!</p>'}</div>`;
+        <div class="dex">${have.length ? have.map(c => `<div class="dc"><img src="${C.cardImg(c)}" alt=""><small>${c.grade} · ${c.name}</small></div>`).join('') : '<p class="muted">아직 없어요. 5스테이지마다 나오는 👑 보스를 잡아 보세요!</p>'}</div>`;
     }
   }
   function renderIcon() { const i = $('#list .up[data-k="atk"] .ui img'); if (i) i.src = pickSrc(cur()); }

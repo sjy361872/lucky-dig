@@ -359,3 +359,12 @@ body.bossmode #gauge { display: none; }
 #pips span { position: absolute; inset: 0; text-align: center; font-size: 10.5px; line-height: 14px; font-weight: 900; color: #fff; text-shadow: 0 1px 0 #000; }
 #pips.ready i { background: linear-gradient(#ffe14a, #e08a00); }
 #pips.ready { box-shadow: 0 0 8px #ffd34a; }
+
+/* 챕터 진행 점 10개 (스테이지 v2) */
+#pips.dots { display: flex; align-items: center; justify-content: center; gap: 4px; width: auto; height: 16px; background: none; border: 0; box-shadow: none; overflow: visible; }
+#pips.dots i { position: static; width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.18); border: 1px solid rgba(0,0,0,.5); transition: none; }
+#pips.dots i.done { background: linear-gradient(#ff8a3a, #d4142e); }
+#pips.dots i.now { background: #fff; box-shadow: 0 0 6px #fff; transform: scale(1.3); }
+#pips.dots b { font-size: 12px; line-height: 1; filter: grayscale(1) opacity(.5); }
+#pips.dots b.done { filter: none; }
+#pips.dots b.now { filter: drop-shadow(0 0 4px #ffd34a); transform: scale(1.35); }
