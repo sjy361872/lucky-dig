@@ -29,6 +29,7 @@
         if (old) st.eq = Math.min(7, Math.floor((s.lv.atk || 0) / 25));
         if (typeof st.eq === 'number' || (st.picks || []).some(x => typeof x === 'number') || !st.eq) I.migratePicks(st, rnd);   // v1 → v2
         st.allBest = Math.max(st.allBest || 0, st.best || 0);
+        if (!s.tabs) { st.tabs = ['up', 'pk', 'rb', 'dex']; st.allUp = true; st.tips = { old: 1 }; }   // 온보딩 전부터 하던 사람
         I.setRun(st);
         return;
       }
@@ -309,6 +310,7 @@
   }
   function setCalc(html) { const c = $('#calc'); c.innerHTML = html; c.classList.remove('dim'); }
   function calcText(r, syms) {
+    if (st.lv.atk < 10 && mode !== 'boss') return `<b>${fmt(r.dmg)}</b>${r.jackpot ? ' 잭팟!' : r.combo > 1 ? ' 콤보!' : ''}`;   // 처음엔 결과 숫자만 (docs/onboarding.md)
     const parts = [`${f2(r.hits)}타`, `공격력 ${fmt(r.atk)}`];
     if (r.combo > 1) parts.push(`콤보 ×${r.combo}`);
     if (r.chests) parts.push(`상자 ×${f2(r.chestMult)}`);
@@ -479,6 +481,7 @@
     $('#slotbox').classList.toggle('ready', full && mode === 'auto');
   }
   async function bigSpin() {
+    tip('slot', '🎰 8번 때리면 슬롯이 돌아가요. 같은 그림 3개면 콤보!');
     spinning = true;
     try {
       $('#slotbox').classList.remove('ready'); $('#cells').classList.remove('idle');
@@ -586,6 +589,7 @@
   }
   // 반격: 몬스터가 앞으로 튀어나와 곡괭이를 침 → 내구도 감소. 0이 되면 true
   async function mobStrike(dmg) {
+    tip('dur', '몬스터도 반격해요! 🛠️ 내구도가 0이 되면 곡괭이가 부러져요');
     $('#mob').animate([{ transform: 'none' }, { transform: 'translateX(-70px) scale(1.08)', offset: .4 }, { transform: 'none' }], { duration: 320, easing: 'ease-in-out' });
     await wait(130);
     st.dur -= dmg;
@@ -759,6 +763,7 @@
   }
   // 💰 잭팟: 화면이 금빛으로 몇 번 번쩍 → 코인 폭포 → 광석 대량
   function jackpotFx(r) {
+    setTimeout(() => tip('jack', '⭐ 황금 곡괭이 3개 = 잭팟! 4개·5개면 더 커요'), 1600);
     // 3개 = 잭팟(자주) · 4개 = 메가(가끔) · 5개 = 그랜드(아주 드물게) → 등급이 높을수록 연출이 길고 화려함
     const lv = Math.min(5, r.comboN) - 3, ms = [1500, 2600, 3800][lv];
     const name = ['JACKPOT!', 'MEGA JACKPOT!!', 'GRAND JACKPOT!!!'][lv], color = ['#ffd34a', '#ff8af0', '#7ff7ff'][lv];
@@ -1047,6 +1052,60 @@
   }
   const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // ---------- 🧭 첫 10분 안내 (docs/onboarding.md) ----------
+  //  필요해지는 순간 하나씩 열고, 처음 볼 때만 말풍선 한 줄. 방치 플레이는 멈추지 않음
+  const tipQ = [];
+  let tipOn = false;
+  function tip(key, text, target) {
+    st.tips = st.tips || {};
+    if (st.tips[key] || st.tips.old) return;
+    st.tips[key] = 1; save();
+    tipQ.push({ text, target }); if (!tipOn) nextTip();
+  }
+  function nextTip() {
+    const t = tipQ.shift(); if (!t) { tipOn = false; return; }
+    tipOn = true;
+    const h = $('#hint'); h.textContent = t.text; h.hidden = false;
+    h.animate([{ transform: 'translate(-50%,10px) scale(.8)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { duration: 250, easing: 'ease-out' });
+    if (t.target) { const el = $(t.target); if (el) el.classList.add('finger'); }
+    const close = () => {
+      clearTimeout(h._t); document.removeEventListener('pointerdown', close, true);
+      h.hidden = true; setTimeout(nextTip, 250);
+    };
+    setTimeout(() => document.addEventListener('pointerdown', close, true), 400);
+    h._t = setTimeout(close, 4500);
+  }
+  const ALL_TABS = ['up', 'pk', 'rb', 'dex'];         // 🏆 랭킹은 보류 중이라 숨김
+  function applyTabs() {
+    const open = st.tabs || ALL_TABS;
+    document.querySelectorAll('#tabs button').forEach(b => { b.hidden = !open.includes(b.dataset.t); });
+  }
+  function openTab(t, text) {
+    st.tabs = st.tabs || ['up'];
+    if (st.tabs.includes(t)) return;
+    st.tabs.push(t); st.tabs.sort((a, b) => ALL_TABS.indexOf(a) - ALL_TABS.indexOf(b)); applyTabs(); save();
+    const b = $(`#tabs button[data-t="${t}"]`);
+    if (b) { b.classList.add('newtab'); b.animate([{ transform: 'scale(0)' }, { transform: 'scale(1.3)', offset: .6 }, { transform: 'scale(1)' }], { duration: 500, easing: 'ease-out' }); }
+    if (text) tip('tab_' + t, text);
+  }
+  // 강화 목록: 처음엔 공격력 · 내구도 · 광석 3개만, 2-1에 도착하면 전부
+  const BASIC_UP = ['atk', 'dur', 'coin'];
+  const upKeys = () => st.allUp ? Object.keys(I.UP) : Object.keys(I.UP).filter(k => BASIC_UP.includes(k));
+  // 매 공격마다(refreshTop) 확인: 조건이 되면 열고 안내
+  function onboard() {
+    if (st.tips && st.tips.old) return;
+    if (!st.tips || !st.tips.hello) tip('hello', '⛏ 곡괭이가 자동으로 몬스터를 캐요!');
+    if (st.gold >= Math.ceil(I.UP.atk.cost(st.lv.atk)) && st.lv.atk === 0) tip('up', '광석으로 곡괭이를 강화해요 👇', '#list .ub[data-k="atk"]');
+    if (st.lv.atk > 0) { const f = $('#list .ub[data-k="atk"].finger'); if (f) f.classList.remove('finger'); }
+    if (st.kills >= I.IDLE.KILLS) tip('boss', '👑 보스에 도전할 수 있어요! (자동 도전 중)');
+    if (Object.keys(st.dex || {}).length) openTab('dex', '📖 잡은 보스는 도감에 모여요');
+    if (st.picks.some(Boolean)) openTab('pk', '⛏ 곡괭이를 얻었어요! 같은 곡괭이 2개를 겹치면 더 강해져요');
+    if (st.picks.filter(Boolean).length >= 2) tip('merge', '⛏ 곡괭이 탭에서 같은 곡괭이를 끌어서 겹쳐 보세요', '#tabs button[data-t="pk"]');
+    if (Math.max(st.best || 0, st.allBest || 0) >= 5 && !st.allUp) { st.allUp = true; if (tab === 'up') renderList(); tip('up2', '💪 새 강화 4개가 열렸어요!'); }
+    if (Math.max(st.best || 0, st.allBest || 0) >= 15) openTab('rb', '💠 5-1부터 환생할 수 있어요. 처음부터 다시 하지만 훨씬 강해져요');
+    if (I.canPrestige(st)) tip('rb2', `💠 지금 환생하면 결정 ${fmt(I.crystalsFor(st))}개!`, '#tabs button[data-t="rb"]');
+  }
+
   // ---------- 상단 · 강화 목록 ----------
   const floorName = f => { const z = I.zoneOf(C, f); return `${I.stageNo(f)} ${z ? `심층${z + 1} ` : ''}${C.TIERS[I.mineOf(C, f)].name}`; };
   let gpsCache = 0, avgCache = 1, baseCache = 1;
@@ -1055,6 +1114,7 @@
     const a = I.avgDmg(st); avgCache = a.dmg; baseCache = a.base;
   }
   function refreshTop() {
+    onboard();
     $('#gps').textContent = `초당 ${fmt(gpsCache)}`;
     setDur();
     $('#autoBtn').textContent = st.auto ? '자동 도전 ON' : '자동 도전 OFF';
@@ -1080,7 +1140,7 @@
     switch (k) {
       case 'atk': {
         const m = I.pickMult(st);
-        return `공격력 ${fmt(S.atk(lv) * m)} → <b>${fmt(S.atk(nx) * m)}</b> <i class="evo">곡괭이 ×${f2(m)}</i>`;
+        return `공격력 ${fmt(S.atk(lv) * m)} → <b>${fmt(S.atk(nx) * m)}</b>${(st.tabs || []).includes('pk') ? ` <i class="evo">곡괭이 ×${f2(m)}</i>` : ''}`;
       }
       case 'spd': return `초당 ${f2(S.aps(lv))}번 → <b>${f2(S.aps(nx))}번</b>`;
       case 'gem': return `💎 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
@@ -1095,7 +1155,7 @@
   function renderList() {
     const L = $('#list');
     if (tab === 'up') {
-      L.innerHTML = Object.keys(I.UP).map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(cur())}" alt="">` : k === 'dur' ? '<span class="emo">🛠️</span>' : img(I.UP[k].icon)}</div>
+      L.innerHTML = upKeys().map(k => `<div class="up" data-k="${k}"><div class="ui">${k === 'atk' ? `<img src="${pickSrc(cur())}" alt="">` : k === 'dur' ? '<span class="emo">🛠️</span>' : img(I.UP[k].icon)}</div>
         <div class="ut"><b>${I.UP[k].name} <small>Lv.${st.lv[k]}</small></b><span class="ud"></span></div>
         <button class="ub" data-k="${k}"></button></div>`).join('');
       L.querySelectorAll('.ub').forEach(b => b.onclick = () => {
@@ -1115,7 +1175,7 @@
         if (k === 'atk') renderIcon();
         renderRow(k); refreshTop(); save();
       });
-      Object.keys(I.UP).forEach(renderRow);
+      upKeys().forEach(renderRow);
     } else if (tab === 'pk') {
       renderPk();
     } else if (tab === 'rb') {
@@ -1168,7 +1228,7 @@
 
   // ---------- 시작 ----------
   function start() {
-    load(); fit(); makeCracks(); showPick();
+    load(); fit(); makeCracks(); showPick(); applyTabs();
     const cv = $('#pfx'); cv.width = 880; cv.height = 660; P.cx = cv.getContext('2d'); P.cx.scale(2, 2);
     goldShown = st.gold; goldTick();
     buildCells();
@@ -1178,7 +1238,7 @@
     newMob();
     refresh();
     document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
-      tab = b.dataset.t; Sound.play('click');
+      tab = b.dataset.t; Sound.play('click'); b.classList.remove('finger', 'newtab');
       if (tab === 'pk') { pkNew = 0; pkBadge(); pkSel = -1; }
       document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
       renderList();

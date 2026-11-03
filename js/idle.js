@@ -157,7 +157,14 @@
   const randPick = (st, rng, up) => ({ t: Math.floor(rng() * PICK.types.length), g: dropGrade(st.floor) + (up || 0) });
   // 몬스터·잭팟 드롭 → 얻은 곡괭이 or null.  강적 보스는 상자(st.boxes)
   function rollDrop(st, rng, kind) {
-    if (kind === 'boss') { if (st.floor >= (st.best || 0) && isSBoss(st.floor)) { st.boxes = (st.boxes || 0) + 1; return 'box'; } return null; }
+    if (kind === 'boss') {
+      // 처음 하는 사람: 1-2 · 1-3 보스에서 ⭐행운 나무 곡괭이 확정 → 3분 안에 첫 합성 경험 (docs/onboarding.md)
+      if (!(st.rb > 0) && (st.floor === 1 || st.floor === 2) && st.floor >= (st.best || 0) && (st.starter || 0) < 2) {
+        const p = { t: 2, g: 0 }; if (addPick(st, p)) { st.starter = (st.starter || 0) + 1; return p; }
+      }
+      if (st.floor >= (st.best || 0) && isSBoss(st.floor)) { st.boxes = (st.boxes || 0) + 1; return 'box'; }
+      return null;
+    }
     const pr = kind === 'mega' ? 1 : kind === 'jack' ? PICK.JACK : PICK.DROP;
     if (rng() >= pr) return null;
     const p = randPick(st, rng, kind === 'mega' ? 1 : 0);
@@ -228,7 +235,7 @@
   const bossHp = f => Math.round(mobHp(f) * BAL.BX * (isSBoss(f) ? BAL.SX : 1));
 
   function newState() {
-    return { rb: 0, crystals: 0, cup: {}, allBest: 0, start: 0, picks: Array(PICK.SLOTS).fill(null), eq: { t: 2, g: 0 }, pkDex: { '2:0': 1 }, pkStar: {}, frags: 0, boxes: 0, boxN: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
+    return { tabs: ['up'], tips: {}, allUp: false, starter: 0, rb: 0, crystals: 0, cup: {}, allBest: 0, start: 0, picks: Array(PICK.SLOTS).fill(null), eq: { t: 2, g: 0 }, pkDex: { '2:0': 1 }, pkStar: {}, frags: 0, boxes: 0, boxN: 0, egg: 0, dragon: 0, jackpots: 0, gold: 0, floor: 0, kills: 0, best: 0, lv: { atk: 0, spd: 0, gem: 0, chest: 0, coin: 0, cells: 0, dur: 0 }, dur: 100, auto: true, dex: {}, lastSeen: Date.now(), totalKills: 0, bossWins: 0, bossFails: 0, breaks: 0 };
   }
   const canBuy = (st, k) => st.lv[k] < UP[k].max && st.gold >= Math.ceil(UP[k].cost(st.lv[k]));
   function buy(st, k) {
