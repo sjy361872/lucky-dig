@@ -1123,7 +1123,10 @@
     preloadMines();
     // 안전장치: 사냥 중인데 몬스터가 안 보이는 상태로 남아 있으면 바로 복구
     if (mode === 'auto' && alive && +getComputedStyle($('#mob')).opacity < .1) $('#mob').getAnimations().forEach(a => a.cancel());
-    $('#pips').innerHTML = Array.from({ length: I.IDLE.KILLS }, (_, i) => `<i class="${i < st.kills ? 'on' : ''}"></i>`).join('');
+    // 보스까지 남은 몬스터 (스테이지 진행으로 착각하지 않게 글자로 표시)
+    const kn = Math.min(st.kills, I.IDLE.KILLS), kr = kn >= I.IDLE.KILLS;
+    $('#pips').className = kr ? 'ready' : '';
+    $('#pips').innerHTML = `<i style="width:${kn / I.IDLE.KILLS * 100}%"></i><span>${kr ? '👑 보스 도전 가능!' : `👾 보스까지 ${kn} / ${I.IDLE.KILLS}`}</span>`;
     const ready = I.bossReady(st);
     $('#bossBtn').disabled = !ready || mode !== 'auto';
     $('#bossBtn').classList.toggle('ready', ready && mode === 'auto');
