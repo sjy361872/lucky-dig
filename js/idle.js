@@ -9,10 +9,10 @@
     // 스테이지 v2 (docs/stages-v2.md): 스테이지 1개 = 몬스터 1마리. 챕터 10스테이지, x-5 중간 보스, x-10 챕터 보스
     OFFLINE_MAX: 8 * 3600,     // 접속 안 해도 쌓이는 최대 시간(초)
     OFFLINE_RATE: 0.5,         // 자리 비운 동안은 평소의 50%
-    BOSS_X: 4,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
+    BOSS_X: 5,               // 보스 체력 = 그 층 몬스터 체력 × 2.5 (공격 8번 안에 잡아야 하므로 이 정도가 첫판 승률 ~50%)
     BOSS_REROLLS: 3,           // 보스전 다시 돌리기 횟수
     MOB_HIT: 1.5,              // 일반 몬스터가 반격하는 간격(초)
-    REGEN: 0.15,               // 몬스터를 잡을 때마다 내구도 회복(최대치의 15%)
+    REGEN: +(globalThis.process && process.env.REGEN) || 0.25,              // 몬스터를 잡을 때마다 내구도 회복(최대치의 15%)
     STAGES: 10,                // 챕터(광산)마다 스테이지 수: 1-1 ~ 1-10
     SC: +(globalThis.process && process.env.SC) || 0.5,   // 스테이지 → 밸런스 단계 환산 (스테이지 2개 = 예전 1층 만큼 세짐)
     RESPAWN: 0.35,             // 몬스터가 다시 나오기까지(초)
@@ -213,7 +213,7 @@
   // 밸런스 숫자 (tools/sim_idle.js 에서 환경변수로 바꿔 시험 가능)
   const env = (k, d) => +(globalThis.process && process.env[k]) || d;
   //  HPE: 초반(EF층까지) 체력 증가율 — 초반엔 강화가 빨리 쌓이므로 체력도 더 빨리 올려야 '한 방 컷'이 안 됨
-  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.4) };
+  const BAL = { HPB: env('HPB', 70), HPG: env('HPG', 1.22), HPE: env('HPE', 1.30), EF: env('EF', 20), GG: env('GG', 1.15), KG: env('KG', 2), BX: env('BX', IDLE.BOSS_X), SX: env('SX', 1.3) };
   // ---------- 💠 환생 ----------
   //  환생 단계(rb)마다 몬스터가 단단해짐. 계산 함수들이 층(f)만 받으므로 지금 판의 단계를 여기 둠
   const RB = { D: +(globalThis.process && process.env.RBD) || 1.1, OPEN: 40, rb: 0 };   // 환생 열림: 5-1 (스테이지 40)
@@ -225,7 +225,7 @@
   const isBossStage = s => s % 5 === 4;            // x-5 중간 보스 · x-10 챕터 보스
   const isSBoss = s => s % 10 === 9;               // 챕터 보스 = 강적
   // 반격: 일반 몬스터 한 대 · 보스 한 턴 (곡괭이 내구도를 깎음)
-  BAL.DA = env('DA', 10); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
+  BAL.DA = env('DA', 6); BAL.DG = env('DG', 1.095); BAL.BA = env('BA', 0.9);
   //  처음 두 챕터(10스테이지)는 반격이 약하게 시작해서 서서히 세짐 → 1-1에서 부러지는 일 없게
   const mobAtk = s => { const f = lx(s); return Math.max(1, Math.round(diff() * BAL.DA * Math.pow(BAL.DG, f) * Math.min(1, 0.35 + 0.065 * f))); };
   const bossAtk = f => Math.max(1, Math.round(mobAtk(f) * BAL.BA * (isSBoss(f) ? 1.2 : 1)));
