@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>곡괭이 키우기 — 심층 광맥 (1단계)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#14111c; --panel:#221d2e; --line:#3a3150; --text:#f1eefa; --dim:#a39cb8; --gold:#ffd54a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif; overscroll-behavior:none; user-select:none; -webkit-user-select:none; }
+  #app { max-width:480px; height:100%; margin:0 auto; display:flex; flex-direction:column; }
+  #game { flex:1; min-height:0; position:relative; }
+  #game canvas { display:block; margin:0 auto; touch-action:none; }
+  #panel { background:var(--panel); padding:10px 12px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); }
+  .lab { font-size:11px; color:var(--dim); margin:2px 2px 4px; }
+  .row { display:grid; gap:6px; margin-bottom:8px; }
+  .r4 { grid-template-columns:repeat(4,1fr); } .r3 { grid-template-columns:repeat(3,1fr); }
+  .row button { padding:9px 4px; border-radius:10px; border:2px solid var(--line); background:#2c2540; color:var(--text);
+    font:700 13px inherit; font-family:inherit; }
+  .row button.on { border-color:var(--gold); background:#43395e; color:var(--gold); }
+  #desc { font-size:12px; color:var(--dim); min-height:16px; margin:-2px 2px 8px; }
+  #desc b { color:var(--text); }
+  .foot { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--dim); }
+  .foot b { color:var(--gold); font-family:"Black Han Sans",sans-serif; font-weight:normal; font-size:15px; }
+  #mute { border:0; background:none; color:var(--dim); font-size:18px; padding:0 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="game"></div>
+  <div id="panel">
+    <div class="lab">공격 방식</div>
+    <div class="row r4" id="styles"></div>
+    <div id="desc"></div>
+    <div class="lab">광맥</div>
+    <div class="row r3" id="veins"></div>
+    <div class="foot"><span>주광맥 깨는 시간 <b id="ttk">-</b> · 초당 피해 <b id="dps">0</b></span><button id="mute">🔊</button></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<script src="game.js?v=1794227041"></script>
+</body>
+</html>
