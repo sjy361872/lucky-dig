@@ -391,3 +391,9 @@ body.bossmode #gauge { display: none; }
 .fl.bossf { -webkit-text-stroke-width: 6px; }
 .banner b { -webkit-text-stroke-width: 6px; }
 .banner.long b { -webkit-text-stroke-width: 5px; }
+
+/* 보스 준비 3회: 다시 탐지 · 수리 (docs/slot-4.md) */
+#bRepair { background: linear-gradient(#5fd98a, #1f9a4c); }
+#bRepair small { font-size: 10px; }
+#bRepair:disabled { filter: grayscale(1); opacity: .6; }
+.bc-btns button { font-size: 15px; }
