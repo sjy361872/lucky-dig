@@ -1,0 +1,110 @@
+:root {
+  --bg: #1d2230; --panel: #2a3042; --panel2: #333a50; --line: #454d66;
+  --text: #eef1f8; --dim: #9aa3ba;
+  --s0: #b08a5a; --s1: #4aa3ff; --s2: #b07cff; --s3: #ffc940;
+  --red: #ff5a5f; --green: #3ddc84; --gold: #ffd54a;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+body { overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+#app { position: relative; max-width: 480px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; }
+.hide { display: none !important; }
+.num { font-family: "Black Han Sans", sans-serif; }
+
+/* HUD */
+#hud { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "m e" "t t"; gap: 4px 12px; padding: 10px 16px 8px; background: var(--panel); }
+.money { grid-area: m; font-family: "Black Han Sans", sans-serif; font-size: 30px; line-height: 1; color: var(--gold); }
+.money small { font-size: 15px; margin-left: 3px; color: var(--dim); }
+.earn { grid-area: e; align-self: end; color: var(--dim); font-size: 14px; }
+.earn b { color: var(--green); font-family: "Black Han Sans", sans-serif; font-size: 18px; font-weight: normal; }
+.time { grid-area: t; position: relative; height: 14px; background: #151925; border-radius: 7px; overflow: hidden; }
+#timebar { position: absolute; inset: 0 auto 0 0; width: 100%; background: #3b4560; }
+#timeTxt { position: absolute; right: 8px; top: -1px; font-size: 11px; color: var(--dim); }
+#modeTag { position: absolute; top: 8px; right: 12px; font-size: 10px; color: var(--dim); opacity: .7; }
+
+#alert { margin: 8px 16px 0; padding: 8px 12px; border-radius: 10px; background: rgba(255,90,95,.15); border: 1px solid var(--red); color: #ffd0d1; font-size: 14px; }
+#alert b { color: #fff; }
+
+/* 라인 */
+#line { flex: 1; padding: 6px 16px; display: flex; flex-direction: column; justify-content: center; gap: 0; min-height: 0; }
+.row { display: flex; align-items: stretch; gap: 10px; }
+.mach { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; position: relative; transition: border-color .2s; }
+.mach .ic { width: 30px; height: 30px; flex: none; }
+.mach .nm { font-weight: 700; font-size: 15px; }
+.mach .cap { font-size: 12px; color: var(--dim); }
+.mach .cap b { color: var(--text); font-family: "Black Han Sans", sans-serif; font-weight: normal; font-size: 16px; }
+.mach .load { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; border-radius: 2px; background: #151925; overflow: hidden; }
+.mach .load i { display: block; height: 100%; width: 0; background: var(--green); }
+.mach .fixb { margin-left: auto; font-size: 11px; color: var(--green); }
+.mach.jam { border-color: var(--red); animation: shake .5s infinite; }
+.mach.jam .load i { background: var(--red); }
+.mach.boost { border-color: var(--green); }
+@keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-2px) } 75% { transform: translateX(2px) } }
+
+.slot { width: 58px; flex: none; border: 2px dashed transparent; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--dim); }
+.slot.on { border-color: #6b7698; background: rgba(255,255,255,.03); }
+.slot.on.hover { border-color: var(--gold); background: rgba(255,213,74,.12); }
+.slot button { width: 100%; height: 100%; border: 0; background: transparent; color: var(--gold); font-weight: 700; font-size: 13px; }
+.slot.wrong { animation: shake .3s 2; border-color: var(--red); }
+.slot .placed { width: 34px; height: 34px; }
+
+/* 벨트 + 쌓임 */
+.belt { display: flex; height: 46px; gap: 10px; }
+.belt .track { width: 18px; margin-left: 26px; border-radius: 4px; background-color: #151925; background-size: 18px 18px; }
+.belt .pile { flex: 1; display: flex; align-items: center; gap: 6px; padding-left: 6px; font-size: 12px; color: var(--dim); }
+.belt .cubes { display: grid; grid-template-columns: repeat(6, 9px); grid-auto-rows: 9px; gap: 2px; }
+.belt .cubes i { width: 9px; height: 9px; border-radius: 2px; }
+.belt .ptxt b { color: var(--text); }
+.belt.full .ptxt b { color: var(--red); }
+.belt .loss { color: var(--red); font-weight: 700; margin-left: auto; white-space: nowrap; }
+
+/* 보조 기계 칸 */
+#tray { margin: 0 16px 6px; padding: 8px 12px; display: flex; align-items: center; gap: 12px; background: var(--panel2); border-radius: 12px; }
+#tray p { margin: 0; font-size: 13px; color: var(--dim); flex: 1; }
+.token { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: #44506e; border: 2px solid var(--gold); touch-action: none; cursor: grab; font-size: 13px; line-height: 1.15; }
+.token small { color: var(--dim); }
+.token i, .slot .placed { display: block; background: var(--gold); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.token i { width: 26px; height: 26px; }
+.token.drag { position: fixed; z-index: 50; pointer-events: none; opacity: .9; transform: translate(-50%, -50%) scale(1.05); }
+.token.ghost { opacity: .3; }
+#tray.b .token { display: none; }
+
+/* 상점 */
+#shop { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--panel); }
+.up { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 0; background: #3d6bff; color: #fff; text-align: left; font-family: inherit; }
+.up b { font-size: 15px; }
+.up .lv { font-size: 12px; opacity: .8; font-weight: normal; }
+.up .d { font-size: 12px; opacity: .9; min-height: 15px; }
+.up .d.mile { color: var(--gold); font-weight: 700; opacity: 1; }
+.up .c { font-family: "Black Han Sans", sans-serif; font-size: 17px; color: var(--gold); }
+.up:disabled { background: #3a4055; color: #8a91a6; }
+.up:disabled .c { color: #8a91a6; }
+.up:active:not(:disabled) { transform: scale(.97); }
+
+/* 연출 */
+#fx { position: absolute; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.banner { position: absolute; left: 50%; top: 32%; transform: translateX(-50%); text-align: center; animation: pop 2.4s ease-out both; white-space: nowrap; }
+.banner b { display: block; font-family: "Black Han Sans", sans-serif; font-weight: normal; font-size: 40px; color: var(--green); -webkit-text-stroke: 6px #10331f; paint-order: stroke fill; }
+.banner span { display: inline-block; margin-top: 6px; padding: 6px 14px; border-radius: 20px; background: rgba(0,0,0,.6); font-size: 18px; }
+.banner span em { font-style: normal; font-family: "Black Han Sans", sans-serif; color: var(--gold); font-size: 22px; }
+@keyframes pop { 0% { opacity: 0; transform: translateX(-50%) scale(.6) } 12% { opacity: 1; transform: translateX(-50%) scale(1.1) } 20% { transform: translateX(-50%) scale(1) } 80% { opacity: 1 } 100% { opacity: 0; transform: translateX(-50%) translateY(-30px) } }
+.float { position: absolute; font-family: "Black Han Sans", sans-serif; font-size: 22px; color: var(--gold); -webkit-text-stroke: 4px #000; paint-order: stroke fill; animation: up 1.4s ease-out both; white-space: nowrap; }
+@keyframes up { 0% { opacity: 0; transform: translateY(10px) } 15% { opacity: 1 } 100% { opacity: 0; transform: translateY(-60px) } }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 150px; padding: 10px 14px; border-radius: 10px; background: rgba(20,24,36,.95); border: 1px solid var(--line); font-size: 14px; text-align: center; animation: up2 2.6s ease-out both; }
+@keyframes up2 { 0% { opacity: 0; transform: translateY(10px) } 10% { opacity: 1; transform: none } 85% { opacity: 1 } 100% { opacity: 0 } }
+.cube { position: absolute; width: 9px; height: 9px; border-radius: 2px; animation: fly .9s ease-out both; }
+@keyframes fly { 0% { opacity: 1; transform: translate(0,0) } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) } }
+.guide { position: absolute; left: 16px; right: 16px; top: 150px; padding: 12px 14px; border-radius: 12px; background: var(--gold); color: #2a2000; font-weight: 700; font-size: 15px; text-align: center; z-index: 45; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+
+/* 시작·끝 화면 */
+.screen { position: absolute; inset: 0; z-index: 60; background: rgba(18,21,31,.97); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.screen h1 { font-family: "Black Han Sans", sans-serif; font-weight: normal; font-size: 38px; margin: 0 0 6px; color: var(--gold); }
+.screen .sub { color: var(--dim); margin: 0 0 18px; }
+.screen ul { list-style: none; padding: 0; margin: 0 0 26px; line-height: 1.9; color: var(--text); }
+.big { padding: 14px 48px; border-radius: 14px; border: 0; background: var(--green); color: #0d2a19; font-size: 20px; font-weight: 800; font-family: inherit; }
+.other { margin-top: 16px; color: var(--dim); font-size: 14px; }
+#endStats { margin: 6px 0 24px; width: 100%; max-width: 320px; text-align: left; font-size: 15px; line-height: 1.8; }
+#endStats .r { display: flex; justify-content: space-between; border-bottom: 1px solid #2c3346; }
+#endStats .r b { font-family: "Black Han Sans", sans-serif; font-weight: normal; }
+#endStats h3 { margin: 14px 0 4px; font-size: 13px; color: var(--dim); }
