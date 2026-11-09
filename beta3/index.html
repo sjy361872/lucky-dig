@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>막힘 풀기 타이쿤 (체험판)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1794221759">
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div class="money"><span id="money">0</span><small>원</small></div>
+    <div class="earn">초당 <b id="earn">+0</b></div>
+    <div class="time"><div id="timebar"></div><span id="timeTxt">5:30</span></div>
+    <div id="modeTag"></div>
+  </header>
+
+  <div id="alert" class="hide"></div>
+
+  <main id="line"></main>
+
+  <div id="tray" class="hide">
+    <div id="token" class="token"><i></i><span>보조 기계<br><small>처리량 ×200</small></span></div>
+    <p id="trayTxt"></p>
+  </div>
+
+  <footer id="shop">
+    <button id="bSup" class="up"><b>캐기 강화 <span class="lv"></span></b><span class="d"></span><span class="c"></span></button>
+    <button id="bPrice" class="up"><b>판매가 강화 <span class="lv"></span></b><span class="d"></span><span class="c"></span></button>
+  </footer>
+
+  <div id="fx"></div>
+
+  <section id="start" class="screen">
+    <h1>막힘 풀기 타이쿤</h1>
+    <p class="sub">5분 체험판 · <b id="startMode"></b></p>
+    <ul>
+      <li>물건을 캐서 → 가공해서 → 팔아요</li>
+      <li>돈이 모이면 강화하세요</li>
+    </ul>
+    <button id="bStart" class="big">시작</button>
+  </section>
+
+  <section id="end" class="screen hide">
+    <h1>끝!</h1>
+    <div id="endStats"></div>
+    <button id="bAgain" class="big">다시 하기</button>
+    <a id="bOther" class="other" href="#"></a>
+  </section>
+</div>
+<script src="engine.js?v=1794221759"></script>
+<script src="ui.js?v=1794221759"></script>
+</body>
+</html>
