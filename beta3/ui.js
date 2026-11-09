@@ -24,7 +24,7 @@
       const row = document.createElement('div'); row.className = 'row';
       const m = document.createElement('div'); m.className = 'mach';
       m.innerHTML = `<div class="ic" style="background:${COL[i]};clip-path:${SHAPE[i]}"></div>
-        <div><div class="nm">${T.NAMES[i]}</div><div class="cap"></div></div><span class="fixb"></span><div class="load"><i></i></div>`;
+        <div><div class="nm">${T.NAMES[i]}</div><div class="cap"></div></div><span class="fixb"></span>`;
       const s = document.createElement('div'); s.className = 'slot'; s.dataset.m = i;
       row.append(m, s); line.append(row);
       el.mach[i] = m; el.slot[i] = s;
@@ -140,12 +140,13 @@
     for (let i = 0; i < 4; i++) {
       const m = el.mach[i];
       const cap = i === 0 ? T.supply(st) : st.cap[i - 1];
-      m.querySelector('.cap').innerHTML = i === 0 ? `공급 <b>${fmt(cap)}</b>/초` : `처리 <b>${fmt(cap)}</b>/초`;
-      m.querySelector('.load i').style.width = (i === 0 ? 100 : Math.min(100, st.rateIn[i] / cap * 100)) + '%';
+      const inn = i === 0 ? 0 : st.rateIn[i];
+      m.querySelector('.cap').innerHTML = i === 0 ? `공급 <b>${fmt(cap)}</b>/초`
+        : `들어옴 <b class="${inn > cap + 0.01 ? 'over' : ''}">${fmt(inn)}</b> · 처리 <b>${fmt(cap)}</b>/초`;
       m.classList.toggle('jam', jam > 0 && jam === i);
       m.classList.toggle('boost', i > 0 && st.fixed[i - 1]);
       m.querySelector('.fixb').textContent = i > 0 && st.fixed[i - 1] ? '★ 보강됨' : '';
-      if (i > 0) el.slot[i].classList.toggle('on', !!oj && !st.fixed[i - 1]);
+      if (i > 0) el.slot[i].classList.toggle('on', !!oj);
     }
     for (let i = 0; i < 3; i++) {
       const b = el.belt[i], n = st.buf[i], c = Math.min(12, Math.ceil(n / 10));
@@ -162,11 +163,15 @@
       al.classList.remove('hide');
     } else al.classList.add('hide');
     $('#tray').classList.toggle('hide', !oj);
-    if (oj && !guided) {
-      guided = true;
-      guideEl = document.createElement('div'); guideEl.className = 'guide';
-      guideEl.textContent = '라인이 막혔어요! 보조 기계로 풀어 보세요 👇';
-      $('#app').append(guideEl);
+    if (!guided && running) {
+      if (!guideEl) { guideEl = document.createElement('div'); $('#app').append(guideEl); }
+      if (oj) {
+        guided = true; guideEl.className = 'guide';
+        guideEl.textContent = '라인이 막혔어요! 보조 기계로 풀어 보세요 👇';
+      } else {
+        guideEl.className = 'guide low';
+        guideEl.textContent = `캐기 강화를 눌러 보세요 👇 (Lv.${T.CFG.MILE_N} = 공급 ×3)`;
+      }
     }
     shopBtn('#bSup', 'sup'); shopBtn('#bPrice', 'price');
     if (st.ended) finish();
@@ -177,8 +182,8 @@
     const d = b.querySelector('.d');
     if (k === 'sup') {
       const mile = (lv + 1) % T.CFG.MILE_N === 0;
-      d.classList.toggle('mile', mile);
-      d.textContent = mile ? `공급 ${fmt(T.supplyAt(lv))} → ${fmt(T.supplyAt(lv + 1))}! (×3)` : `공급 ${fmt(T.supplyAt(lv))} → ${fmt(T.supplyAt(lv + 1))}/초`;
+      d.classList.toggle('mile', mile); b.classList.toggle('mile', mile);
+      d.textContent = mile ? `공급 ×3! ${fmt(T.supplyAt(lv))} → ${fmt(T.supplyAt(lv + 1))}` : `공급 ${fmt(T.supplyAt(lv))} → ${fmt(T.supplyAt(lv + 1))}/초`;
     } else d.textContent = `개당 ${T.price(st)} → ${T.price(st) + T.CFG.PRICE_ADD}원`;
     b.querySelector('.c').textContent = money(c) + '원';
     b.disabled = !running || st.money < c;
@@ -188,7 +193,7 @@
     if (!running) return; running = false;
     const rows = [
       ['판 물건', Math.round(st.shipped).toLocaleString() + '개'],
-      ['번 돈', money(st.money + spent()) + '원'],
+      ['번 돈', money(st.money + spent() - T.CFG.START_MONEY) + '원'],
       ['넘쳐서 놓친 물건', Math.round(st.lost).toLocaleString() + '개'],
       ['한꺼번에 출하한 물건', Math.round(st.bonusGot).toLocaleString() + '개'],
     ];
@@ -202,7 +207,7 @@
   // 강화에 쓴 돈 (번 돈 계산용)
   function spent() {
     let s = 0; const tmp = { lv: { sup: 0, price: 0 } };
-    for (const k of ['sup', 'price']) for (let i = 0; i < st.lv[k]; i++) { tmp.lv[k] = i; s += T.cost(tmp, k); }
+    for (const k of ['sup', 'price']) for (let i = k === 'sup' ? T.CFG.START_LV : 0; i < st.lv[k]; i++) { tmp.lv[k] = i; s += T.cost(tmp, k); }
     return s;
   }
 
@@ -224,7 +229,7 @@
     requestAnimationFrame(loop);
   }
 
-  $('#bSup').onclick = () => { if (running && T.buy(st, 'sup')) uiT = 1; };
+  $('#bSup').onclick = () => { if (running && T.buy(st, 'sup')) { uiT = 1; if (st.lv.sup === T.CFG.MILE_N) toast('공급 ×3! 라인을 지켜보세요'); } };
   $('#bPrice').onclick = () => { if (running && T.buy(st, 'price')) uiT = 1; };
   $('#bStart').onclick = start;
   $('#bAgain').onclick = () => { reset(); start(); };

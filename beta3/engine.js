@@ -15,15 +15,16 @@
     PRICE0: 1, PRICE_ADD: 0.5,  // 판매가 강화 1번당 +0.5
     PRICE_COST0: 80, PRICE_COST_X: 2.2,
     JAM_MIN: 4,             // 대기 칸이 이만큼 넘으면 '막힘'
-    END: 330,               // 판 길이(초)
+    END: 240,               // 판 길이(초) — 막힘 ~36s·~123s·~188s
+    START_LV: 3, START_MONEY: 200,  // 시작하자마자 강화 1번 → 30초쯤 첫 막힘
   };
   const NAMES = ['캐기', '가공 1', '가공 2', '출하'];
   const IGA = ['캐기가', '가공 1이', '가공 2가', '출하가'], EUN = ['캐기는', '가공 1은', '가공 2는', '출하는'];
 
   function create() {
     return {
-      t: 0, money: 0, shipped: 0, lost: 0,
-      lv: { sup: 0, price: 0 },
+      t: 0, money: CFG.START_MONEY, shipped: 0, lost: 0,
+      lv: { sup: CFG.START_LV, price: 0 },
       cap: CFG.CAP.slice(),          // 기계 1~3 처리량
       fixed: [false, false, false],
       buf: [0, 0, 0],                // 기계 1~3 앞 대기
