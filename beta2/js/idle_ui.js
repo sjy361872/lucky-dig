@@ -300,7 +300,7 @@
       el.dataset.sym = s;
       const to = r ? r.res[i] : s;
       const lab = el.querySelector('.clab');       // 효과 이름표는 다음 슬롯까지 남겨 둠 (전엔 여기서 지워져 0.3초 만에 사라졌음)
-      el.innerHTML = img(s) + (r && s === 'rainbow' ? `<em class="wildto">${img(to)}</em>` : '') + (r && r.boosted[i] ? '<b class="x2">×2</b>' : '');
+      el.innerHTML = img(s) + (r && s === 'rainbow' ? `<em class="wildto">${img(to)}</em>` : '') + (r && r.boosted[i] ? `<b class="x2">×${f2((r.mult || [])[i] || 2)}</b>` : '');
       if (lab) el.appendChild(lab);
       const on = !!(r && r.comboSym && to === r.comboSym);
       el.classList.toggle('combo', on);
@@ -334,15 +334,16 @@
     showSyms(syms);
   }
   function setCalc(html) { const c = $('#calc'); c.innerHTML = html; c.classList.remove('dim'); }
+  // 결과 한 줄 (docs/slot-readable.md): 배율이 없으면 '탐지 피해 107', 있으면 '피해 36 × 콤보 2 = 72'
+  //  처음부터 보여 줌 (예전엔 초반에 숫자만 → 무슨 숫자인지 몰랐음)
   function calcText(r, syms) {
-    if (st.lv.atk < 10 && mode !== 'boss') return `<b>${fmt(r.dmg)}</b>${r.jackpot ? ' 황금 광맥!' : r.combo > 1 ? ' 콤보!' : ''}`;   // 처음엔 결과 숫자만 (docs/onboarding.md)
-    const parts = [`${f2(r.hits)}타`, `공격력 ${fmt(r.atk)}`];
-    if (r.combo > 1) parts.push(`콤보 ×${r.combo}`);
-    if (r.chests) parts.push(`상자 ×${f2(r.chestMult)}`);
-    if (r.mimics) parts.push(r.mimicOk === null ? '미믹 ?' : r.mimicOk ? `미믹 ×${fmt(r.mimicMult)}` : '미믹 꽝');
-    if (r.dragon) parts.push(`🐲 ×${I.DRAGON_X}`);
-    if (r.jackpot) parts[parts.indexOf(`콤보 ×${r.combo}`)] = `황금 연타 ×${r.combo}`;
-    return `${parts.join(' × ')} = <b>${fmt(r.dmg)}</b>`;
+    const xs = [];
+    if (r.combo > 1) xs.push(r.jackpot ? `황금 광맥 ${fmt(r.combo)}` : `콤보 ${r.combo}`);
+    if (r.chests) xs.push(`상자 ${f2(r.chestMult)}`);
+    if (r.mimics) xs.push(r.mimicOk === null ? '미믹 ?' : r.mimicOk ? `미믹 ${fmt(r.mimicMult)}` : '미믹 꽝');
+    if (r.dragon) xs.push(`🐲 ${I.DRAGON_X}`);
+    if (!xs.length || r.mimicOk === false && xs.length === 1) return `탐지 피해 <b>${fmt(r.dmg)}</b>`;
+    return `피해 ${fmt(Math.round(r.base))} × ${xs.join(' × ')} = <b>${fmt(r.dmg)}</b>`;
   }
 
   // ---------- 몬스터 ----------
@@ -548,28 +549,47 @@
       return r;
     } finally { spinning = false; }
   }
-  // 칸마다 무슨 효과인지 이름표를 하나씩 띄움
-  function cellLabel(i, r) {
-    const S = I.stat;
+  // 칸마다 무슨 효과인지 이름표 (docs/slot-readable.md): 피해는 '+숫자', 배율은 '×숫자', 그 밖엔 무엇이 얼마나
+  //  칸 피해는 반올림 합이 '배율 전 피해'와 딱 맞게 맞춰서 보여 줌 (화면에서 따로 계산해 어긋나지 않게 엔진 값 사용)
+  function cellNums(r) {
+    const v = (r.cellDmg || []).map(Math.round), tot = Math.round(r.base || 0);
+    const sum = v.reduce((a, b) => a + b, 0);
+    if (sum && sum !== tot) { let j = 0; v.forEach((x, k) => { if (x > v[j]) j = k; }); v[j] += tot - sum; }
+    return v;
+  }
+  function cellLabel(i, r, nums) {
+    const d = nums ? nums[i] : Math.round((r.cellDmg || [])[i] || 0), k = (r.mult || [])[i] || 1;
     switch (r.res[i]) {
-      case 'pick': return '1타';
-      case 'tnt': return '2타·양옆 2배';
-      case 'gem': return `💎 ${f2(S.gemX(st.lv.gem))}타`;
-      case 'coin': return '+광석';
-      case 'chest': return `×${f2(S.chestX(st.lv.chest))}`;
-      case 'wrench': return '🔧 수리';
+      case 'pick': return `+${fmt(d)}`;
+      case 'tnt': return `+${fmt(d)} · 양옆 ×${f2(r.tx || 2)}`;
+      case 'gem': return `💎 +${fmt(d)}`;
+      case 'gold': return `황금 +${fmt(d)}`;
+      case 'coin': return `광석 +${fmt(I.coinGold(st, k))}`;
+      case 'chest': return `전체 ×${f2(I.stat.chestX(st.lv.chest) * k)}`;
+      case 'wrench': return `내구도 +${fmt(I.maxDur(st) * ((r.cellRep || [])[i] || 0))}`;
       case 'glass': return '⏳ 한 번 더';
-      case 'egg': return '🥚 금!';
-      case 'mimic': return r.mimicOk ? `×${fmt(r.mimicMult)}` : '깨물!';
-      case 'gold': return '황금!';
+      case 'egg': return '🥚 알 +1';
+      case 'mimic': return r.mimicOk === null ? '👅 미믹 ?' : r.mimicOk ? `×${fmt(r.mimicMult)}` : '깨물!';
     }
     return '';
   }
+  // 이름표를 한꺼번에 바로 붙임 (보스전: 멈추자마자 · 고르는 동안)
+  function labelCells(syms, r) {
+    const nums = cellNums(r);
+    syms.forEach((s, i) => {
+      const el = cellEls[i]; if (!el) return;
+      el.querySelector('.clab')?.remove();
+      const lab = document.createElement('span'); lab.className = 'clab';
+      lab.textContent = (s === 'rainbow' ? '🌈→' : '') + cellLabel(i, r, nums);
+      el.appendChild(lab);
+    });
+  }
   async function revealCells(syms, r) {
+    const nums = cellNums(r);
     for (let i = 0; i < syms.length; i++) {
       const el = cellEls[i]; if (!el) continue;
       const lab = document.createElement('span'); lab.className = 'clab';
-      lab.textContent = (syms[i] === 'rainbow' ? '🌈→' : '') + cellLabel(i, r);
+      lab.textContent = (syms[i] === 'rainbow' ? '🌈→' : '') + cellLabel(i, r, nums);
       el.appendChild(lab);
       lab.animate([{ transform: 'translate(-50%,6px) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1.15)', opacity: 1, offset: .5 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
       popCell(el);
@@ -613,9 +633,10 @@
         cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
         const b = $('#bReroll');
         b.disabled = rer <= 0;
-        b.innerHTML = `🔄 다시 돌리기<small>${rer > 0 ? `${rer}번 남음` : '다 썼어요'}</small>`;
+        b.innerHTML = `🔄 다시 돌리기<small>${rer > 0 ? `이번 보스전 ${rer}번 남음` : '다 썼어요'}</small>`;
         const r = I.evalSpin(st, syms);
-        setCalc(`이대로 공격하면 ${calcText(r, syms)}`);
+        labelCells(syms, r);
+        setCalc(`이대로 공격하면 ${calcText(r, syms)}${mobHp > 0 && !r.mimics ? (r.dmg >= mobHp ? ' → <b>처치!</b>' : ` → 보스 ${fmt(mobHp - r.dmg)} 남음`) : ''}`);
       };
       const onCell = e => {
         const el = e.target.closest('.cell'); if (!el || el.classList.contains('locked') || rer <= 0) return;
@@ -743,6 +764,7 @@
       if (quit) break;
       const r = I.evalSpin(st, syms, rnd);
       showSyms(syms, r);
+      labelCells(syms, r);
       setCalc(calcText(r, syms));
       await hit(r, true);
       if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);

@@ -292,14 +292,15 @@
     let hits = 0, chests = 0, chestMult = 1, coins = 0, repair = 0, respins = 0, cracks = 0, mimics = 0, mimicMult = 1;
     const cnt = {};
     const mimicOk = rng ? rng() < MIMIC_OK : null;
+    const cellDmg = res.map(() => 0), cellRep = res.map(() => 0);   // 화면 표시용: 칸마다 더한 피해 (계산 결과는 그대로)
     res.forEach((s, i) => {
       cnt[s] = (cnt[s] || 0) + 1;
       const k = f[i];
-      if (s === 'pick' || s === 'tnt' || s === 'gold') hits += SYMS[s].hit * k;
-      else if (s === 'gem') hits += gemX * k;
+      if (s === 'pick' || s === 'tnt' || s === 'gold') { hits += SYMS[s].hit * k; cellDmg[i] = atk * SYMS[s].hit * k * SLOT_X; }
+      else if (s === 'gem') { hits += gemX * k; cellDmg[i] = atk * gemX * k * SLOT_X; }
       else if (s === 'chest') { chests++; chestMult *= chestX * k; }
       else if (s === 'coin') coins += k;
-      else if (s === 'wrench') repair += WRENCH * k * abil.rep(st);
+      else if (s === 'wrench') { cellRep[i] = WRENCH * k * abil.rep(st); repair += cellRep[i]; }
       else if (s === 'glass') respins += k;
       else if (s === 'egg') cracks += k;
       else if (s === 'mimic') { mimics++; if (mimicOk) mimicMult *= chestX * 3 * k; }
@@ -313,7 +314,9 @@
     const dmg = Math.max(1, Math.round(atk * hits * combo * chestMult * mimicMult * (dragon ? DRAGON_X : 1) * SLOT_X));
     const boosted = f.map(x => x > 1);
     return { atk, hits, combo, comboSym: combo > 1 ? (jackpot ? 'gold' : bestSym) : null, comboN: jackpot ? cnt.gold : best, chests, chestMult, coins, dmg,
-      res, boosted, repair, respins, cracks, mimics, mimicOk: mimics ? mimicOk : null, mimicMult, dragon, jackpot };
+      res, boosted, repair, respins, cracks, mimics, mimicOk: mimics ? mimicOk : null, mimicMult, dragon, jackpot,
+      // 표시용 (docs/slot-readable.md): 칸별 배율·피해·수리, TNT 배율, 배율 곱하기 전 피해 합
+      mult: f, tx, cellDmg, cellRep, base: atk * hits * SLOT_X };
   }
   // 평소 공격(슬롯 없이 곡괭이로 한 대): hit() 연출이 그대로 쓰도록 슬롯 결과와 같은 모양으로
   function basicHit(st, base) {
