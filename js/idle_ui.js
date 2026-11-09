@@ -3,7 +3,7 @@
 //   계산은 js/idle.js (Idle), 카드 목록은 js/config.js, 소리는 js/sound.js
 // =====================================================
 (function () {
-  const C = window.CONFIG, I = window.Idle, Sound = window.Sound;
+  const C = window.CARDS, I = window.Idle, Sound = window.Sound;
   const $ = s => document.querySelector(s);
   const SAVE_KEY = 'pickidle_v1';
   const rnd = Math.random;
@@ -65,7 +65,7 @@
 
   // ---------- 그림 ----------
   const ICON = {
-    pick: 'assets/items/pick2.png', tnt: 'assets/items/tnt.png', gem: 'assets/blocks/diamond.png',
+    tnt: 'assets/items/tnt.png', gem: 'assets/blocks/diamond.png',
     coin: 'assets/ui/coin.png', chest: 'assets/chests/c5.png', slot: 'assets/ui/cell_slot.png',
     pick3: 'assets/items/pick3.png', spin: 'assets/items/spin.png',
     gold: 'assets/syms/gold.webp', stone: 'assets/blocks/stone.png',

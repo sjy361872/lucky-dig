@@ -1,117 +1,9 @@
 // =====================================================
-//  게임 수치 설정 — 밸런스 조정은 이 파일만 고치면 됩니다
+//  몬스터 카드 목록 — 광산 11곳 × 등급(S~F) + G
+//   몬스터 그림(assets/mobs)·도감 카드(assets/cards)와 짝. 출시 전 자체 화풍으로 교체 예정 (CLAUDE.md)
 // =====================================================
 (function (root) {
-  // 탐험 목표 점수 곡선 (RUN.quota 에서 사용)
-  //  층별 기본 목표(풀숲 입구 기준, 마지막 = 보스) × 광산마다 QUOTA_MINE 배, 유효숫자 2자리로 반올림
-  const QUOTA_TABLE = (typeof process !== 'undefined' && process.env && process.env.QT) ? process.env.QT.split(',').map(Number) : [800, 3500, 10000, 17000, 26000, 18000], QUOTA_MINE = 1.04;
-  const round2 = n => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; };
-  const CONFIG = {
-    GAME_NAME: '럭키 디그',
-    START_POINTS: 30000,          // 새 계정 시작 포인트 (닉네임을 처음 만들 때 지급)
-    // 출석 체크: 하루 한 번(한국 시간 0시 기준). 연속 출석 1~7일차 보상, 7일 뒤 다시 1일차. 하루라도 빠지면 1일차부터
-    DAILY_REWARDS: [5000, 5000, 10000, 10000, 15000, 15000, 30000],
-    ADMINS: ['jiyong'],           // 관리자 닉네임: 직접 충전(디버그) + 다른 사람에게 포인트 지급 가능
-    CHARGE_AMOUNTS: [10000, 50000, 100000, 1000000], // 무료 충전 버튼 금액
-    BETS: [1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000, 200000, 300000, 500000],
-    DEFAULT_BET: 1000,
-
-    S_CAP: 30,                    // S상 스코어 상한 (소비 포인트 × 30)
-    // 모드별 등급 출현율(%) — 원작 상품 목록 기준. 등급 기준 스코어·환원 값은 두 모드 동일
-    //  MILD: 본전 근처(D·E상)가 자주 → 오래 즐김 / HARD: 대부분 G상이지만 S·A상이 약 2배 자주
-    MODES: {
-      mild: { name: 'MILD', meter: 2, rates: { S: 1.8, A: 2.0, B: 3.0, C: 5.5, D: 22.7, E: 27.5, F: 22.5, G: 15.0 } },
-      hard: { name: 'HARD', meter: 5, rates: { S: 3.5, A: 4.5, B: 6.0, C: 6.0, D: 5.0, E: 8.0, F: 10.0, G: 57.0 } },
-    },
-    COLS: 5,
-    ROWS: 5,
-    SLOT_ROWS: 4,
-
-    // 등급: 기준 = 소비 포인트 × need, 출현율 rate(%)
-    // 카드 환원 포인트 = 소비 포인트 × need × 카드별 r (원작 관찰: 환원 ≈ 등급 기준의 0.9~1.2배)
-    // r 평균 1.0 → 기대 환원율 약 90%
-    GRADES: [
-      { id: 'S', need: 7.0, rate: 1.8, color: '#e5283a' },
-      { id: 'A', need: 4.0, rate: 2.0, color: '#f2622b' },
-      { id: 'B', need: 2.0, rate: 3.0, color: '#f59e1b' },
-      { id: 'C', need: 1.5, rate: 5.5, color: '#f4c21a' },
-      { id: 'D', need: 1.2, rate: 22.7, color: '#1fa155' },
-      { id: 'E', need: 0.6, rate: 27.5, color: '#1e86e0' },
-      { id: 'F', need: 0.4, rate: 22.5, color: '#2457b8' },
-      { id: 'G', need: 0.2, rate: 15.0, color: '#7c3aed' },
-    ],
-
-    // 블록: hp = 부서질 때까지 필요한 타격, mult = 스코어 배율(× 소비 포인트)
-    BLOCKS: {
-      grass:     { name: '풀',      hp: 1, mult: 0 },
-      dirt:      { name: '흙',      hp: 1, mult: 0 },
-      stone:     { name: '돌',      hp: 2, mult: 0.001 },
-      ruby:      { name: '루비',    hp: 4, mult: 0.01 },
-      gold:      { name: '금',      hp: 5, mult: 0.03 },
-      diamond:   { name: '다이아',  hp: 6, mult: 0.05 },
-      obsidian:  { name: '흑요석',  hp: 7, mult: 0.25 },
-      explosive: { name: '폭발 광석', hp: 2, mult: 0.005 },
-      mystery:   { name: '?',       hp: 4, mult: null },
-    },
-    // ?블록을 부쉈을 때 나올 수 있는 배율 (가중치)
-    MYSTERY_VALUES: [
-      { mult: 0.005, w: 30 }, { mult: 0.01, w: 25 }, { mult: 0.025, w: 20 },
-      { mult: 0.05, w: 12 }, { mult: 0.1, w: 8 }, { mult: 0.3, w: 5 },
-    ],
-    EXPLOSION_DAMAGE: 2,
-
-    // 곡괭이: power = 타격 횟수
-    PICKS: {
-      pick1: { name: '돌 곡괭이',     power: 1, color: '#8d8d8d' },
-      pick2: { name: '철 곡괭이',     power: 2, color: '#c9ced6' },
-      pick3: { name: '금 곡괭이',     power: 3, color: '#f3c12c' },
-      pick5: { name: '다이아 곡괭이', power: 5, color: '#5fd3f5' },
-      pick7: { name: '흑요석 곡괭이', power: 7, color: '#6b3fd1' },
-    },
-
-    // 보물상자: min = 최소 배율 (실제 배율은 min~10)
-    CHESTS: [
-      { min: 2, color: '#7a5233', trim: '#4a4a4a' },
-      { min: 3, color: '#8a5a2b', trim: '#e0b23a' },
-      { min: 4, color: '#3d3d3d', trim: '#e0b23a' },
-      { min: 5, color: '#e8e8e8', trim: '#e0b23a' },
-      { min: 6, color: '#1f5fd1', trim: '#e0b23a' },
-      { min: 7, color: '#1f9d4a', trim: '#e0b23a' },
-      { min: 8, color: '#d1263a', trim: '#e0b23a' },
-      { min: 9, color: '#f2c40f', trim: '#fff0a0' },
-      { min: 10, color: 'rainbow', trim: '#ffffff' },
-    ],
-
-    // ---------- 탐험(슬롯 로그라이크) ----------
-    // 광산 하나 = 일반층 FLOORS개 + 보스층 1개. 층마다 목표 점수(= 게이지의 D상 선)를 넘기면 통과
-    RUN: {
-      FLOORS: 5,
-      UNIT: 10000,              // 블록 점수 = 블록 배율 × UNIT × 열린 상자 배율
-      HEARTS: 3,                // 탐험 전체 하트 (몬스터에게 맞으면 -1, 0이면 탐험 끝)
-      ATK_EVERY: 3,
-      ELITE_HP: 1.5,            // 정예 몬스터 체력 배수
-      REROLLS: 2,               // 층마다 다시 돌리기 횟수 (열 고정 가능)
-      TREASURE_P: 0.35,         // 층(판)마다 황금 보물상자가 나올 확률 — 열면 심볼을 줌
-      BOSS_ATK: 3,
-      MAX_SPINS: 9,             // 공격까지 남은 턴 최대치
-      MAX_COMPS: 5,             // 동료 최대 수
-      START_DECK: ['pick1', 'pick1', 'pick1', 'pick1', 'pick1', 'tnt', 'clover', 'spin'],   // 모래시계는 소모품
-      // 블록 칩 값 (대미지 = 칩 합계 × 배율)
-      CHIPS: { grass: 1, dirt: 1, stone: 3, explosive: 5, ruby: 12, gold: 25, diamond: 40, obsidian: 100, mystery: 5 },
-      MYSTERY_CHIPS: [[5, 30], [10, 25], [25, 20], [50, 12], [100, 8], [150, 5]],
-      // 블록판·상자 강도 (0 = 가난한 판, 1 = 흑요석·큰 상자가 많은 판)
-      boardK: (mine, floor, boss) => Math.min(1.1, 0.12 + mine * 0.07 + floor * 0.05 + (boss ? 0.2 : 0)),
-      chestK: (mine, floor, boss) => Math.min(1, 0.1 + mine * 0.05 + floor * 0.03 + (boss ? 0.15 : 0)),
-      // 목표 점수 (tools/sim_run.js 로 맞춤)
-      // 층 등급: 목표 점수의 몇 배인지 (D = 목표 = 통과선). B상 이상이면 상점 선택지 +1
-      GRADE_X: { S: 50, A: 20, B: 8, C: 3, D: 1, E: 0.6, F: 0.35, G: 0.15 },
-      quota: (mine, floor) => round2(QUOTA_TABLE[Math.min(floor, QUOTA_TABLE.length - 1)] * Math.pow(QUOTA_MINE, mine * (0.5 + Math.min(floor, 6) / 12))),
-    },
-
-    // <CARDS> — design/cards/build_cards.py 가 자동으로 씀 (직접 고치지 말 것)
-    // 소비 포인트 구간(광산)마다 S~F 등급 5장씩 + G상은 모든 광산 공통 5장
-    // r = 환원 계수: 환원 = 소비 포인트 × 등급 기준 × r ("그 등급 기준 ~ 바로 위 등급 기준" 사이, S는 기준의 2배까지)
-    // w = 등급 안 비중(%): 범위 아래쪽 카드가 대부분, 위쪽은 드묾
+  const CARDS = {
     TIERS: {
       1000: { name: '풀숲 입구', cards: {
         S: [{ name: '새싹왕 엘크', elem: 'clover', r: 2.0, w: 1.7 }, { name: '무지개 나비여왕', elem: 'rainbow', r: 1.55, w: 5.8 }, { name: '황금 풍뎅이왕', elem: 'gold', r: 1.28, w: 14.6 }, { name: '꽃잎 드래곤', elem: 'clover', r: 1.1, w: 30.2 }, { name: '고목 거인', elem: 'stone', r: 1.0, w: 47.7 }],
@@ -213,26 +105,15 @@
         F: [{ name: '구름 티끌', elem: 'diamond', r: 1.5, w: 1.5 }, { name: '빛 점', elem: 'gold', r: 1.275, w: 5.8 }, { name: '바람 실', elem: 'sapphire', r: 1.14, w: 15.2 }, { name: '깃털 조각', elem: 'diamond', r: 1.05, w: 30.8 }, { name: '무지개 점', elem: 'rainbow', r: 1.0, w: 46.7 }],
       } },
     },
-    G_CARDS: [{ name: '꼬마돌', elem: 'stone', r: 2.0, w: 1.7 }, { name: '흙두지', elem: 'stone', r: 1.55, w: 5.8 }, { name: '잎새벌레', elem: 'clover', r: 1.28, w: 14.6 }, { name: '물방울링', elem: 'sapphire', r: 1.1, w: 30.2 }, { name: '이끼달팽', elem: 'clover', r: 1.0, w: 47.7 }],
-    // </CARDS>
+    G_CARDS: [{ name: '꼬마돌', elem: 'stone', r: 2.0, w: 1.7 }, { name: '흙두지', elem: 'stone', r: 1.55, w: 5.8 }, { name: '잎새벌레', elem: 'clover', r: 1.28, w: 14.6 }, { name: '물방울링', elem: 'sapphire', r: 1.1, w: 30.2 }, { name: '이끼달팽', elem: 'clover', r: 1.0, w: 47.7 }]
   };
-  // ---------- 카드 도우미 ----------
-  // 소비 포인트 → 광산(카드 묶음): 그 금액 이하에서 가장 가까운 광산 (500,000pt는 300,000pt 광산 카드)
-  CONFIG.tierOf = bet => {
-    const keys = Object.keys(CONFIG.TIERS).map(Number).sort((a, b) => a - b);
-    let t = keys[0];
-    for (const k of keys) if (k <= bet) t = k;
-    return String(t);
-  };
-  CONFIG.cardsFor = (bet, grade) => (grade === 'G' ? CONFIG.G_CARDS : (CONFIG.TIERS[CONFIG.tierOf(bet)].cards[grade] || []));
-  CONFIG.tierName = bet => CONFIG.TIERS[CONFIG.tierOf(bet)].name;
-  CONFIG.cardImg = c => (c.grade === 'G' ? `assets/cards/G/${c.idx | 0}.jpg` : `assets/cards/${c.tier}/${c.grade}${c.idx | 0}.jpg`);
-  CONFIG.cardKey = c => (c.grade === 'G' ? `G:${c.idx | 0}` : `${c.tier}:${c.grade}:${c.idx | 0}`);
-  CONFIG.allCards = () => {
+  CARDS.cardImg = c => (c.grade === 'G' ? `assets/cards/G/${c.idx | 0}.jpg` : `assets/cards/${c.tier}/${c.grade}${c.idx | 0}.jpg`);
+  CARDS.cardKey = c => (c.grade === 'G' ? `G:${c.idx | 0}` : `${c.tier}:${c.grade}:${c.idx | 0}`);
+  CARDS.allCards = () => {
     const out = [];
-    for (const t of Object.keys(CONFIG.TIERS)) for (const g of 'SABCDEF'.split('')) (CONFIG.TIERS[t].cards[g] || []).forEach((c, idx) => out.push({ ...c, tier: t, grade: g, idx }));
-    CONFIG.G_CARDS.forEach((c, idx) => out.push({ ...c, tier: 'G', grade: 'G', idx }));
+    for (const t of Object.keys(CARDS.TIERS)) for (const g of 'SABCDEF'.split('')) (CARDS.TIERS[t].cards[g] || []).forEach((c, idx) => out.push({ ...c, tier: t, grade: g, idx }));
+    CARDS.G_CARDS.forEach((c, idx) => out.push({ ...c, tier: 'G', grade: 'G', idx }));
     return out;
   };
-  root.CONFIG = CONFIG;
+  root.CARDS = CARDS;
 })(typeof window !== 'undefined' ? window : globalThis);
