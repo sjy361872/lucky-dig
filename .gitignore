@@ -3,3 +3,7 @@ reference/
 tools/
 design/
 *.log
+# 설계 문서·작업 메모·에이전트는 비공개 백업 저장소로 (tools/deploy/backup_private.sh)
+docs/
+CLAUDE.md
+.claude/
