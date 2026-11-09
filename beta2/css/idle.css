@@ -377,3 +377,7 @@ body.bossmode #gauge { display: none; }
 #bossBar b, #bossBar span { white-space: nowrap; font-size: 13px; }
 #bossBar span { overflow: hidden; text-overflow: ellipsis; }
 #hint { white-space: normal; width: max-content; max-width: 400px; line-height: 1.35; }
+
+/* 그림 시험용 (?art=pixel): 도트 그림은 흐리게 확대하지 않고 네모난 픽셀 그대로 */
+.art-pixel #mob img, .art-pixel #pick img, .art-pixel .pkdex img, .art-pixel #list .ui img, .art-pixel .pkfly,
+.art-pixel #bag img, .art-pixel img[src*="assets/test/px_"] { image-rendering: pixelated; }

@@ -19,6 +19,8 @@
     GAUGE: 8,                  // 평소엔 곡괭이가 그냥 때림. 이만큼 때리면 슬롯 게이지가 꽉 참 → 큰 슬롯 한 번
     AUTO_PULL: 0,              // 게이지가 차면 바로 자동으로 돌아감 (터치 필요 없음)
     SLOT_TIME: 1.9,            // 큰 슬롯 한 번에 걸리는 시간(초, 연출 포함 · 밸런스 계산용)
+    // 잭팟 관통 (docs/jackpot-pierce.md): 잭팟으로 몬스터를 잡으면 다음 일반 몬스터 N마리(=N스테이지)를 한 번에 뚫음 · 보스 앞에서 멈춤
+    PIERCE: { 3: 3, 4: 5, 5: 10 },
   };
   const SLOT_X = +(globalThis.process && process.env.SLOTX) || 3;
   const BASIC = +(globalThis.process && process.env.BASIC) || 1;     // 평소 한 대 = 슬롯 평균(잭팟·미믹 뺀) × 이 값 → 보석·상자 강화도 평타에 반영   // 큰 슬롯 대미지 배율 (가끔 오는 만큼 크게)
@@ -375,6 +377,7 @@
     st.allBest = Math.max(st.allBest || 0, st.floor);
   }
   const bossReady = st => isBossStage(st.floor);
+  const pierceMax = comboN => (globalThis.process && process.env.PIERCE === '0') ? 0 : (IDLE.PIERCE[Math.min(5, comboN)] || 0);
   // 보스에게 지면 챕터 처음(x-1)으로
   function bossLose(st) { st.floor = chapterStart(st.floor); st.bossFails++; st.dur = maxDur(st); }
   function bossWin(st) {
@@ -440,5 +443,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { isBossStage, migrateStages, advance, lx, gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { pierceMax, isBossStage, migrateStages, advance, lx, gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
