@@ -381,3 +381,13 @@ body.bossmode #gauge { display: none; }
 /* 그림 시험용 (?art=pixel): 도트 그림은 흐리게 확대하지 않고 네모난 픽셀 그대로 */
 .art-pixel #mob img, .art-pixel #pick img, .art-pixel .pkdex img, .art-pixel #list .ui img, .art-pixel .pkfly,
 .art-pixel #bag img, .art-pixel img[src*="assets/test/px_"] { image-rendering: pixelated; }
+
+/* 큰 글씨(배너·튀어나오는 숫자) 한글 글꼴: 검은고딕 (OFL, 구글 폰트).
+   전엔 Arial Black(한글 없음) + 안쪽까지 겹치는 테두리 → 한글 획이 뭉개져 블록처럼 보였음.
+   paint-order: 테두리를 글자 '뒤'에 그림 → 획이 안 먹힘 (그래서 테두리 두께는 예전의 약 2배로) */
+.fl, .banner b { font-family: 'Black Han Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-weight: 400; paint-order: stroke fill; letter-spacing: .5px; }
+.fl { -webkit-text-stroke-width: 3px; }
+.fl.crit, .fl.chestf { -webkit-text-stroke-width: 4px; }
+.fl.bossf { -webkit-text-stroke-width: 6px; }
+.banner b { -webkit-text-stroke-width: 6px; }
+.banner.long b { -webkit-text-stroke-width: 5px; }
