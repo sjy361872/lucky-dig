@@ -37,7 +37,7 @@
     rainbow:{ name: '무지개', w: 4, hit: 0, u: 15, desc: '가장 많은 그림으로 변신 (콤보 만들기)' },
     egg:   { name: '용의 알', w: 5, hit: 0, u: 20, desc: '금이 5번 가면 새끼 용 부화 → 30번 동안 대미지 ×2' },
     mimic: { name: '미믹', w: 3, hit: 0, u: 25, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
-    gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 잭팟 · 4개 메가 잭팟 · 5개 그랜드 잭팟!' },
+    gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 황금 광맥 · 4개 거대 광맥 · 5개 전설의 광맥!' },
   };
   const COMBO = { 3: 2, 4: 4, 5: 10 };   // 같은 그림 n개 → 대미지 ×
   // 잭팟은 자주 터져야 재미 → 칸 수와 상관없이 약 80번에 한 번 꼴이 되도록 황금 곡괭이 비율을 칸 수에 맞춤
@@ -56,7 +56,7 @@
     gem:   { name: '보석 감정', icon: 'gem', max: 40, cost: lv => 60 * Math.pow(1.28, lv) },
     chest: { name: '보물상자', icon: 'chest', max: 40, cost: lv => 150 * Math.pow(1.3, lv) },
     coin:  { name: '광석 수집', icon: 'coin', max: 1e9, cost: lv => 30 * Math.pow(1.2, lv) },
-    cells: { name: '슬롯 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
+    cells: { name: '탐지 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
     dur:   { name: '곡괭이 내구도', icon: 'dur', max: 1e9, cost: lv => 8 * Math.pow(1.14, lv) },
   };
   // 💠 광맥 결정: 환생할 때 받음. 지금까지 받은 결정 1개당 대미지·광석 +2%(써도 유지), 상점에서 영구 강화
@@ -102,7 +102,7 @@
   };
   function abilText(p) {
     const g = p.g + 1;
-    return [`TNT 양옆 ×${+Math.min(6, 2 + 0.25 * g).toFixed(2)}`, `보석 +${+(0.5 * g).toFixed(1)}타`, `잭팟 확률 ×${+Math.min(2, 1 + 0.06 * g).toFixed(2)}`,
+    return [`TNT 양옆 ×${+Math.min(6, 2 + 0.25 * g).toFixed(2)}`, `보석 +${+(0.5 * g).toFixed(1)}타`, `황금 광맥 확률 ×${+Math.min(2, 1 + 0.06 * g).toFixed(2)}`,
       `내구도 +${Math.round(10 * g)}% · 수리 ×${+(1 + 0.15 * g).toFixed(2)}`, `광석 +${Math.round(15 * g)}%`][p.t];
   }
   // 도감: 5종 × 8등급, 처음 만든 칸마다 공격력 +2%

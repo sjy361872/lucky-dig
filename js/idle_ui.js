@@ -335,13 +335,13 @@
   }
   function setCalc(html) { const c = $('#calc'); c.innerHTML = html; c.classList.remove('dim'); }
   function calcText(r, syms) {
-    if (st.lv.atk < 10 && mode !== 'boss') return `<b>${fmt(r.dmg)}</b>${r.jackpot ? ' 잭팟!' : r.combo > 1 ? ' 콤보!' : ''}`;   // 처음엔 결과 숫자만 (docs/onboarding.md)
+    if (st.lv.atk < 10 && mode !== 'boss') return `<b>${fmt(r.dmg)}</b>${r.jackpot ? ' 황금 광맥!' : r.combo > 1 ? ' 콤보!' : ''}`;   // 처음엔 결과 숫자만 (docs/onboarding.md)
     const parts = [`${f2(r.hits)}타`, `공격력 ${fmt(r.atk)}`];
     if (r.combo > 1) parts.push(`콤보 ×${r.combo}`);
     if (r.chests) parts.push(`상자 ×${f2(r.chestMult)}`);
     if (r.mimics) parts.push(r.mimicOk === null ? '미믹 ?' : r.mimicOk ? `미믹 ×${fmt(r.mimicMult)}` : '미믹 꽝');
     if (r.dragon) parts.push(`🐲 ×${I.DRAGON_X}`);
-    if (r.jackpot) parts[parts.indexOf(`콤보 ×${r.combo}`)] = `잭팟 ×${r.combo}`;
+    if (r.jackpot) parts[parts.indexOf(`콤보 ×${r.combo}`)] = `황금 연타 ×${r.combo}`;
     return `${parts.join(' × ')} = <b>${fmt(r.dmg)}</b>`;
   }
 
@@ -449,7 +449,7 @@
     Sound.play('hit', { type: crit ? 'diamond' : 'stone', ratio: .5 });
     if (r.jackpot) { jackpotFx(r); const [jx, jy] = arenaXY($('#mob .mimg')); gotPick(I.rollDrop(st, rnd, r.comboN >= 4 ? 'mega' : 'jack'), jx, jy); }
     else if (huge) {
-      const t = r.comboN >= 5 ? '잭팟!!' : r.chests >= 2 ? '보물 대박!' : r.combo > 1 && r.chests ? '콤보 + 상자!' : `${r.comboN}콤보!`;
+      const t = r.comboN >= 5 ? '5개 콤보!!' : r.chests >= 2 ? '보물 연속!' : r.combo > 1 && r.chests ? '콤보 + 상자!' : `${r.comboN}콤보!`;
       banner(t, `대미지 ×${fmt(r.combo * r.chestMult)}`, r.chests ? '#ffd34a' : '#7ff7ff');
       flash('#fff', .7, 320);
       if (r.comboN >= 5 || r.chests >= 2) coinShower(16);
@@ -514,8 +514,8 @@
       mobHp = 0; setHp();
       await killMob(true);
     }
-    if (n) tip('pierce', '⭐ 잭팟으로 잡으면 다음 몬스터들까지 한 번에 뚫고 내려가요!');
-    if (n) { banner(`${n}층 관통!`, I.bossReady(st) ? '보스 앞까지 뚫었어요' : `잭팟의 힘으로 ${n}스테이지 돌파`, '#ffd34a', 1300); refreshTop(); }
+    if (n) tip('pierce', '⭐ 황금 광맥으로 잡으면 다음 몬스터들까지 한 번에 뚫고 내려가요!');
+    if (n) { banner(`${n}층 관통!`, I.bossReady(st) ? '보스 앞까지 뚫었어요' : `황금 광맥의 힘으로 ${n}스테이지 돌파`, '#ffd34a', 1300); refreshTop(); }
   }
 
   // ---------- 자동 사냥 루프 ----------
@@ -526,11 +526,11 @@
     const n = I.IDLE.GAUGE, full = gauge >= n, el = $('#gauge');
     el.classList.toggle('ready', full);
     $('#gaugeFill').style.width = Math.min(100, gauge / n * 100) + '%';
-    $('#gaugeText').textContent = full ? '🎰 슬롯!' : `🎰 슬롯 충전 ${gauge} / ${n}`;
+    $('#gaugeText').textContent = full ? '⛏ 광맥 발견!' : `⛏ 광맥 탐지 ${gauge} / ${n}`;
     $('#slotbox').classList.toggle('ready', full && mode === 'auto');
   }
   async function bigSpin() {
-    tip('slot', '🎰 8번 때리면 슬롯이 돌아가요. 같은 그림 3개면 콤보!');
+    tip('slot', '⛏ 8번 때리면 광맥 탐지가 돌아가요. 같은 그림 3개면 콤보!');
     spinning = true;
     try {
       $('#slotbox').classList.remove('ready'); $('#cells').classList.remove('idle');
@@ -714,7 +714,7 @@
     $('#bossQuit').onclick = () => { quitReq = true; };
     const card = I.mobCard(C, st.floor, rnd, true);
     $('#bossBar b').textContent = (I.isSBoss(st.floor) ? '💀 챕터 보스' : '👑 중간 보스') + (auto ? ' (자동)' : '');
-    tip('bossfight', '⚔ 보스전: 슬롯 1번 = 공격 1번! 공격할 때마다 보스도 반격해요. 안 좋은 칸은 3번까지 다시 돌려요');
+    tip('bossfight', '⚔ 보스전: 광맥 탐지 1번 = 공격 1번! 공격할 때마다 보스도 반격해요. 안 좋은 칸은 3번까지 다시 돌려요');
     setMob(card, I.bossHp(st.floor), true);
     st.dur = I.maxDur(st); setDur();                       // 보스전 시작 전 곡괭이 수리
     refreshTop();
@@ -826,12 +826,12 @@
   }
   // 💰 잭팟: 화면이 금빛으로 몇 번 번쩍 → 코인 폭포 → 광석 대량
   function jackpotFx(r) {
-    setTimeout(() => tip('jack', '⭐ 황금 곡괭이 3개 = 잭팟! 4개·5개면 더 커요'), 1600);
+    setTimeout(() => tip('jack', '⭐ 황금 곡괭이 3개 = 황금 광맥! 4개·5개면 더 커요'), 1600);
     // 3개 = 잭팟(자주) · 4개 = 메가(가끔) · 5개 = 그랜드(아주 드물게) → 등급이 높을수록 연출이 길고 화려함
     const lv = Math.min(5, r.comboN) - 3, ms = [1500, 2600, 3800][lv];
-    const name = ['JACKPOT!', 'MEGA JACKPOT!!', 'GRAND JACKPOT!!!'][lv], color = ['#ffd34a', '#ff8af0', '#7ff7ff'][lv];
+    const name = ['황금 광맥!', '거대 황금 광맥!!', '전설의 황금 광맥!!!'][lv], color = ['#ffd34a', '#ff8af0', '#7ff7ff'][lv];
     document.body.classList.add('jackpot'); setTimeout(() => document.body.classList.remove('jackpot'), ms);
-    banner(name, `황금 곡괭이 ${r.comboN}개 · 대미지 ×${fmt(r.combo)}`, color, ms);
+    banner(name, `황금 곡괭이 ${r.comboN}개 · 황금 연타 ×${fmt(r.combo)}`, color, ms);
     Sound.play('chestBig'); if (lv) Sound.play('fanfare');
     for (let k = 0; k < [2, 5, 9][lv]; k++) setTimeout(() => { flash(k % 2 ? '#fff' : color, .8, 260); shake($('#arena'), 8 + lv * 5, 300); }, k * 280);
     coinShower([30, 80, 160][lv]);
@@ -844,7 +844,7 @@
     const S = I.SYMS[k];
     Sound.play('fanfare');
     if (auto) { banner('새 심볼!', S.name, '#7ff7ff', 1800); toast(`✨ 새 심볼 ${S.name}: ${S.desc}`); await wait(1500); }
-    else await modal(`<h3>✨ 새 심볼 해금!</h3><div class="capture"><img src="${ICON[k]}" alt="" style="width:110px;height:110px;object-fit:contain"><b>${S.name}</b><small>${S.desc}</small></div><p>이제 슬롯에 ${S.name}${(S.name.charCodeAt(S.name.length - 1) - 0xac00) % 28 ? '이' : '가'} 나와요</p>`, '좋아요');
+    else await modal(`<h3>✨ 새 심볼 해금!</h3><div class="capture"><img src="${ICON[k]}" alt="" style="width:110px;height:110px;object-fit:contain"><b>${S.name}</b><small>${S.desc}</small></div><p>이제 광맥 탐지에 ${S.name}${(S.name.charCodeAt(S.name.length - 1) - 0xac00) % 28 ? '이' : '가'} 나와요</p>`, '좋아요');
   }
 
   // ---------- 심볼 설명 말풍선: 슬롯 칸에 마우스를 올리거나 터치하면 ----------
@@ -1258,7 +1258,7 @@
       case 'chest': return `📦 확률 ${pctOf('chest', st.lv)} → <b>${pctOf('chest', L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
       case 'coin': return `처치 광석 ×${f2(S.coinX(lv))} → <b>×${f2(S.coinX(nx))}</b>`;
       case 'dur': return `내구도 ${fmt(S.dur(lv))} → <b>${fmt(S.dur(nx))}</b> · 반격 ${Math.floor(S.dur(nx) / I.mobAtk(st.floor))}대 버팀`;
-      case 'cells': return `슬롯 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 콤보·잭팟이 쉬워요`;
+      case 'cells': return `탐지 칸 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 콤보·황금 광맥이 쉬워요`;
     }
     return '';
   }
@@ -1276,7 +1276,7 @@
         if (k === 'dur') { st.dur += I.maxDur(st) - durBefore; setDur(); }
         Sound.play('coin');
         recalc();
-        if (k === 'cells') { buildCells(); toast('슬롯 칸이 늘었어요!'); }
+        if (k === 'cells') { buildCells(); toast('탐지 칸이 늘었어요!'); }
         const row = b.closest('.up'); row.animate([{ background: '#fff3a0' }, { background: '' }], { duration: 400 });
         row.querySelector('.ui').animate([{ transform: 'scale(1.35) rotate(-12deg)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.3,1.6,.5,1)' });
         // 강화하면 광부가 잠깐 빛남 → "세졌다"를 화면 위쪽에서도 느끼게
@@ -1299,7 +1299,7 @@
       const un = I.unlocked(st);
       const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
         return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(Math.max(0, S.u - 1))} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
-      L.innerHTML = `<p class="dexh">🎰 슬롯 심볼 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
+      L.innerHTML = `<p class="dexh">⛏ 광맥 그림 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
         <p class="dexh">⛏ 곡괭이 도감 <b>${I.dexCount(st)}</b> / 40 · 처음 만들 때마다 공격력 +2% (지금 +${I.dexCount(st) * 2}%)</p>
         <div class="pkdex"><span></span>${PICKS.map((p, g) => `<span class="gh">${g + 1}</span>`).join('')}${I.PICK.types.map((T, t) => `<b style="color:${T.c}">${T.e}</b>${PICKS.map((p, g) => `<div class="pd ${dx[t + ':' + g] ? 'on' : ''}" style="--tc:${T.c}"><img src="${pickSrc(g)}" alt=""></div>`).join('')}`).join('')}</div>
         <p class="muted" style="text-align:center;font-size:11px">${I.PICK.types.map((T, t) => `${T.e} 최고 ${I.gradeName((st.pkStar || {})[t] || 0)}`).join(' · ')}</p>
