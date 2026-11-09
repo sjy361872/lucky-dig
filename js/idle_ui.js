@@ -81,7 +81,11 @@
   const cur = () => Math.min(7, (st.eq && st.eq.g) || 0);          // 그림 등급 (무지개★ 는 무지개 그림)
   const TY = t => I.PICK.types[t];
   const stars = g => g > 7 ? `<i class="star">★${g - 7}</i>` : '';
-  const pickSrc = t => `assets/picks/pick${t + 1}.webp`;
+  // 그림 시험용: ?art=pixel (도트) · ?art=2d (굵은 외곽선) → assets/test 그림으로 바꿔 보기. 평소엔 영향 없음
+  const ART = ['pixel', '2d'].includes(new URLSearchParams(location.search).get('art')) ? new URLSearchParams(location.search).get('art') : null;
+  if (ART) document.documentElement.classList.add('art-' + ART);
+  const artSrc = n => ART === 'pixel' ? `assets/test/px_${n}.png` : `assets/test/2d_${n}.webp`;
+  const pickSrc = t => ART ? artSrc(t < 4 ? 'pick1' : 'pick2') : `assets/picks/pick${t + 1}.webp`;
   function showPick() {
     const t = cur(), el = $('#pick');
     el.dataset.t = t; el.dataset.k = `${st.eq.t}:${st.eq.g}`; el.style.setProperty('--pc', PICKS[t].c);
@@ -295,7 +299,9 @@
       const el = cellEls[i]; if (!el) return;
       el.dataset.sym = s;
       const to = r ? r.res[i] : s;
+      const lab = el.querySelector('.clab');       // 효과 이름표는 다음 슬롯까지 남겨 둠 (전엔 여기서 지워져 0.3초 만에 사라졌음)
       el.innerHTML = img(s) + (r && s === 'rainbow' ? `<em class="wildto">${img(to)}</em>` : '') + (r && r.boosted[i] ? '<b class="x2">×2</b>' : '');
+      if (lab) el.appendChild(lab);
       const on = !!(r && r.comboSym && to === r.comboSym);
       el.classList.toggle('combo', on);
       el.classList.toggle('chest', s === 'chest' || s === 'mimic');
@@ -342,7 +348,7 @@
   // ---------- 몬스터 ----------
   let mob = null, mobHp = 0, mobMax = 1, mode = 'auto', alive = true;
   // 몬스터 그림 미리 받아 두기: 지금 광산 + 다음 광산
-  const sprOf = card => C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
+  const sprOf = card => ART ? artSrc((card.idx || 0) % 2 ? 'golem' : 'beetle') : C.cardImg(card).replace('assets/cards/', 'assets/mobs/').replace('.jpg', '.webp');
   const imgCache = {};
   function preload(src) { return imgCache[src] || (imgCache[src] = Object.assign(new Image(), { src })); }
   let preMine = null;
@@ -489,6 +495,29 @@
     if (mode === 'auto') newMob();          // 그 사이 보스전이 시작됐으면 보스를 일반 몬스터로 덮어쓰지 않음
   }
 
+  // ---------- 잭팟 관통 (docs/jackpot-pierce.md) ----------
+  // 잭팟으로 몬스터를 잡으면 다음 일반 몬스터 N마리(=N스테이지)를 한 번에 뚫고 내려감. 보스 앞에서 멈춤
+  //  비교용: 주소에 ?pierce=0 이면 끔
+  const PIERCE_OFF = /[?&]pierce=0/.test(location.search);
+  async function pierce(r) {
+    const max = PIERCE_OFF ? 0 : I.pierceMax(r.comboN);
+    let n = 0;
+    while (n < max && mode === 'auto' && alive && !I.bossReady(st)) {
+      n++;
+      const mi = $('#pick'); mi.classList.remove('swing'); void mi.offsetWidth; mi.classList.add('swing');
+      await wait(90);
+      const [x, y] = arenaXY($('#mob .mimg'));
+      hitBurst(x, y, true, n >= 3);
+      flash('#ffd34a', .35, 180); shake($('#arena'), 6 + n * 1.5);
+      Sound.play('hit', { type: 'diamond', ratio: .5 });
+      floatAt(220, 120, `⛏ ${n}층 관통!`, 'combo', 900, { punch: 1.4 + n * .08 });
+      mobHp = 0; setHp();
+      await killMob(true);
+    }
+    if (n) tip('pierce', '⭐ 잭팟으로 잡으면 다음 몬스터들까지 한 번에 뚫고 내려가요!');
+    if (n) { banner(`${n}층 관통!`, I.bossReady(st) ? '보스 앞까지 뚫었어요' : `잭팟의 힘으로 ${n}스테이지 돌파`, '#ffd34a', 1300); refreshTop(); }
+  }
+
   // ---------- 자동 사냥 루프 ----------
   // 평소엔 곡괭이가 그냥 때림(슬롯 없음) → 때릴 때마다 슬롯 게이지가 참
   // 게이지가 꽉 차면 슬롯이 반짝 → 터치하면(방치 중이면 잠시 뒤 자동) 큰 슬롯이 천천히 돌아감
@@ -566,7 +595,7 @@
       if (mode !== 'auto') continue;
       if (st.dur <= 0 && !breaking) { await breakPick(); continue; }
       if (r.fx && r.fx.jackGold) await wait([600, 1800, 3000][Math.min(5, r.comboN) - 3]);
-      if (mobHp <= 0 && alive && mode === 'auto') await killMob();
+      if (mobHp <= 0 && alive && mode === 'auto') { await killMob(); if (r.jackpot) await pierce(r); }
       refreshTop();
       // 자동 도전: 켜져 있거나, 이미 깬 스테이지로 되돌아온 경우(파손 뒤 복귀)엔 보스도 자동
       if (mode === 'auto' && I.bossReady(st) && (st.auto || st.floor < st.best)) { await bossFight(true); continue; }
