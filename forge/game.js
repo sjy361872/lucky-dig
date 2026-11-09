@@ -9,15 +9,16 @@
   const FONT = '"Black Han Sans", sans-serif';
   const $ = id => document.getElementById(id);
 
-  // ---------- 규칙 ----------
+  // ---------- 규칙 (docs/forge-pick-gdd.md 11~12장) ----------
+  const FIX = Q.get('fix') === '1';   // 비교 모드: 등급을 일반으로 고정
   const MATS = {
-    iron: { name: '철', ico: '⬛', col: 0x9aa3ad, desc: '공격력 +4' },
-    crystal: { name: '수정', ico: '💎', col: 0x5fe0ff, desc: '파편 (타격의 35%)' },
-    fire: { name: '화염석', ico: '🔥', col: 0xff8a3c, desc: '화상 (타격의 30%)' },
+    iron: { name: '철', ico: '⬛', col: 0xc9d2dc, short: '한 방 +4' },
+    crystal: { name: '수정', ico: '💎', col: 0x5fe0ff, short: '파편' },
+    fire: { name: '화염석', ico: '🔥', col: 0xff8a3c, short: '화상' },
   };
   const SHAPES = {
-    fast: { name: '연타형', desc: '빠르게 여러 번 (초당 2.8회)<br>한 방은 약함', every: 0.36, mult: 0.5, picks: 2 },
-    heavy: { name: '강타형', desc: '느리지만 묵직한 한 방<br>(초당 0.9회)', every: 1.15, mult: 1.6, picks: 1 },
+    fast: { name: '연타형', line: '빠르게 여러 번 · 한 방은 약함', every: 0.36, mult: 0.5, picks: 2 },
+    heavy: { name: '강타형', line: '느리지만 묵직한 한 방', every: 1.15, mult: 1.6, picks: 1 },
   };
   const GRADES = [
     { name: '일반', col: '#d0d0d0', hex: 0xd0d0d0, mult: 1.0, tex: 'pick1' },
@@ -26,24 +27,34 @@
   ];
   const ODDS = acc => acc >= 95 ? [15, 55, 30] : acc >= 80 ? [35, 50, 15] : acc >= 50 ? [60, 35, 5] : [85, 14, 1];
   const UPG = 0.2;
+  const SHARD_PCT = 0.35, FIRE_PCT = 0.30, FIRE_SEC = 2;
+  // 현장: 서로 다른 질문 — 지지석(준비하고 칠까 바로 칠까) · 공명(짧은 기회를 언제 열까) · 수호자(조합 시험)
   const STAGES = [
-    { name: '무른 광석 무리', ico: '🟠', time: 12, type: 'count', need: 10,
-      txt: '작은 광석이 쉬지 않고 나와요 (체력 18).<br><b>12초 안에 10개</b> 깨기', short: '작은 광석이 쉬지 않고 나옴' },
-    { name: '철갑 광맥', ico: '🛡️', time: 12, type: 'main', main: { tex: 'armor', hp: 260, armor: 9 },
-      txt: '한 번 칠 때마다 <b class="warn">피해 9를 막아요</b>.<br>약한 연타는 거의 안 들어가요. <b>12초 안에</b> 파괴', short: '한 방에 피해 9씩 막음' },
-    { name: '수호자', ico: '👁️', time: 24, type: 'boss', main: { tex: 'guardian', hp: 640, armor: 3 },
-      txt: '체력이 아주 많아요. 절반이 되면 <b class="warn">보호막</b>을 치고 작은 광석 2개를 불러요 (그걸 깨야 보호막이 풀려요).<br><b>24초 안에</b> 쓰러뜨리기', short: '체력 많음 · 절반에서 보호막 + 작은 광석' },
+    { key: 'brace', name: '막힌 갱도 뚫기', ico: '⛏️', time: 20,
+      center: { tex: 'main', hp: 300, armor: 9 }, side: { tex: 'soft', hp: 50, armor: 0 }, armorSteps: [9, 4, 0],
+      txt: '중앙 암벽은 칠 때마다 <b class="warn">피해 9를 막아요</b>.<br>양옆 지지석(체력 50, 방어 0)을 깨면 중앙 방어가 <b>9 → 4 → 0</b>.<br><b>20초 안에</b> 중앙 암벽 파괴 · 광석을 누르면 그걸 먼저 쳐요',
+      short: '중앙 방어 9 · 지지석을 깨면 9 → 4 → 0', goal: '중앙 암벽 파괴' },
+    { key: 'reso', name: '공명 수정', ico: '💠', time: 20,
+      center: { tex: 'reso', hp: 280, armor: 8 }, side: { tex: 'reso', hp: 40, armor: 0, respawn: 5 }, vuln: 4,
+      txt: '중앙 수정은 <b class="warn">방어 8</b>. 연결된 작은 수정을 깨면 중앙이 <b>4초 동안 취약</b>(방어 0, 피해 ×1.5).<br>취약 중에 또 깨도 시간은 안 늘어나요. 작은 수정은 5초 뒤 다시 자라요.<br><b>20초 안에</b> 중앙 파괴',
+      short: '중앙 방어 8 · 작은 수정을 깨면 4초 취약(피해 ×1.5)', goal: '중앙 수정 파괴' },
+    { key: 'guard', name: '광맥 수호자', ico: '👁️', time: 24,
+      center: { tex: 'guardian', hp: 500, armor: 3 }, stone: { tex: 'cursed', hp: 40, armor: 0 }, phaseAt: 0.6,
+      txt: '핵: 체력 500, 방어 3. 체력 60%에서 <b class="warn">보호막(무적)</b> + 보호석 2개(체력 40).<br>보호석을 모두 깨면 보호막이 풀려요. 화상도 보호막엔 막혀요.<br><b>24초 안에</b> 쓰러뜨리기',
+      short: '핵 방어 3 · 체력 60%에서 보호막 + 보호석 2개', goal: '수호자 쓰러뜨리기' },
   ];
 
-  const G = { stage: 0, upg: 0, pick: null, cand: null, recraft: false, tries: [0, 0, 0], log: [] };
+  const G = { stage: 0, upg: 0, pick: null, recraft: false, tries: [0, 0, 0], log: [] };
+  const nMat = (mats, k) => mats.filter(m => m === k).length;
   function stats(p, upg = G.upg) {
-    const n = k => p.mats.filter(m => m === k).length;
+    const n = k => nMat(p.mats, k);
     const base = 8 + 4 * n('iron') + 2 * (n('crystal') + n('fire'));
     const S = SHAPES[p.shape];
     const hit = base * (1 + UPG * upg) * GRADES[p.grade].mult * S.mult;
-    return { hit, every: S.every, dps: hit / S.every, shards: n('crystal'), fire: n('fire'), iron: n('iron') };
+    return { hit, every: S.every, rate: 1 / S.every, dps: hit / S.every, shards: n('crystal'), fire: n('fire'), iron: n('iron') };
   }
   const r1 = x => (Math.round(x * 10) / 10).toString();
+  const vsArmor = (hit, a) => `${r1(hit)} − ${a} → <b>${r1(Math.max(1, hit - a))}</b>`;
 
   // ---------- 효과음 ----------
   let AC = null, muted = false;
@@ -90,31 +101,52 @@
     G.recraft = recraft; draft = { mats: [], shape: null };
     toForge(); show('pMat'); renderMats();
   }
+  function matLines(mats) {
+    const L = [];
+    const ni = nMat(mats, 'iron'), nc = nMat(mats, 'crystal'), nf = nMat(mats, 'fire');
+    if (ni) L.push(`⬛ <b>철 ×${ni}</b> — 기본 피해 +${4 * ni}`);
+    if (nc) L.push(`💎 <b>수정 ×${nc}</b> — 칠 때마다 한 방의 <b>${35 * nc}%</b>를 다른 광석들에 나눠 줌 (방어 적용)`);
+    if (nf) L.push(`🔥 <b>화염석 ×${nf}</b> — 들어간 피해의 <b>${30 * nf}%</b>가 ${FIRE_SEC}초 동안 화상 (방어 무시)`);
+    return L;
+  }
   function renderMats() {
     $('slots').innerHTML = [0, 1, 2].map(i => {
       const m = draft.mats[i];
       return `<div class="slot ${m ? 'f' : ''}" data-i="${i}" style="${m ? `border-color:#${MATS[m].col.toString(16)}` : ''}">${m ? MATS[m].ico : ''}</div>`;
     }).join('');
     $('slots').querySelectorAll('.slot').forEach(el => el.onclick = () => { draft.mats.splice(+el.dataset.i, 1); renderMats(); });
-    $('mats').innerHTML = Object.entries(MATS).map(([k, m]) => `<button class="mat" data-k="${k}"><b>${m.ico}</b><span>${m.name}</span><small>${m.desc}</small></button>`).join('');
-    $('mats').querySelectorAll('.mat').forEach(el => el.onclick = () => { ac(); if (draft.mats.length < 3) { draft.mats.push(el.dataset.k); SFX.clink(); renderMats(); } });
+    $('mats').innerHTML = Object.entries(MATS).map(([k, m]) => `<button class="mat" data-k="${k}"><b>${m.ico}</b><span>${m.name}</span><small>${m.short}</small></button>`).join('');
+    $('mats').querySelectorAll('.mat').forEach(el => el.onclick = () => {
+      ac(); if (draft.mats.length >= 3) return;
+      draft.mats.push(el.dataset.k); SFX.clink(); sceneF()?.feedFurnace(el.dataset.k); renderMats();
+    });
+    const L = matLines(draft.mats);
+    let h = L.length ? L.join('<br>') : '광석을 눌러 화로에 넣어요';
     if (draft.mats.length === 3) {
-      const s1 = stats({ mats: draft.mats, shape: 'fast', grade: 0 }), s2 = stats({ mats: draft.mats, shape: 'heavy', grade: 0 });
-      const extra = [s1.shards ? `파편 ${s1.shards}개` : '', s1.fire ? `화상 ×${s1.fire}` : ''].filter(Boolean).join(' · ');
-      $('matPrev').innerHTML = `예상 한 방: 연타형 <b>${r1(s1.hit)}</b> · 강타형 <b>${r1(s2.hit)}</b>${extra ? ' · ' + extra : ''}`;
-    } else $('matPrev').textContent = `${3 - draft.mats.length}칸 남음`;
+      const a = stats({ mats: draft.mats, shape: 'fast', grade: 0 }), b = stats({ mats: draft.mats, shape: 'heavy', grade: 0 });
+      h += `<div class="mini">한 방: 연타형 <b>${r1(a.hit)}</b>(초당 ${r1(a.rate)}회) · 강타형 <b>${r1(b.hit)}</b>(초당 ${r1(b.rate)}회) <span class="note">일반 등급 기준</span></div>`;
+    } else h += `<div class="mini">${3 - draft.mats.length}칸 남음</div>`;
+    $('matPrev').innerHTML = h;
     $('bMatNext').disabled = draft.mats.length < 3;
-    sceneF()?.setFurnace(draft.mats);
+    const f = sceneF(); if (f && f.sys.isActive()) { f.setFurnace(draft.mats); f.testRig(draft.mats, draft.shape || 'fast'); }
   }
   $('bMatNext').onclick = () => { show('pShape'); renderShapes(); };
   function renderShapes() {
+    const next = STAGES[G.stage];
+    $('shapeNext').innerHTML = `다음 현장: <b>${next.ico} ${next.name}</b> — ${next.short}`;
     $('shapes').innerHTML = Object.entries(SHAPES).map(([k, s]) => {
       const st = stats({ mats: draft.mats, shape: k, grade: 0 });
       const img = k === 'fast' ? '<span class="two"><img src="img/pick1.webp"><img src="img/pick1.webp" style="transform:scaleX(-1)"></span>' : '<img src="img/pick1.webp" style="height:80px">';
-      return `<button class="shape" data-k="${k}">${img}<b>${s.name}</b><small>${s.desc}<br>한 방 ${r1(st.hit)} · 초당 ${r1(st.dps)}</small></button>`;
+      return `<button class="shape ${draft.shape === k ? 'sel' : ''}" data-k="${k}">${img}<b>${s.name}</b><small>${s.line}<br>한 방 <b>${r1(st.hit)}</b> · 초당 <b>${r1(st.rate)}</b>회<br>방어 9 상대: ${vsArmor(st.hit, 9)}</small></button>`;
     }).join('');
-    $('shapes').querySelectorAll('.shape').forEach(el => el.onclick = () => { ac(); draft.shape = el.dataset.k; startAction(); });
+    $('shapes').querySelectorAll('.shape').forEach(el => el.onclick = () => {
+      ac(); draft.shape = el.dataset.k; SFX.clink(); renderShapes();
+      const f = sceneF(); if (f && f.sys.isActive()) f.testRig(draft.mats, draft.shape);
+    });
+    $('bShapeGo').disabled = !draft.shape;
+    $('bShapeGo').textContent = draft.shape ? `${SHAPES[draft.shape].name}으로 만들기 시작` : '모양을 골라 주세요';
   }
+  $('bShapeGo').onclick = () => { ac(); if (draft.shape) startAction(); };
   function startAction() {
     show('pAct');
     $('actTitle').textContent = MODE === 'a' ? '③ 날 새기기' : '③ 날 깎기';
@@ -124,10 +156,10 @@
     sceneF().beginAction(MODE, draft.shape, acc => reveal(acc));
   }
   function reveal(acc) {
-    const odds = ODDS(acc);
+    const odds = FIX ? [100, 0, 0] : ODDS(acc);
     show('pOdds');
     $('accTxt').innerHTML = `정확도 <span style="color:${acc >= 80 ? '#ffd54a' : '#fff'}">${Math.round(acc)}%</span>`;
-    $('odds').innerHTML = GRADES.map((g, i) => `<span style="color:${g.col}">${g.name} ${odds[i]}%</span>`).join('');
+    $('odds').innerHTML = FIX ? '<span>비교 모드: 등급 일반 고정</span>' : GRADES.map((g, i) => `<span style="color:${g.col}">${g.name} ${odds[i]}%</span>`).join('');
     let r = Math.random() * 100, grade = 0;
     if (r < odds[2]) grade = 2; else if (r < odds[2] + odds[1]) grade = 1;
     const p = { mats: draft.mats.slice(), shape: draft.shape, grade, acc: Math.round(acc) };
@@ -141,7 +173,8 @@
     $('pkTags').innerHTML = p.mats.map(m => `<span class="tag t-${m}">${MATS[m].ico} ${MATS[m].name}</span>`).join('') + (G.upg ? ` <span class="tag" style="background:#3d6b2a">강화 +${G.upg}</span>` : '');
     const old = G.recraft && G.pick ? stats(G.pick) : null;
     const cmp = (v, o) => o == null ? '' : `<small style="color:${v >= o ? '#5be37d' : '#ff5a5f'};font-size:11px"> (${v >= o ? '+' : ''}${r1(v - o)})</small>`;
-    $('pkStats').innerHTML = `<div>한 방<b>${r1(st.hit)}${cmp(st.hit, old?.hit)}</b></div><div>초당 피해<b>${r1(st.dps)}${cmp(st.dps, old?.dps)}</b></div><div>특수<b style="font-size:14px">${[st.shards ? `파편 ${st.shards}` : '', st.fire ? `화상 ${st.fire}` : ''].filter(Boolean).join(' · ') || '-'}</b></div>`;
+    $('pkStats').innerHTML = `<div>한 방<b>${r1(st.hit)}${cmp(st.hit, old?.hit)}</b></div><div>초당 횟수<b>${r1(st.rate)}</b></div><div>초당 피해<b>${r1(st.dps)}${cmp(st.dps, old?.dps)}</b></div>`;
+    $('pkTags').innerHTML += `<div class="sub" style="margin:8px 0 0;text-align:left">${matLines(p.mats).join('<br>')}</div>`;
     if (G.recraft && G.pick) {
       $('pkBtns').innerHTML = `<div class="row"><button class="btn" id="bUseNew">새 곡괭이 쓰기</button><button class="btn alt" id="bKeep">기존 유지</button></div>`;
       $('bUseNew').onclick = () => { G.pick = p; stageIntro(); };
@@ -205,8 +238,20 @@
   }
   function preloadAll(sc) {
     sc.load.image('forge_bg', 'img/forge_bg.jpg');
-    for (const t of ['soft', 'armor', 'guardian', 'cursed']) sc.load.image(t, `img/${t}.png`);
+    for (const t of ['soft', 'armor', 'guardian', 'cursed', 'main', 'reso']) sc.load.image(t, `img/${t}.png`);
     for (const t of ['pick1', 'pick4', 'pick8']) sc.load.image(t, `img/${t}.webp`);
+  }
+
+  // 곡괭이가 대상(x, y, size)을 내려치는 자세 계산: side 1 = 오른쪽에서(머리가 왼쪽), -1 = 왼쪽에서
+  function aimGeom(img, side, x, y, size, scale) {
+    const flip = side === 1, dist = size * 0.5 + 120 * scale;
+    const px = x + side * dist, py = y + 40 * size / 300;
+    const tw = img.width, th = img.height, ox = flip ? 0.88 : 0.12, hx = flip ? 0.4 : 0.6;
+    const vx = (hx - ox) * tw, vy = (0.15 - 0.95) * th;
+    const aimX = x + side * size * 0.12, aimY = y - size * 0.05;
+    const strike = Math.atan2(aimY - py, aimX - px) - Math.atan2(vy, vx);
+    const reach = Math.hypot(aimX - px, aimY - py) / Math.hypot(vx, vy);
+    return { px, py, flip, ox, strike, sc: Phaser.Math.Clamp(reach, scale * 0.8, scale * 1.15), side, aimX, aimY };
   }
 
   // ===================================================================
@@ -229,9 +274,10 @@
       this.add.particles(0, 0, 'dot', { x: { min: this.furnace.x - 60, max: this.furnace.x + 60 }, y: this.furnace.y - 20, speedY: { min: -120, max: -40 }, speedX: { min: -20, max: 30 }, lifespan: 1600, scale: { start: 0.7, end: 0 }, tint: [0xffb04a, 0xff7a1a, 0xffe08a], frequency: 90, blendMode: 'ADD' });
       this.matIcons = this.add.container(0, 0);
       this.layer = this.add.container(0, 0);
-      this.spark = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 120, max: 380 }, angle: { min: 0, max: 360 }, gravityY: 900, lifespan: 500, scale: { start: 0.9, end: 0 }, tint: [0xffe08a, 0xffb04a, 0xffffff], blendMode: 'ADD' }).setDepth(20);
+      this.spark = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 120, max: 380 }, angle: { min: 0, max: 360 }, gravityY: 900, lifespan: 500, scale: { start: 0.9, end: 0 }, tint: [0xffe08a, 0xffb04a, 0xffffff], blendMode: 'ADD' }).setDepth(40);
+      this.flameBurst = this.add.particles(0, 0, 'flame', { emitting: false, speedY: { min: -120, max: -50 }, speedX: { min: -30, max: 30 }, lifespan: 500, scale: { start: 1.3, end: 0 }, tint: [0xff8a3c, 0xffd27a], blendMode: 'ADD' }).setDepth(41);
       this.input.on('pointerdown', () => ac());
-      if (draft) this.setFurnace(draft.mats);
+      if (draft) { this.setFurnace(draft.mats); this.testRig(draft.mats, draft.shape || 'fast'); }
     }
     setFurnace(mats) {
       if (!this.matIcons) return;
@@ -241,6 +287,73 @@
         this.matIcons.add(t);
         this.tweens.add({ targets: t, y: t.y - 8, duration: 500 + i * 80, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       });
+    }
+
+    // ---- 재료를 화로에 넣는 연출 ----
+    feedFurnace(k) {
+      const m = MATS[k];
+      const t = this.add.text(W / 2, H * 0.62, m.ico, { fontSize: '64px' }).setOrigin(0.5).setDepth(35);
+      this.tweens.add({ targets: t, x: this.furnace.x, y: this.furnace.y + 10, scale: 0.6, duration: 380, ease: 'Quad.In', onComplete: () => {
+        t.destroy();
+        this.fireGlow.setTint(m.col); this.time.delayedCall(700, () => this.fireGlow?.active && this.fireGlow.setTint(0xff8a3c));
+        const f = this.add.image(this.furnace.x, this.furnace.y, 'glow').setScale(3).setTint(m.col).setBlendMode(Phaser.BlendModes.ADD).setDepth(34);
+        this.tweens.add({ targets: f, scale: 9, alpha: 0, duration: 500, onComplete: () => f.destroy() });
+        this.spark.explode(24, this.furnace.x, this.furnace.y);
+        noise(0.3, 1500, 0.3); tone(220, 90, 0.3, 0.2);
+      } });
+    }
+    // ---- 시험대: 지금 고른 조합이 어떻게 치는지 반복해서 보여 줌 ----
+    testRig(mats, shape) {
+      this.rigTimer?.remove(); this.rig?.destroy(true); this.rig = null;
+      const top = 70, h = 330, cx = W / 2, cy = top + 175;
+      const rig = this.rig = this.add.container(0, 0).setDepth(30);
+      const box = this.add.graphics(); box.fillStyle(0x120c10, 0.74); box.fillRoundedRect(28, top, W - 56, h, 22); box.lineStyle(3, 0x6a4a38, 1); box.strokeRoundedRect(28, top, W - 56, h, 22);
+      rig.add(box);
+      rig.add(this.add.text(50, top + 14, '시험대', { fontFamily: FONT, fontSize: '28px', color: '#ffd54a' }));
+      rig.add(this.add.text(W - 50, top + 20, '일반 등급 기준', { fontFamily: 'sans-serif', fontSize: '18px', color: '#c4ab98' }).setOrigin(1, 0));
+      const st = stats({ mats, shape, grade: 0 });
+      const mk = (x, y, tex, size) => { const i = this.add.image(x, y, tex).setScale(size / 256); rig.add(i); return { img: i, x, y, size }; };
+      const C = mk(cx, cy, 'main', 150), L = mk(cx - 205, cy + 45, 'soft', 80), R = mk(cx + 205, cy + 45, 'soft', 80);
+      rig.add(this.add.text(cx, top + h - 26, mats.length ? `${SHAPES[shape].name} · 한 방 ${r1(st.hit)} · 초당 ${r1(st.rate)}회` : '재료를 넣으면 여기서 미리 쳐 봐요',
+        { fontFamily: 'sans-serif', fontSize: '21px', color: '#fbefe2', fontStyle: 'bold' }).setOrigin(0.5));
+      if (!mats.length) return;
+      const n = SHAPES[shape].picks, sc = n === 2 ? 0.34 : 0.5, picks = [];
+      for (let i = 0; i < n; i++) {
+        const img = this.add.image(0, 0, 'pick1'); rig.add(img);
+        const side = i === 0 ? 1 : -1, g = aimGeom(img, side, C.x, C.y, C.size, sc);
+        img.setFlipX(g.flip).setOrigin(g.ox, 0.95).setScale(g.sc).setPosition(g.px, g.py).setRotation(g.strike + side * 0.55);
+        picks.push({ img, g, side });
+      }
+      const pop = (x, y, txt, col, size) => {
+        const t = this.add.text(x, y, txt, { fontFamily: FONT, fontSize: size + 'px', color: col, stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+        rig.add(t); this.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 750, onComplete: () => t.destroy() });
+      };
+      let turn = 0;
+      const hit = () => {
+        if (this.rig !== rig) return;
+        const p = picks[turn++ % picks.length], g = p.g, heavy = shape === 'heavy';
+        this.tweens.chain({ targets: p.img, tweens: [
+          { rotation: g.strike + p.side * (heavy ? 1.1 : 0.8), duration: heavy ? 380 : 90, ease: 'Sine.Out' },
+          { rotation: g.strike, duration: 70, ease: 'Quad.In', onComplete: () => {
+            if (this.rig !== rig) return;
+            C.img.setTintFill(0xffffff); this.time.delayedCall(40, () => C.img.active && C.img.clearTint());
+            this.spark.explode(heavy ? 14 : 5, g.aimX, g.aimY);
+            pop(g.aimX, g.aimY - 20, r1(st.hit), '#ffffff', heavy ? 40 : 28);
+            SFX.hit(heavy ? 0.7 : 0.15);
+            if (st.shards) [L, R].forEach((t, i) => {
+              const d = st.hit * SHARD_PCT * st.shards / 2, sh = this.add.image(g.aimX, g.aimY, 'shard').setScale(1.1).setBlendMode(Phaser.BlendModes.ADD); rig.add(sh);
+              this.tweens.add({ targets: sh, x: t.x, y: t.y, duration: 260 + i * 40, ease: 'Sine.In', onComplete: () => { sh.destroy(); if (this.rig === rig) pop(t.x, t.y - 30, r1(d), '#9ff7ff', 22); } });
+            });
+            if (st.fire) {
+              const tot = st.hit * FIRE_PCT * st.fire;
+              [0, 1, 2, 3].forEach(k => this.time.delayedCall(250 + k * 450, () => { if (this.rig === rig) { pop(C.x + Phaser.Math.Between(-40, 40), C.y - 30, r1(tot / 4), '#ff9a4a', 20); this.flameBurst.explode(4, C.x + Phaser.Math.Between(-40, 40), C.y - 20); } }));
+            }
+          } },
+          { rotation: g.strike + p.side * 0.55, duration: 160, ease: 'Sine.Out' },
+        ] });
+      };
+      this.rigTimer = this.time.addEvent({ delay: Math.max(520, SHAPES[shape].every * 1000 * (shape === 'fast' ? 1.5 : 1.1)), loop: true, callback: hit });
+      this.time.delayedCall(200, hit);
     }
 
     // ---- 달군 금속 (작업물) ----
@@ -258,8 +371,15 @@
       for (let i = 0; i < 9; i++) { const p = pts[i % pts.length], t = 0.25 + ((i * 37) % 50) / 100; g.fillEllipse(cx + (p.x - cx) * t + ((i * 53) % 40 - 20), cy + (p.y - cy) * t * 0.6, 18 + (i * 7) % 14, 8 + (i * 5) % 6); }
       g.lineStyle(4, 0x2a0a02, a); g.strokePoints(pts, true, true);
       g.lineStyle(2, 0xffe2a0, 0.5 * a); g.strokePoints(inset(0.97).map(p => ({ x: p.x, y: p.y - 2 })), true, true);
+      // 재료가 금속에 보이게: 철 = 은빛 결, 수정 = 박힌 결정 (화염석은 불꽃 입자)
+      const dm = this.decoMats || [], ni = nMat(dm, 'iron'), nc = nMat(dm, 'crystal');
+      for (let i = 0; i < ni; i++) { g.lineStyle(4, 0xf2f6ff, 0.55 * a); const y0 = cy - 28 + i * 26; g.lineBetween(cx - 120 + i * 24, y0, cx + 50 + i * 24, y0 - 16); }
+      const spots = [[-105, -15], [85, 12], [-15, 32], [125, -30], [-150, 30], [30, -38]];
+      for (let i = 0; i < nc * 2; i++) { const x = cx + spots[i][0], y = cy + spots[i][1]; g.fillStyle(0x3cc7e0, a); g.fillPoints([{ x, y: y - 15 }, { x: x + 10, y }, { x, y: y + 15 }, { x: x - 10, y }], true); g.fillStyle(0xe8fdff, a); g.fillPoints([{ x, y: y - 11 }, { x: x + 4, y }, { x, y: y + 2 }], true); }
     }
     beginAction(mode, shape, done) {
+      this.rigTimer?.remove(); this.rig?.destroy(true); this.rig = null;
+      this.decoMats = draft.mats.slice();
       this.layer.removeAll(true);
       this.done = done; this.shape = shape;
       this.glowBack = this.add.image(this.cx, this.cy, 'glow').setScale(9, 5).setTint(0xff7a1a).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD);
@@ -267,6 +387,8 @@
       this.slab = [{ x: -205, y: -88 }, { x: 205, y: -88 }, { x: 214, y: -70 }, { x: 214, y: 70 }, { x: 205, y: 84 }, { x: -205, y: 84 }, { x: -214, y: 70 }, { x: -214, y: -70 }];
       this.metal = this.add.graphics().setPosition(this.cx, this.cy); this.layer.add(this.metal);
       this.hotPoly(this.metal, this.slab);
+      const nf = nMat(this.decoMats, 'fire');
+      if (nf) { const fe = this.add.particles(this.cx, this.cy - 40, 'flame', { x: { min: -150, max: 150 }, speedY: { min: -90, max: -30 }, lifespan: 600, scale: { start: 1.3, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 90 / nf, blendMode: 'ADD' }); this.layer.add(fe); }
       this.tweens.add({ targets: this.glowBack, alpha: 0.75, duration: 600, yoyo: true, repeat: -1 });
       SFX.sizzle();
       if (mode === 'a') this.beginTrace(); else this.beginCut();
@@ -471,11 +593,11 @@
   }
 
   // ===================================================================
-  // 광산 장면: 자동 전투 (제한 시간)
+  // 광산 장면: 의뢰 현장 · 자동 전투 + 광석 눌러 우선순위
   // ===================================================================
   const OY = Math.round((H - 1000) * 0.45);
-  const POS = { C: { x: 360, y: 520 + OY, size: 300 }, L: { x: 132, y: 800 + OY, size: 170 }, R: { x: 588, y: 800 + OY, size: 170 } };
-  const COLOR = { soft: 0xc0702c, armor: 0x5d636c, guardian: 0x8a6aa8, cursed: 0x6b4a8a };
+  const POS = { C: { x: 360, y: 500 + OY, size: 300 }, L: { x: 132, y: 790 + OY, size: 170 }, R: { x: 588, y: 790 + OY, size: 170 } };
+  const COLOR = { soft: 0xc0702c, armor: 0x5d636c, guardian: 0x8a6aa8, cursed: 0x6b4a8a, main: 0x8d8a86, reso: 0x3cc7c0 };
   class Mine extends Phaser.Scene {
     constructor() { super('mine'); }
     preload() { preloadAll(this); }
@@ -489,119 +611,162 @@
       const fy = 875 + OY;
       g.fillStyle(0x2a1d22, 1); g.fillPoints([{ x: 0, y: fy + 25 }, { x: 180, y: fy }, { x: 360, y: fy + 15 }, { x: 540, y: fy - 3 }, { x: W, y: fy + 23 }, { x: W, y: H }, { x: 0, y: H }], true);
       this.add.image(W / 2, 520 + OY, 'glow').setScale(12).setAlpha(0.18).setTint(0xffa860).setDepth(-9);
-      this.ores = {}; this.picks = []; this.running = false;
-      this.chips = {};
+      this.ores = {}; this.picks = []; this.running = false; this.chips = {};
+      this.links = this.add.graphics().setDepth(1);
+      this.marker = this.add.ellipse(0, 0, 10, 10).setStrokeStyle(5, 0xffd54a, 1).setDepth(1).setVisible(false);
       this.flameFx = this.add.particles(0, 0, 'flame', { emitting: false, speedY: { min: -140, max: -60 }, speedX: { min: -30, max: 30 }, lifespan: 600, scale: { start: 1.6, end: 0 }, tint: [0xff8a3c, 0xffd27a, 0xff5a1a], blendMode: 'ADD' }).setDepth(7);
       this.hud = this.add.text(W / 2, 40, '', { fontFamily: FONT, fontSize: '34px', color: '#ffffff', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5, 0).setDepth(10);
       this.bar = this.add.graphics().setDepth(10);
+      this.tip = this.add.text(W / 2, H - 70, '', { fontFamily: 'sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#fbefe2', stroke: '#000', strokeThickness: 5, align: 'center' }).setOrigin(0.5).setDepth(10);
       this.input.on('pointerdown', () => ac());
     }
     startStage(idx, pick, upg, done) {
       this.S = STAGES[idx]; this.done = done; this.st = stats(pick, upg); this.pick = pick;
       Object.keys(this.ores).forEach(k => this.removeOre(k));
       this.picks.forEach(p => p.img.destroy()); this.picks = [];
-      this.count = 0; this.left = this.S.time; this.burns = []; this.shield = false; this.halfDone = false;
-      if (this.S.type === 'count') { ['C', 'L', 'R'].forEach(k => this.spawn(k, { tex: 'soft', hp: 18, armor: 0 }, 0.6)); }
-      else this.spawn('C', this.S.main, 1);
+      this.auras?.forEach(a => a.destroy()); this.auras = [];
+      this.focus = null; this.left = this.S.time; this.burns = []; this.shield = false; this.phased = false; this.vulnUntil = 0; this.broken = 0;
+      this.spawn('C', this.S.center);
+      if (this.S.side) { this.spawn('L', this.S.side); this.spawn('R', this.S.side); }
       const sh = SHAPES[pick.shape], tex = GRADES[pick.grade].tex;
       for (let i = 0; i < sh.picks; i++) this.picks.push({ img: this.add.image(0, 0, tex).setDepth(5), scale: sh.picks === 2 ? 0.62 : 0.95, side: i === 0 ? 1 : -1, busy: false });
-      // 재료 효과: 곡괭이에 불꽃·수정 빛
-      this.auras?.forEach(a => a.destroy()); this.auras = [];
       this.picks.forEach(p => {
         if (pick.mats.includes('fire')) this.auras.push(this.add.particles(0, 0, 'flame', { follow: p.img, followOffset: { x: 0, y: -40 }, speedY: { min: -60, max: -20 }, lifespan: 400, scale: { start: 1.1, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 70, blendMode: 'ADD' }).setDepth(6));
         if (pick.mats.includes('crystal')) this.auras.push(this.add.particles(0, 0, 'dot', { follow: p.img, lifespan: 500, scale: { start: 0.8, end: 0 }, tint: 0x9ff7ff, frequency: 110, blendMode: 'ADD', speed: 30 }).setDepth(6));
       });
       this.nextSwing = 0.5; this.pickTurn = 0;
-      this.picks.forEach(p => this.restPose(p, this.target()));
+      this.picks.forEach(p => this.restPose(p, this.target(), true));
+      this.showMarker();
       this.running = true; this.drawHud();
       const go = this.add.text(W / 2, H * 0.3, '시작!', { fontFamily: FONT, fontSize: '80px', color: '#ffd54a', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(12);
       this.tweens.add({ targets: go, scale: { from: 1.6, to: 1 }, alpha: { from: 1, to: 0 }, duration: 900, onComplete: () => go.destroy() });
     }
-    spawn(slot, d, sizeK) {
-      const p = POS[slot], size = (slot === 'C' ? p.size : p.size) * sizeK * (slot === 'C' && this.S.type !== 'count' ? 1 : 1);
-      const img = this.add.image(p.x, p.y, d.tex).setDepth(2); const s = size / 256; img.setScale(0);
+    spawn(slot, d) {
+      const p = POS[slot], size = p.size * (slot === 'C' ? 1 : 0.85);
+      const img = this.add.image(p.x, p.y, d.tex).setDepth(2).setInteractive({ useHandCursor: true }); const s = size / 256; img.setScale(0);
       this.tweens.add({ targets: img, scale: s, duration: 260, ease: 'Back.Out' });
       if (d.tex === 'guardian') this.tweens.add({ targets: img, scaleX: s * 1.04, scaleY: s * 0.97, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut', delay: 300 });
-      const bar = this.add.graphics().setDepth(4);
-      const o = { slot, d, img, s, size, bar, hp: d.hp, max: d.hp, alive: true, x: p.x, y: p.y };
+      img.on('pointerdown', () => this.setFocus(slot));
+      const o = { slot, d, img, s, size, bar: this.add.graphics().setDepth(4), cracks: this.add.graphics().setDepth(3).setPosition(p.x, p.y), hp: d.hp, max: d.hp, alive: true, x: p.x, y: p.y };
+      if (slot === 'C') o.badge = this.add.text(p.x, p.y - size * 0.58 - 34, '', { fontFamily: FONT, fontSize: '30px', color: '#ffffff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(5);
       this.ores[slot] = o; this.drawBar(o); return o;
     }
-    removeOre(k) { const o = this.ores[k]; if (!o) return; o.alive = false; o.img.destroy(); o.bar.destroy(); o.shieldG?.destroy(); delete this.ores[k]; }
+    removeOre(k) { const o = this.ores[k]; if (!o) return; o.alive = false; [o.img, o.bar, o.cracks, o.badge, o.shieldG, o.vulnG].forEach(x => x?.destroy()); delete this.ores[k]; }
     drawBar(o) {
       const w = o.size * 0.75, y = o.y - o.size * 0.58;
       o.bar.clear(); o.bar.fillStyle(0x000000, 0.6); o.bar.fillRoundedRect(o.x - w / 2 - 3, y - 3, w + 6, 16, 8);
-      o.bar.fillStyle(o.d.armor >= 5 ? 0x9db3c8 : 0x5be37d, 1); o.bar.fillRoundedRect(o.x - w / 2, y, Math.max(0, w * o.hp / o.max), 10, 5);
+      o.bar.fillStyle(this.armorOf(o) >= 5 ? 0x9db3c8 : 0x5be37d, 1); o.bar.fillRoundedRect(o.x - w / 2, y, Math.max(0, w * o.hp / o.max), 10, 5);
     }
+    // ---- 규칙 ----
+    canHit(o) { return o && o.alive && !(o.slot === 'C' && this.shield); }
+    vuln() { return this.S.key === 'reso' && this.time.now < this.vulnUntil; }
+    armorOf(o) {
+      if (o.slot !== 'C') return o.d.armor;
+      if (this.S.key === 'brace') return this.S.armorSteps[Math.min(2, this.broken)];
+      if (this.vuln()) return 0;
+      return o.d.armor;
+    }
+    // ---- 표적: 누른 광석 우선, 아니면 자동 (중앙 → 공격 가능한 것 중 체력 낮은 것) ----
     target() {
-      const alive = Object.values(this.ores).filter(o => o.alive);
-      if (!alive.length) return null;
-      if (this.S.type === 'count') return alive.sort((a, b) => a.hp - b.hp)[0];
-      if (this.shield) return alive.find(o => o.slot !== 'C') || alive[0];
-      return this.ores.C?.alive ? this.ores.C : alive[0];
+      const f = this.ores[this.focus];
+      if (this.focus && this.canHit(f)) return f;
+      if (this.focus) { this.focus = null; this.showMarker(); }
+      if (this.canHit(this.ores.C)) return this.ores.C;
+      return Object.values(this.ores).filter(o => this.canHit(o)).sort((a, b) => a.hp - b.hp)[0] || null;
     }
+    setFocus(slot) {
+      if (!this.running) return;
+      const o = this.ores[slot];
+      if (!this.canHit(o)) { if (o) this.num(o.x, o.y - o.size * 0.3, '보호막!', 0.3, '#9fc4ff'); return; }
+      this.focus = slot; this.showMarker(); SFX.clink();
+      this.picks.forEach(p => { if (!p.busy) this.restPose(p, o, false); });   // 곡괭이가 그쪽을 향함 (공격 타이밍은 그대로)
+    }
+    showMarker() {
+      const o = this.ores[this.focus];
+      if (!o) { this.marker.setVisible(false); this.tip.setText(this.running ? '광석을 누르면 그걸 먼저 쳐요' : ''); return; }
+      this.marker.setPosition(o.x, o.y + o.size * 0.44).setSize(o.size * 0.95, o.size * 0.24).setVisible(true);
+      this.tip.setText(`지금 먼저 치는 곳: ${o.slot === 'C' ? '중앙' : o.slot === 'L' ? '왼쪽' : '오른쪽'}`);
+    }
+    // ---- 곡괭이 ----
     geom(p, o) {
       let side = p.side; if (this.picks.length === 1) side = o.x > W / 2 + 10 ? -1 : 1;
-      const flip = side === 1, dist = o.size * 0.5 + 120 * p.scale;
-      const px = o.x + side * dist, py = o.y + 40, tw = p.img.width, th = p.img.height;
-      const ox = flip ? 0.88 : 0.12, hx = flip ? 0.4 : 0.6;
-      const vx = (hx - ox) * tw, vy = (0.15 - 0.95) * th;
-      const aimX = o.x + side * o.size * 0.12, aimY = o.y - o.size * 0.05;
-      const strike = Math.atan2(aimY - py, aimX - px) - Math.atan2(vy, vx);
-      const reach = Math.hypot(aimX - px, aimY - py) / Math.hypot(vx, vy);
-      return { px, py, flip, ox, strike, sc: Phaser.Math.Clamp(reach, p.scale * 0.8, p.scale * 1.15), side, aimX, aimY };
+      return aimGeom(p.img, side, o.x, o.y, o.size, p.scale);
     }
-    restPose(p, o) {
+    restPose(p, o, instant) {
       if (!o) return; const g = this.geom(p, o);
-      p.img.setFlipX(g.flip).setOrigin(g.ox, 0.95).setScale(g.sc).setPosition(g.px, g.py).setRotation(g.strike + g.side * 0.55);
+      p.img.setFlipX(g.flip).setOrigin(g.ox, 0.95).setScale(g.sc);
+      const rot = g.strike + g.side * 0.55;
+      if (instant) p.img.setPosition(g.px, g.py).setRotation(rot);
+      else this.tweens.add({ targets: p.img, x: g.px, y: g.py, rotation: rot, duration: 160, ease: 'Sine.Out' });
     }
     swing() {
       const o = this.target(); if (!o) return;
       const p = this.picks[this.pickTurn % this.picks.length]; this.pickTurn++;
       if (p.busy) return; p.busy = true;
       const heavy = this.pick.shape === 'heavy', g = this.geom(p, o);
-      p.img.setFlipX(g.flip).setOrigin(g.ox, 0.95).setScale(g.sc).setPosition(g.px, g.py);
+      p.img.setFlipX(g.flip).setOrigin(g.ox, 0.95).setScale(g.sc);
       this.tweens.chain({ targets: p.img, tweens: [
-        { rotation: g.strike + g.side * (heavy ? 1.15 : 0.9), y: g.py - (heavy ? 28 : 10), duration: heavy ? 520 : 110, ease: 'Sine.Out' },
-        { rotation: g.strike, y: g.py, duration: heavy ? 100 : 70, ease: 'Quad.In', onComplete: () => this.impact(o, g) },
+        { x: g.px, y: g.py - (heavy ? 28 : 10), rotation: g.strike + g.side * (heavy ? 1.15 : 0.9), duration: heavy ? 520 : 110, ease: 'Sine.Out' },
+        { y: g.py, rotation: g.strike, duration: heavy ? 100 : 70, ease: 'Quad.In', onComplete: () => this.impact(o, g) },
         { rotation: g.strike + g.side * 0.55, duration: heavy ? 260 : 120, ease: 'Sine.Out', onComplete: () => { p.busy = false; } },
       ] });
     }
+    // ---- 타격 ----
     impact(o, g) {
-      if (!this.running || !o.alive) return;
+      if (!this.running) return;
+      if (!this.canHit(o)) { this.num(g.aimX, g.aimY, '막힘', 0.3, '#9fc4ff'); SFX.armor(); return; }
       const heavy = this.pick.shape === 'heavy', k = heavy ? 0.85 : 0.2;
       const hx = g.aimX + Phaser.Math.Between(-16, 16), hy = g.aimY + Phaser.Math.Between(-16, 16);
       this.hitStop(heavy ? 90 : 25); this.cameras.main.shake(heavy ? 130 : 50, heavy ? 0.01 : 0.003);
-      const dealt = this.damage(o, this.st.hit, hx, hy, k, true);
-      // 화상: 실제 들어간 피해에 비례 (방어 다시 적용 안 함)
-      if (this.st.fire && dealt > 0 && !(o.slot === 'C' && this.shield)) this.burns.push({ o, left: dealt * 0.3 * this.st.fire, rate: dealt * 0.3 * this.st.fire / 2 });
-      // 파편: 타격의 35% (방어 적용)
-      for (let i = 0; i < this.st.shards; i++) this.fireShard(o, hx, hy, this.st.hit * 0.35, i);
+      const dealt = this.damage(o, this.st.hit, hx, hy, k, 'hit');
+      // 화상: 실제 들어간 피해의 30%×개수를 2초에 나눠서 (합산, 방어 무시)
+      if (this.st.fire && dealt > 0) { const tot = dealt * FIRE_PCT * this.st.fire; this.burns.push({ o, left: tot, rate: tot / FIRE_SEC }); }
+      // 파편: 한 방의 35%×개수를 다른 광석들에 나눠 줌 (방어 적용, 파편은 다시 파편 안 만듦)
+      if (this.st.shards) {
+        const others = Object.values(this.ores).filter(x => x !== o && this.canHit(x));
+        const each = this.st.hit * SHARD_PCT * this.st.shards / Math.max(1, others.length);
+        others.forEach((t, i) => this.fireShard(t, hx, hy, each, i));
+      }
     }
     hitStop(ms) { this.tweens.timeScale = 0.03; clearTimeout(this._hs); this._hs = setTimeout(() => { this.tweens.timeScale = 1; }, ms); }
-    damage(o, raw, x, y, k, main, isBurn) {
-      if (!o.alive || !this.running) return 0;
-      if (o.slot === 'C' && this.shield) { this.num(x, y - 20, '막힘', 0.3, '#9fc4ff'); if (main) SFX.armor(); return 0; }
-      const dealt = isBurn ? raw : Math.max(1, raw - o.d.armor), blocked = !isBurn && o.d.armor > 0 && raw < o.d.armor * 2;
+    damage(o, raw, x, y, k, kind) {
+      if (!this.running || !o.alive) return 0;
+      if (!this.canHit(o)) { if (kind !== 'burn') this.num(x, y - 20, '막힘', 0.3, '#9fc4ff'); return 0; }
+      const armor = kind === 'burn' ? 0 : this.armorOf(o), mult = kind !== 'burn' && this.vuln() && o.slot === 'C' ? 1.5 : 1;
+      const dealt = (kind === 'hit' ? Math.max(1, raw - armor) : Math.max(0, raw - armor)) * mult;
+      const blocked = armor > 0 && raw < armor * 2;
       o.hp -= dealt;
-      if (!isBurn) {
-        o.img.setTintFill(0xffffff); this.time.delayedCall(40, () => o.img.active && o.img.clearTint());
+      if (kind !== 'burn') {
+        o.img.setTintFill(mult > 1 ? 0xff7070 : 0xffffff); this.time.delayedCall(40, () => o.img.active && o.img.clearTint());
         const f = this.add.image(x, y, 'flash').setDepth(7).setScale(0.3 + 0.5 * k).setAlpha(0.9).setBlendMode(Phaser.BlendModes.ADD).setTint(blocked ? 0x9fc4ff : 0xfff1c0);
         this.tweens.add({ targets: f, scale: 0.9 + 1.3 * k, alpha: 0, duration: 150, onComplete: () => f.destroy() });
         this.chipFx(o, x, y, Math.round(4 + 10 * k));
-        if (main) blocked ? SFX.armor() : SFX.hit(k); else SFX.clink();
+        if (kind === 'hit') blocked ? SFX.armor() : SFX.hit(k); else SFX.clink();
       }
-      this.num(x, y - 20, isBurn ? r1(dealt) : Math.round(dealt), isBurn ? 0.05 : k, isBurn ? '#ff9a4a' : blocked ? '#9fc4ff' : k > 0.6 ? '#ffd54a' : '#ffffff');
+      // 숫자: 방어에 깎이면 "1 (−9)"처럼 막힌 양을 같이
+      const label = kind === 'burn' ? r1(dealt) : `${Math.round(dealt)}${armor > 0 ? ` (−${armor})` : ''}${mult > 1 ? '!' : ''}`;
+      this.num(x, y - 20, label, kind === 'burn' ? 0.05 : k, kind === 'burn' ? '#ff9a4a' : kind === 'shard' ? '#9ff7ff' : blocked ? '#9fc4ff' : mult > 1 ? '#ff7070' : k > 0.6 ? '#ffd54a' : '#ffffff');
+      if (kind !== 'burn' && Math.random() < 0.5) this.addCrack(o, x, y);
       this.drawBar(o);
-      if (o.slot === 'C' && this.S.type === 'boss' && !this.halfDone && o.hp <= o.max / 2) this.raiseShield(o);
+      if (this.S.key === 'guard' && o.slot === 'C' && !this.phased && o.hp <= o.max * this.S.phaseAt && o.hp > 0) this.raiseShield(o);
       if (o.hp <= 0) this.shatter(o);
       return dealt;
     }
+    addCrack(o, x, y) {
+      const r = o.size * 0.34, g = o.cracks;
+      let a = Math.random() * Math.PI * 2, px = Phaser.Math.Clamp(x - o.x, -r * 0.5, r * 0.5), py = Phaser.Math.Clamp(y - o.y, -r * 0.5, r * 0.5);
+      const pts = [[px, py]];
+      for (let s = 0; s < 3; s++) { a += Phaser.Math.FloatBetween(-0.7, 0.7); px += Math.cos(a) * r * 0.15; py += Math.sin(a) * r * 0.15; if (Math.hypot(px, py) > r) break; pts.push([px, py]); }
+      const path = (w, col, al) => { g.lineStyle(w, col, al); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); pts.forEach(q => g.lineTo(q[0], q[1])); g.strokePath(); };
+      path(5, 0x1a1222, 0.5); path(2, 0xfff2dc, 0.5);
+    }
     raiseShield(o) {
-      this.halfDone = true; this.shield = true;
+      this.phased = true; this.shield = true;
       o.shieldG = this.add.circle(o.x, o.y, o.size * 0.6).setStrokeStyle(8, 0x7fd8ff, 0.9).setFillStyle(0x7fd8ff, 0.12).setDepth(3);
       this.tweens.add({ targets: o.shieldG, alpha: 0.6, duration: 400, yoyo: true, repeat: -1 });
       this.banner('보호막!', '#7fd8ff');
-      ['L', 'R'].forEach(k => this.spawn(k, { tex: 'cursed', hp: 34, armor: 0 }, 0.85));
+      if (this.focus === 'C') { this.focus = null; this.showMarker(); }
+      ['L', 'R'].forEach(k => this.spawn(k, this.S.stone));
     }
     chipFx(o, x, y, n) {
       const col = COLOR[o.d.tex] || 0x888888;
@@ -612,20 +777,18 @@
       const t = this.add.text(x + Phaser.Math.Between(-24, 24), y, String(n), { fontFamily: FONT, fontSize: `${Math.round(26 + 34 * k)}px`, color: col, stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(9);
       this.tweens.add({ targets: t, y: y - 60 - 40 * k, alpha: { from: 1, to: 0 }, duration: 700, ease: 'Cubic.Out', onComplete: () => t.destroy() });
     }
-    fireShard(from, x, y, dmg, i) {
-      const cands = Object.values(this.ores).filter(o => o.alive && o !== from);
-      const t = cands.length ? Phaser.Utils.Array.GetRandom(cands) : from;
+    fireShard(t, x, y, dmg, i) {
       const tx = t.x + Phaser.Math.Between(-30, 30), ty = t.y + Phaser.Math.Between(-30, 20);
       const sh = this.add.image(x, y, 'shard').setDepth(8).setScale(1.4).setBlendMode(Phaser.BlendModes.ADD);
       const curve = new Phaser.Curves.QuadraticBezier(new Phaser.Math.Vector2(x, y), new Phaser.Math.Vector2((x + tx) / 2 + Phaser.Math.Between(-80, 80), Math.min(y, ty) - Phaser.Math.Between(100, 200)), new Phaser.Math.Vector2(tx, ty));
       const s = { t: 0 };
       this.tweens.add({ targets: s, t: 1, duration: 280 + i * 40, delay: i * 40, ease: 'Sine.In',
         onUpdate: () => { const q = curve.getPoint(s.t), q2 = curve.getPoint(Math.min(1, s.t + 0.05)); sh.setPosition(q.x, q.y).setRotation(Math.atan2(q2.y - q.y, q2.x - q.x) + Math.PI / 2); },
-        onComplete: () => { sh.destroy(); if (t.alive) this.damage(t, dmg, tx, ty, 0.1, false); } });
+        onComplete: () => { sh.destroy(); if (t.alive) this.damage(t, dmg, tx, ty, 0.1, 'shard'); } });
     }
     shatter(o) {
       o.alive = false;
-      const big = o.slot === 'C' && this.S.type !== 'count';
+      const big = o.slot === 'C';
       [[0, 0, -1, -1], [128, 0, 1, -1], [0, 128, -1, 1], [128, 128, 1, 1]].forEach(([cx, cy, dx, dy]) => {
         const pc = this.add.image(o.x, o.y, o.d.tex).setScale(o.s).setCrop(cx, cy, 128, 128).setDepth(6);
         this.tweens.add({ targets: pc, x: o.x + dx * Phaser.Math.Between(70, 150) * (big ? 1.4 : 0.8), y: o.y + dy * 40 + Phaser.Math.Between(40, 150), angle: dx * Phaser.Math.Between(25, 70), alpha: 0, duration: 600, ease: 'Cubic.Out', onComplete: () => pc.destroy() });
@@ -633,32 +796,51 @@
       const f = this.add.image(o.x, o.y, 'flash').setDepth(7).setBlendMode(Phaser.BlendModes.ADD).setTint(0xffe9a8);
       this.tweens.add({ targets: f, scale: big ? 7 : 3, alpha: 0, duration: 280, onComplete: () => f.destroy() });
       this.chipFx(o, o.x, o.y, big ? 40 : 14);
-      this.hitStop(big ? 160 : 40); this.cameras.main.shake(big ? 260 : 90, big ? 0.016 : 0.006); SFX.brk(big);
+      this.hitStop(big ? 160 : 50); this.cameras.main.shake(big ? 260 : 110, big ? 0.016 : 0.007); SFX.brk(big);
       this.removeOre(o.slot);
-      if (this.S.type === 'count') {
-        this.count++; this.drawHud();
-        if (this.count >= this.S.need) return this.finish(true);
-        this.time.delayedCall(350, () => { if (this.running && !this.ores[o.slot]) this.spawn(o.slot, { tex: 'soft', hp: 18, armor: 0 }, 0.6); });
-      } else if (o.slot === 'C') return this.finish(true);
-      else if (this.shield && !Object.values(this.ores).some(x => x.alive && x.slot !== 'C')) {
-        this.shield = false; const c = this.ores.C; c?.shieldG?.destroy(); this.banner('보호막 해제!', '#ffd54a');
+      if (big) return this.finish(true);
+      const C = this.ores.C;
+      if (this.S.key === 'brace' && C) {           // 지지석: 중앙 방어 9 → 4 → 0, 암벽이 기울며 금이 감
+        const before = this.armorOf(C); this.broken++; const after = this.armorOf(C);
+        this.tweens.add({ targets: C.img, angle: (o.slot === 'L' ? -1 : 1) * 4 * this.broken, duration: 300, ease: 'Back.Out' });
+        this.cameras.main.shake(300, 0.012); SFX.boom?.();
+        for (let i = 0; i < 4; i++) this.addCrack(C, C.x + (o.slot === 'L' ? -1 : 1) * C.size * 0.3, C.y + C.size * 0.1);
+        this.banner(`중앙 방어 ${before} → ${after}`, '#ffd54a'); this.drawBar(C);
+      } else if (this.S.key === 'reso' && C) {      // 공명: 4초 취약 (겹쳐도 연장 안 됨) · 5초 뒤 다시 자람
+        if (!this.vuln()) { this.vulnUntil = this.time.now + this.S.vuln * 1000; this.banner(`취약! ${this.S.vuln}초`, '#ff7070'); }
+        else this.banner('이미 취약 중 (연장 안 됨)', '#ffb0b0');
+        const slot = o.slot; this.time.delayedCall(this.S.side.respawn * 1000, () => { if (this.running && !this.ores[slot]) this.spawn(slot, this.S.side); });
+      } else if (this.S.key === 'guard' && this.shield && !Object.values(this.ores).some(x => x.alive && x.slot !== 'C')) {
+        this.shield = false; C?.shieldG?.destroy(); if (C) C.shieldG = null; this.banner('보호막 해제!', '#ffd54a');
       }
+      if (this.focus === o.slot) { this.focus = null; this.showMarker(); }
     }
     banner(text, color) {
-      const t = this.add.text(W / 2, H * 0.24, text, { fontFamily: FONT, fontSize: '60px', color, stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(11).setScale(0.5);
-      this.tweens.chain({ targets: t, tweens: [{ scale: 1.1, duration: 140, ease: 'Back.Out' }, { scale: 1, duration: 80 }, { alpha: 0, delay: 600, duration: 300, onComplete: () => t.destroy() }] });
+      const t = this.add.text(W / 2, H * 0.24, text, { fontFamily: FONT, fontSize: '54px', color, stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(11).setScale(0.5);
+      this.tweens.chain({ targets: t, tweens: [{ scale: 1.1, duration: 140, ease: 'Back.Out' }, { scale: 1, duration: 80 }, { alpha: 0, delay: 700, duration: 300, onComplete: () => t.destroy() }] });
     }
     drawHud() {
       const S = this.S;
-      const goal = S.type === 'count' ? `작은 광석 ${this.count} / ${S.need}` : S.type === 'boss' ? '수호자 쓰러뜨리기' : '철갑 광맥 파괴';
-      this.hud.setText(goal);
+      this.hud.setText(`${S.goal}  ${Math.max(0, this.left).toFixed(1)}초`);
       const w = W - 120, x = 60, y = 100, f = Math.max(0, this.left / S.time);
       this.bar.clear(); this.bar.fillStyle(0x000000, 0.6); this.bar.fillRoundedRect(x - 4, y - 4, w + 8, 26, 13);
       this.bar.fillStyle(f > 0.3 ? 0xffd54a : 0xff5a5f, 1); this.bar.fillRoundedRect(x, y, w * f, 18, 9);
+      // 중앙 상태 배지 · 공명 연결선 · 취약 링
+      const C = this.ores.C;
+      if (C?.badge) {
+        if (this.shield) C.badge.setText('보호막 (무적)').setColor('#9fd8ff');
+        else if (this.vuln()) C.badge.setText(`취약 ${((this.vulnUntil - this.time.now) / 1000).toFixed(1)}초 · 피해 ×1.5`).setColor('#ff8080');
+        else C.badge.setText(`방어 ${this.armorOf(C)}`).setColor(this.armorOf(C) ? '#c8d6e6' : '#5be37d');
+      }
+      this.links.clear();
+      if (this.S.key === 'reso' && C) {
+        ['L', 'R'].forEach(k => { const o = this.ores[k]; if (!o?.alive) return; this.links.lineStyle(6, 0x5fe0ff, 0.35 + 0.25 * Math.sin(this.time.now / 150)); this.links.lineBetween(o.x, o.y, C.x, C.y); });
+        if (this.vuln()) { const f2 = (this.vulnUntil - this.time.now) / (this.S.vuln * 1000); this.links.lineStyle(8, 0xff7070, 0.9); this.links.beginPath(); this.links.arc(C.x, C.y, C.size * 0.62, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f2); this.links.strokePath(); }
+      }
     }
     finish(win) {
       if (!this.running) return; this.running = false;
-      this.burns = [];
+      this.burns = []; this.marker.setVisible(false); this.tip.setText('');
       this.time.delayedCall(win ? 500 : 200, () => {
         win ? SFX.win() : SFX.lose();
         this.banner(win ? '성공!' : '시간 초과…', win ? '#5be37d' : '#ff5a5f');
@@ -668,18 +850,17 @@
     update(time, delta) {
       if (!this.running) return;
       const dt = Math.min(0.05, delta / 1000);
-      this.left -= dt; if ((this._hudT = (this._hudT || 0) + dt) > 0.1) { this._hudT = 0; this.drawHud(); }
+      this.left -= dt; if ((this._hudT = (this._hudT || 0) + dt) > 0.08) { this._hudT = 0; this.drawHud(); }
       if (this.left <= 0) return this.finish(false);
       this.nextSwing -= dt * this.tweens.timeScale;
       if (this.nextSwing <= 0) { this.nextSwing += this.st.every; this.swing(); }
-      // 화상 (0.25초마다)
       this._burnT = (this._burnT || 0) + dt;
       if (this._burnT >= 0.25 && this.burns.length) {
         this._burnT = 0;
         const per = new Map();
         this.burns.forEach(b => { if (!b.o.alive) { b.left = 0; return; } const d = Math.min(b.left, b.rate * 0.25); b.left -= d; per.set(b.o, (per.get(b.o) || 0) + d); });
         this.burns = this.burns.filter(b => b.left > 0.01);
-        per.forEach((d, o) => { if (d > 0) { this.damage(o, d, o.x + Phaser.Math.Between(-40, 40), o.y - 30, 0, false, true); this.flameFx.explode(4, o.x + Phaser.Math.Between(-o.size * 0.3, o.size * 0.3), o.y - o.size * 0.1); } });
+        per.forEach((d, o) => { if (d > 0 && this.canHit(o)) { this.damage(o, d, o.x + Phaser.Math.Between(-40, 40), o.y - 30, 0, 'burn'); this.flameFx.explode(4, o.x + Phaser.Math.Between(-o.size * 0.3, o.size * 0.3), o.y - o.size * 0.1); } });
         if (per.size) SFX.burn();
       }
     }
@@ -690,5 +871,5 @@
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY, width: W, height: H },
     scene: [Forge, Mine],
   });
-  window.__forge = { G, game, stats, STAGES, startCraft, stageIntro, afterStage };
+  window.__forge = { G, game, stats, STAGES, startCraft, stageIntro, afterStage, get draft() { return draft; } };
 })();

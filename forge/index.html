@@ -35,8 +35,12 @@
   .mat { padding:10px 6px; border-radius:12px; border:2px solid var(--line); background:#2c201c; color:var(--text); text-align:center; }
   .mat b { display:block; font-size:26px; line-height:1.1; }
   .mat span { font-size:13px; font-weight:700; } .mat small { display:block; font-size:11px; color:var(--dim); margin-top:2px; }
-  .preview { font-size:13px; color:var(--dim); margin:0 0 10px; min-height:18px; text-align:center; }
+  .preview { font-size:13px; color:var(--dim); margin:0 0 10px; min-height:18px; text-align:left; line-height:1.55; }
   .preview b { color:var(--text); }
+  .preview .mini { margin-top:6px; text-align:center; color:var(--text); }
+  .note { font-size:11px; color:var(--dim); }
+  .shape small b { display:inline; font-size:inherit; margin:0; color:var(--text); }
+  .shape.sel { border-color:var(--gold); background:#43301f; box-shadow:0 0 0 2px rgba(255,213,74,.35) inset; }
   /* 모양 */
   .shapes { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
   .shape { padding:12px 8px; border-radius:14px; border:2px solid var(--line); background:#2c201c; color:var(--text); text-align:center; }
@@ -75,7 +79,7 @@
     <!-- 1. 재료 -->
     <div id="pMat" class="panel bot hide">
       <h2>① 재료 넣기</h2>
-      <p class="sub">화로에 광석 3개를 넣어요. 같은 걸 여러 개 넣으면 그 성질이 강해져요. (칸을 누르면 빼기)</p>
+      <p class="sub">화로에 광석 3개를 넣어요. 같은 걸 여러 개 넣으면 그 성질이 강해져요. (칸을 누르면 빼기) · 위 <b>시험대</b>에서 바로 쳐 봐요</p>
       <div class="slots" id="slots"></div>
       <div class="mats" id="mats"></div>
       <div class="preview" id="matPrev"></div>
@@ -85,7 +89,9 @@
     <!-- 2. 모양 -->
     <div id="pShape" class="panel bot hide">
       <h2>② 모양 고르기</h2>
+      <p class="sub" id="shapeNext"></p>
       <div class="shapes" id="shapes"></div>
+      <button class="btn" id="bShapeGo" disabled>모양을 골라 주세요</button>
     </div>
 
     <!-- 3. 액션 안내 -->
@@ -134,6 +140,6 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
-<script src="game.js?v=1"></script>
+<script src="game.js?v=2"></script>
 </body>
 </html>
