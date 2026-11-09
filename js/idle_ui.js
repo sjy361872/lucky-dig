@@ -4,6 +4,7 @@
 // =====================================================
 (function () {
   const C = window.CONFIG, I = window.Idle, Sound = window.Sound;
+  if (/[?&]slot=old/.test(location.search)) I.setSlot('old');   // 비교용: 예전 그림 11종 (docs/slot-4.md)
   const $ = s => document.querySelector(s);
   const SAVE_KEY = 'pickidle_v1';
   const rnd = Math.random;
@@ -70,7 +71,10 @@
     pick3: 'assets/items/pick3.png', spin: 'assets/items/spin.png',
     rainbow: 'assets/syms/rainbow.webp', mimic: 'assets/syms/mimic.webp', egg: 'assets/syms/egg.webp',
     wrench: 'assets/syms/wrench.webp', glass: 'assets/syms/glass.webp', gold: 'assets/syms/gold.webp',
+    stone: 'assets/blocks/stone.png',
   };
+  // 4종: 보석 칸 그림은 사다리(다이아 → 루비 → 흑요석)를 따라감
+  const syncGem = () => { if (I.V4 && typeof st !== 'undefined' && st) ICON.gem = I.ladderOf(st).icon; };
   // ---------- 곡괭이 진화: 공격력 25레벨마다(= 대미지 2배 되는 순간) 다음 곡괭이 ----------
   const PICKS = [
     { name: '나무 곡괭이', c: '#e8d2a8' }, { name: '구리 곡괭이', c: '#ffb27a' }, { name: '철 곡괭이', c: '#cfe3ff' },
@@ -315,6 +319,7 @@
   // 릴 연출: 고정 안 한 칸은 잠깐 섞였다가 왼쪽부터 멈춤
   async function spinAnim(syms, ms, keep) {
     if (cellEls.length !== syms.length) buildCells();
+    syncGem();
     const keys = I.unlocked(st), n = syms.length, t0 = performance.now();
     $('#calc').classList.add('dim');
     $('#cells').querySelectorAll('.clab').forEach(x => x.remove());
@@ -338,6 +343,7 @@
   //  처음부터 보여 줌 (예전엔 초반에 숫자만 → 무슨 숫자인지 몰랐음)
   function calcText(r, syms) {
     const xs = [];
+    if (r.tntMult > 1) xs.push(`TNT ${f2(r.tntMult)}`);
     if (r.combo > 1) xs.push(r.jackpot ? `황금 광맥 ${fmt(r.combo)}` : `콤보 ${r.combo}`);
     if (r.chests) xs.push(`상자 ${f2(r.chestMult)}`);
     if (r.mimics) xs.push(r.mimicOk === null ? '미믹 ?' : r.mimicOk ? `미믹 ${fmt(r.mimicMult)}` : '미믹 꽝');
@@ -430,7 +436,7 @@
     mi.classList.remove('swing'); void mi.offsetWidth; mi.classList.add('swing');
     await wait(125);                                    // 곡괭이가 내려꽂히는 순간에 맞춤
     const m = $('#mob .mimg'), [x, y] = arenaXY(m);
-    const crit = r.combo > 1 || r.chests > 0 || r.mimicOk;
+    const crit = r.combo > 1 || r.chests > 0 || r.mimicOk || r.tntMult > 1;
     const huge = r.jackpot || r.comboN >= 4 || r.chests >= 2 || (r.combo > 1 && r.chests > 0) || (r.mimicOk && r.combo > 1);
     if (r.dragon) dragonFire(x, y);
     const frac = Math.min(1, r.dmg / mobMax);           // 체력의 몇 %를 깎았나 → 흔들림 크기
@@ -531,7 +537,7 @@
     $('#slotbox').classList.toggle('ready', full && mode === 'auto');
   }
   async function bigSpin() {
-    tip('slot', '⛏ 8번 때리면 광맥 탐지가 돌아가요. 같은 그림 3개면 콤보!');
+    tip('slot', I.V4 ? '⛏ 8번 때리면 광맥 탐지! 광석은 피해 더하기 · 💣 TNT는 전체 ×2 · 황금 3개면 황금 광맥!' : '⛏ 8번 때리면 광맥 탐지가 돌아가요. 같은 그림 3개면 콤보!');
     spinning = true;
     try {
       $('#slotbox').classList.remove('ready'); $('#cells').classList.remove('idle');
@@ -559,6 +565,12 @@
   }
   function cellLabel(i, r, nums) {
     const d = nums ? nums[i] : Math.round((r.cellDmg || [])[i] || 0), k = (r.mult || [])[i] || 1;
+    if (r.v4) switch (r.res[i]) {
+      case 'stone': return `+${fmt(d)}`;
+      case 'gem': return `💎 +${fmt(d)}`;
+      case 'tnt': return `+${fmt(d)} · 전체 ×${f2(r.tx)}`;
+      case 'gold': return `황금 +${fmt(d)}`;
+    }
     switch (r.res[i]) {
       case 'pick': return `+${fmt(d)}`;
       case 'tnt': return `+${fmt(d)} · 양옆 ×${f2(r.tx || 2)}`;
@@ -633,7 +645,8 @@
         cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
         const b = $('#bReroll');
         b.disabled = rer <= 0;
-        b.innerHTML = `🔄 다시 돌리기<small>${rer > 0 ? `이번 보스전 ${rer}번 남음` : '다 썼어요'}</small>`;
+        b.innerHTML = `🔄 다시 탐지<small>${rer > 0 ? `준비 ${rer}번 남음` : '준비 다 썼어요'}</small>`;
+        const rp = $('#bRepair'); if (rp) { rp.disabled = rer <= 0 || st.dur >= I.maxDur(st); rp.innerHTML = `🔧 수리 +${Math.round(I.BOSS_REPAIR * 100)}%<small>준비 1번 사용</small>`; }
         const r = I.evalSpin(st, syms);
         labelCells(syms, r);
         setCalc(`이대로 공격하면 ${calcText(r, syms)}${mobHp > 0 && !r.mimics ? (r.dmg >= mobHp ? ' → <b>처치!</b>' : ` → 보스 ${fmt(mobHp - r.dmg)} 남음`) : ''}`);
@@ -647,6 +660,7 @@
       const end = v => { $('#cells').removeEventListener('click', onCell); $('#bossCtl').hidden = true; done(v); };
       $('#bReroll').onclick = () => { if (rer <= 0) return; if (held.slice(0, syms.length).every(Boolean)) return toast('전부 고정하면 다시 돌릴 게 없어요'); Sound.play('click'); end('reroll'); };
       $('#bAttack').onclick = () => { Sound.play('click'); end('attack'); };
+      if ($('#bRepair')) $('#bRepair').onclick = () => { if (rer <= 0 || st.dur >= I.maxDur(st)) return; Sound.play('click'); end('repair'); };
       $('#bossQuit').onclick = () => { end('quit'); };
     });
   }
@@ -705,6 +719,15 @@
   // ---------- 보스전: 한 번 공격할 때마다 보스가 반격 · 내구도가 다 닳으면 패배 ----------
   //  auto=true 면 자동 도전(칸 고정·다시 돌리기도 알아서)
   async function autoDecision(syms, rer) {
+    if (I.V4) {
+      const pl = I.bossPlan(st, syms, rer, mobHp);
+      if (pl.act === 'repair') return 'repair';
+      if (pl.act === 'attack') return 'attack';
+      held = pl.held; cellEls.forEach((el, i) => el.classList.toggle('held', !!held[i]));
+      floatAt(220, 300, '🔄 좋은 칸은 고정하고 다시 탐지', 'glassf', 900);
+      await wait(420);
+      return 'reroll';
+    }
     const r = I.evalSpin(st, syms);
     if (rer <= 0 || r.combo > 1 || r.chests > 0 || r.jackpot) return 'attack';
 
@@ -745,7 +768,7 @@
     let rer = I.IDLE.BOSS_REROLLS, quit = false, turn = 0;
     while (mobHp > 0 && st.dur > 0 && !quit) {
       turn++;
-      $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 🔄 ${rer}번 남음`;
+      $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 준비 ${rer}번 남음`;
       held = [];
       let syms = I.roll(st, rnd);
       await spinAnim(syms, auto ? 380 : 650);
@@ -754,8 +777,14 @@
         const v = auto ? await autoDecision(syms, rer) : await bossDecision(syms, rer);
         if (v === 'quit' || quitReq) { quit = true; break; }
         if (v === 'attack') break;
+        if (v === 'repair') {                    // 준비 1번으로 곡괭이 수리 (보스 반격 없음)
+          rer--; const got = I.bossRepair(st); setDur(); Sound.play('click');
+          const [px, py] = arenaXY($('#pick')); floatAt(px, py - 50, `🔧 +${fmt(got)}`, 'repf', 900, { dx: 10 });
+          $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 준비 ${rer}번 남음`;
+          continue;
+        }
         rer--;
-        $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 🔄 ${rer}번 남음`;
+        $('#bossTurns').textContent = `⚔ ${turn}번째 공격 · 준비 ${rer}번 남음`;
         const keep = held.slice();
         syms = I.roll(st, rnd, syms, keep);
         await spinAnim(syms, auto ? 350 : 550, keep);
@@ -788,13 +817,15 @@
       Sound.play('fanfare');
       const key = C.cardKey(card), isNew = !st.dex[key];
       st.dex[key] = (st.dex[key] || 0) + 1;
-      const before = I.unlocked(st);
+      const before = I.unlocked(st), ladder0 = I.V4 ? I.ladderOf(st) : null;
       const bossDrop = I.rollDrop(st, rnd, 'boss');
       const prevAll = st.allBest || 0;
       const g = I.bossWin(st);
       if ((st.allBest || 0) > prevAll) rankSubmit();
       gotPick(bossDrop, bx, by);
       const fresh = I.unlocked(st).filter(k => !before.includes(k));
+      const ladder1 = I.V4 ? I.ladderOf(st) : null, ladderUp = ladder0 && ladder1 !== ladder0;
+      if (ladderUp) syncGem();
       save();
       if (auto) { await wait(1300); if (isNew) toast(`✨ 새 카드: ${card.name} (도감 등록)`); }
       else {
@@ -804,6 +835,12 @@
       }
       buildCells();
       for (const k of fresh) await unlockFx(k, auto);
+      if (ladderUp) {        // 보석 사다리: 보석 자리가 더 비싼 광석으로 (그림 수는 그대로)
+        Sound.play('fanfare');
+        const msg = `${ladder0.name} → ${ladder1.name}! 보석 칸 피해 ×${ladder0.v} → ×${ladder1.v}`;
+        if (auto) { banner(`${ladder1.name} 발견!`, msg, '#ff7a9a', 1800); toast('✨ ' + msg); await wait(1500); }
+        else await modal(`<h3>✨ 새 광석 발견!</h3><div class="capture"><img src="${ladder1.icon}" alt="" style="width:110px;height:110px;object-fit:contain"><b>${ladder1.name}</b><small>보석 칸이 ${ladder0.name}에서 ${ladder1.name}(으)로 바뀌어요</small></div><p>보석 칸 피해 <b>×${ladder0.v} → ×${ladder1.v}</b></p>`, '좋아요');
+      }
       if (fresh.length) setEgg();
     } else {
       I.bossLose(st);
@@ -848,9 +885,9 @@
   }
   // 💰 잭팟: 화면이 금빛으로 몇 번 번쩍 → 코인 폭포 → 광석 대량
   function jackpotFx(r) {
-    setTimeout(() => tip('jack', '⭐ 황금 곡괭이 3개 = 황금 광맥! 4개·5개면 더 커요'), 1600);
+    setTimeout(() => tip('jack', I.V4 ? '⭐ 황금 곡괭이 3개 이상 = 황금 광맥! 피해 ×10 + 다음 몬스터 관통' : '⭐ 황금 곡괭이 3개 = 황금 광맥! 4개·5개면 더 커요'), 1600);
     // 3개 = 잭팟(자주) · 4개 = 메가(가끔) · 5개 = 그랜드(아주 드물게) → 등급이 높을수록 연출이 길고 화려함
-    const lv = Math.min(5, r.comboN) - 3, ms = [1500, 2600, 3800][lv];
+    const lv = r.v4 ? 0 : Math.min(5, r.comboN) - 3, ms = [1500, 2600, 3800][lv];   // 4종은 한 단계(×10)
     const name = ['황금 광맥!', '거대 황금 광맥!!', '전설의 황금 광맥!!!'][lv], color = ['#ffd34a', '#ff8af0', '#7ff7ff'][lv];
     document.body.classList.add('jackpot'); setTimeout(() => document.body.classList.remove('jackpot'), ms);
     banner(name, `황금 곡괭이 ${r.comboN}개 · 황금 연타 ×${fmt(r.combo)}`, color, ms);
@@ -1276,11 +1313,13 @@
         return `공격력 ${fmt(S.atk(lv) * m)} → <b>${fmt(S.atk(nx) * m)}</b>${(st.tabs || []).includes('pk') ? ` <i class="evo">곡괭이 ×${f2(m)}</i>` : ''}`;
       }
       case 'spd': return `초당 ${f2(S.aps(lv))}번 → <b>${f2(S.aps(nx))}번</b>`;
-      case 'gem': return `💎 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
-      case 'chest': return `📦 확률 ${pctOf('chest', st.lv)} → <b>${pctOf('chest', L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
+      case 'gem': if (I.V4) { const g0 = I.GEM_V(st), g1 = I.GEM_V(Object.assign({}, st, { lv: L2 })); return `${I.ladderOf(st).name} 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 피해 ×${f2(g0)} → <b>×${f2(g1)}</b>`; }
+        return `💎 확률 ${pctOf('gem', st.lv)} → <b>${pctOf('gem', L2)}</b> · 💎 ${f2(S.gemX(lv))}타 → <b>${f2(S.gemX(nx))}타</b>`;
+      case 'chest': if (I.V4) { const t0 = I.TNT_X(st), t1 = I.TNT_X(Object.assign({}, st, { lv: L2 })); return `💣 TNT 곱하기 ×${f2(t0)} → <b>×${f2(t1)}</b>`; }
+        return `📦 확률 ${pctOf('chest', st.lv)} → <b>${pctOf('chest', L2)}</b> · 배율 ×${f2(S.chestX(lv))} → <b>×${f2(S.chestX(nx))}</b>`;
       case 'coin': return `처치 광석 ×${f2(S.coinX(lv))} → <b>×${f2(S.coinX(nx))}</b>`;
       case 'dur': return `내구도 ${fmt(S.dur(lv))} → <b>${fmt(S.dur(nx))}</b> · 반격 ${Math.floor(S.dur(nx) / I.mobAtk(st.floor))}대 버팀`;
-      case 'cells': return `탐지 칸 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 콤보·황금 광맥이 쉬워요`;
+      case 'cells': return `탐지 칸 ${S.cells(lv)}칸 → <b>${S.cells(nx)}칸</b> · 칸이 많을수록 ${I.V4 ? '보석·' : '콤보·'}황금 광맥이 쉬워요`;
     }
     return '';
   }
@@ -1319,8 +1358,10 @@
       const all = C.allCards(), have = all.filter(c => st.dex[C.cardKey(c)]);
       const dx = st.pkDex || {};
       const un = I.unlocked(st);
+      syncGem();
       const symRows = Object.keys(I.SYMS).map(k => { const S = I.SYMS[k], on = un.includes(k);
-        return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? S.name : '???'}</b><small>${on ? S.desc : `${I.stageNo(Math.max(0, S.u - 1))} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
+        const nm = I.V4 && k === 'gem' ? I.ladderOf(st).name : S.name, ds = I.V4 && k === 'gem' ? `피해를 크게 더해요 (공격력 ×${f2(I.GEM_V(st))})` : I.V4 && k === 'tnt' ? `피해 ×1을 더하고 · 전체 피해 ×${f2(I.TNT_X(st))}` : S.desc;
+        return `<div class="sym ${on ? 'on' : ''}">${img(k)}<div><b>${on ? nm : '???'}</b><small>${on ? ds : `${I.stageNo(Math.max(0, S.u - 1))} 보스를 잡으면 해금`}</small></div></div>`; }).join('');
       L.innerHTML = `<p class="dexh">⛏ 광맥 그림 <b>${un.length}</b> / ${Object.keys(I.SYMS).length}</p><div class="syms">${symRows}</div>
         <p class="dexh">⛏ 곡괭이 도감 <b>${I.dexCount(st)}</b> / 40 · 처음 만들 때마다 공격력 +2% (지금 +${I.dexCount(st) * 2}%)</p>
         <div class="pkdex"><span></span>${PICKS.map((p, g) => `<span class="gh">${g + 1}</span>`).join('')}${I.PICK.types.map((T, t) => `<b style="color:${T.c}">${T.e}</b>${PICKS.map((p, g) => `<div class="pd ${dx[t + ':' + g] ? 'on' : ''}" style="--tc:${T.c}"><img src="${pickSrc(g)}" alt=""></div>`).join('')}`).join('')}</div>

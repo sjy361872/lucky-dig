@@ -26,7 +26,7 @@
   const BASIC = +(globalThis.process && process.env.BASIC) || 1;     // 평소 한 대 = 슬롯 평균(잭팟·미믹 뺀) × 이 값 → 보석·상자 강화도 평타에 반영   // 큰 슬롯 대미지 배율 (가끔 오는 만큼 크게)
   // 슬롯 심볼: w = 나오는 비중, hit = 기본 타수, u = 해금 스테이지(최고 기록이 이 층 이상이면 슬롯에 등장)
   //  칸의 '위치'가 의미를 가짐: 💣은 양옆 칸 효과 2배, 🌈은 가장 많은 그림으로 변신
-  const SYMS = {
+  const SYMS_OLD = {
     pick:  { name: '곡괭이', w: 40, hit: 1, u: 0, desc: '1타' },
     tnt:   { name: 'TNT', w: 12, hit: 2, u: 0, desc: '2타 · 양옆 칸 효과 2배' },
     gem:   { name: '보석', w: 10, hit: 0, u: 0, desc: '크리티컬 (강화로 타수 증가)' },
@@ -39,6 +39,29 @@
     mimic: { name: '미믹', w: 3, hit: 0, u: 25, desc: '70% 큰 배율 · 30% 곡괭이를 깨물어 내구도 -25%' },
     gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 황금 광맥 · 4개 거대 광맥 · 5개 전설의 광맥!' },
   };
+  // ---------- 광맥 탐지 4종 (docs/slot-4.md) ----------
+  //  광석은 더하기 · TNT는 곱하기 · 황금 3개 이상 = 황금 광맥(×10 + 보스 앞까지 관통). 일반 콤보 없음
+  //  예전 11종은 주소에 ?slot=old (setSlot('old')) 또는 시뮬 SLOT=old
+  const SYMS4 = {
+    stone: { name: '돌', w: 0, hit: 1, u: 0, desc: '피해를 더해요 (공격력 ×1)' },
+    gem:   { name: '다이아', w: 0, hit: 0, u: 0, desc: '피해를 크게 더해요 (공격력 ×3)' },
+    tnt:   { name: 'TNT', w: 0, hit: 1, u: 0, desc: '피해 ×1을 더하고 · 전체 피해 ×2' },
+    gold:  { name: '황금 곡괭이', w: 0, hit: 1, u: 0, desc: '3개 이상이면 황금 광맥! 피해 ×10 + 다음 몬스터 관통' },
+  };
+  // 칸 수별 그림 비중 (돌·보석·TNT·황금 %) — 칸이 늘면 보석·황금 완성 기회가 같이 좋아짐
+  const W4 = { 3: [35, 15, 10, 40], 4: [39, 22, 10, 29], 5: [40, 27, 10, 23] };
+  // 보석 사다리: 그림 수는 그대로, 보석 자리만 더 비싼 광석으로 교체 (보스 보상)
+  const LADDER = [ { at: 0, name: '다이아', icon: 'assets/blocks/diamond.png', v: 3 },
+                   { at: 20, name: '루비', icon: 'assets/blocks/ruby.png', v: 4 },        // 2-10 보스를 잡으면
+                   { at: 40, name: '흑요석', icon: 'assets/blocks/obsidian.png', v: 5 } ]; // 4-10 보스를 잡으면
+  const ladderOf = st => { const b = Math.max(st.best || 0, st.allBest || 0); let L = LADDER[0]; for (const x of LADDER) if (b >= x.at) L = x; return L; };
+  const env0 = k => globalThis.process && process.env[k];
+  let V4 = env0('SLOT') !== 'old';
+  let SYMS = V4 ? SYMS4 : SYMS_OLD;
+  function setSlot(m) { V4 = m !== 'old'; SYMS = V4 ? SYMS4 : SYMS_OLD; syncUP(); if (root.Idle) { root.Idle.SYMS = SYMS; root.Idle.V4 = V4; } }
+  const SLOT_X4 = +env0('SLOTX4') || 6;          // 4종 탐지 피해 배율 (시뮬로 맞춤)
+  const TNT_X = st => 2 + 0.025 * ((st.lv && st.lv.chest) || 0) + abil.tnt4(st);   // TNT 곱하기: 강화 'TNT 화력'(예전 보물상자 칸) + 폭파 곡괭이
+  const GEM_V = st => ladderOf(st).v + 0.25 * ((st.lv && st.lv.gem) || 0) + abil.gem(st);   // 보석 한 칸 = 공격력 × 이만큼
   const COMBO = { 3: 2, 4: 4, 5: 10 };   // 같은 그림 n개 → 대미지 ×
   // 잭팟은 자주 터져야 재미 → 칸 수와 상관없이 약 80번에 한 번 꼴이 되도록 황금 곡괭이 비율을 칸 수에 맞춤
   //  (3칸이면 3개가 다 나와야 하니 비율을 높게, 5칸이면 낮게). 대신 3개 잭팟의 배율은 적당히, 4·5개는 아주 크게
@@ -59,6 +82,9 @@
     cells: { name: '탐지 칸 늘리기', icon: 'slot', max: 2, cost: lv => [400, 30000][lv] },
     dur:   { name: '곡괭이 내구도', icon: 'dur', max: 1e9, cost: lv => 8 * Math.pow(1.14, lv) },
   };
+  // 4종에선 '보물상자' 강화 칸이 'TNT 화력'이 됨 (레벨은 그대로 이어받음)
+  function syncUP() { UP.chest.name = V4 ? 'TNT 화력' : '보물상자'; UP.chest.icon = V4 ? 'tnt' : 'chest'; }
+  syncUP();
   // 💠 광맥 결정: 환생할 때 받음. 지금까지 받은 결정 1개당 대미지·광석 +2%(써도 유지), 상점에서 영구 강화
   const CUP = {
     pow:  { name: '광맥의 힘', icon: '⛏', desc: '모든 대미지 +25%', cost: lv => Math.ceil(2 * Math.pow(1.5, lv)) },
@@ -94,6 +120,7 @@
   // 종류별 능력: 등급이 높을수록 강해짐
   const abil = {
     tnt: st => { const e = st.eq; return e && e.t === 0 ? Math.min(6, 2 + 0.25 * (e.g + 1)) : 2; },
+    tnt4: st => { const e = st.eq; return e && e.t === 0 ? Math.min(1, 0.1 * (e.g + 1)) : 0; },
     gem: st => { const e = st.eq; return e && e.t === 1 ? 0.5 * (e.g + 1) : 0; },
     luck: st => { const e = st.eq; return e && e.t === 2 ? Math.min(2, 1 + 0.06 * (e.g + 1)) : 1; },
     dur: st => { const e = st.eq; return e && e.t === 3 ? 1 + 0.1 * (e.g + 1) : 1; },
@@ -102,6 +129,8 @@
   };
   function abilText(p) {
     const g = p.g + 1;
+    if (V4) return [`TNT 곱하기 +${+Math.min(1, 0.1 * g).toFixed(2)}`, `보석 +${+(0.5 * g).toFixed(1)}`, `황금 광맥 확률 ×${+Math.min(2, 1 + 0.06 * g).toFixed(2)}`,
+      `내구도 +${Math.round(10 * g)}% · 처치 회복 ×${+(1 + 0.15 * g).toFixed(2)}`, `광석 +${Math.round(15 * g)}%`][p.t];
     return [`TNT 양옆 ×${+Math.min(6, 2 + 0.25 * g).toFixed(2)}`, `보석 +${+(0.5 * g).toFixed(1)}타`, `황금 광맥 확률 ×${+Math.min(2, 1 + 0.06 * g).toFixed(2)}`,
       `내구도 +${Math.round(10 * g)}% · 수리 ×${+(1 + 0.15 * g).toFixed(2)}`, `광석 +${Math.round(15 * g)}%`][p.t];
   }
@@ -253,6 +282,12 @@
   // ---------- 슬롯 ----------
   const unlocked = st => Object.keys(SYMS).filter(k => Math.max(st.best || 0, st.allBest || 0) >= SYMS[k].u);
   function weights(st) {
+    if (V4) {
+      const n = stat.cells(st.lv.cells), w = W4[n] || W4[3];
+      const gem = w[1] * (1 + 0.02 * (st.lv.gem || 0)), base = w[0] + gem + w[2];
+      const p = Math.min(0.6, w[3] / 100 * abil.luck(st));            // 황금이 나올 비율 (행운 곡괭이로 ↑)
+      return [['stone', w[0]], ['gem', gem], ['tnt', w[2]], ['gold', base * p / (1 - p)]];
+    }
     const list = unlocked(st).filter(k => k !== 'gold').map(k => [k, k === 'gem' ? stat.gemW(st.lv.gem) : k === 'chest' ? stat.chestW(st.lv.chest) : SYMS[k].w]);
     if (Math.max(st.best || 0, st.allBest || 0) >= SYMS.gold.u) {
       const tot = list.reduce((a, e) => a + e[1], 0), p = Math.min(0.6, (GOLD_P[stat.cells(st.lv.cells)] || 0.1) * abil.luck(st));
@@ -283,6 +318,7 @@
   // 슬롯 결과 → 대미지와 효과
   //   rng 를 주면 미믹이 착한지(70%) 지금 정함. 안 주면(미리보기) 미정
   function evalSpin(st, syms, rng) {
+    if (V4) return evalSpin4(st, syms);
     const atk = stat.atk(st.lv.atk) * pickMult(st) * dmgX(st), gemX = stat.gemX(st.lv.gem) + abil.gem(st), chestX = stat.chestX(st.lv.chest);
     const res = resolveWild(syms), n = res.length;
     // 💣 TNT: 양옆 칸 효과 2배 (TNT 두 개 사이에 끼면 4배)
@@ -318,6 +354,19 @@
       // 표시용 (docs/slot-readable.md): 칸별 배율·피해·수리, TNT 배율, 배율 곱하기 전 피해 합
       mult: f, tx, cellDmg, cellRep, base: atk * hits * SLOT_X };
   }
+  // 4종: 칸 피해를 다 더하고 → TNT마다 ×2 → 황금 3개 이상이면 ×10
+  function evalSpin4(st, syms) {
+    const atk = stat.atk(st.lv.atk) * pickMult(st) * dmgX(st), gv = GEM_V(st), tx = TNT_X(st);
+    const res = syms.slice(), val = res.map(s => s === 'gem' ? gv : SYMS4[s] ? SYMS4[s].hit : 0);
+    const nT = res.filter(s => s === 'tnt').length, golds = res.filter(s => s === 'gold').length;
+    const sum = val.reduce((a, b) => a + b, 0), tntMult = Math.pow(tx, nT), jackpot = golds >= 3;
+    const combo = jackpot ? JACKPOT4 : 1;
+    const dmg = Math.max(1, Math.round(atk * sum * tntMult * combo * SLOT_X4));
+    return { v4: true, atk, hits: sum, combo, comboSym: jackpot ? 'gold' : null, comboN: jackpot ? golds : 1, chests: 0, chestMult: 1, coins: 0, dmg,
+      res, boosted: res.map(() => false), repair: 0, respins: 0, cracks: 0, mimics: 0, mimicOk: null, mimicMult: 1, dragon: false, jackpot,
+      mult: res.map(() => 1), tx, tntMult, nT, golds, cellDmg: val.map(v => atk * v * SLOT_X4), cellRep: res.map(() => 0), base: atk * sum * SLOT_X4, slotX: SLOT_X4 };
+  }
+  const JACKPOT4 = 10;
   // 평소 공격(슬롯 없이 곡괭이로 한 대): hit() 연출이 그대로 쓰도록 슬롯 결과와 같은 모양으로
   function basicHit(st, base) {
     const atk = stat.atk(st.lv.atk) * pickMult(st) * dmgX(st), dragon = (st.dragon || 0) > 0;
@@ -334,11 +383,12 @@
       st.egg = (st.egg || 0) + r.cracks;
       if (st.egg >= EGG_N) { st.egg -= EGG_N; st.dragon = (st.dragon || 0) + DRAGON_T; out.hatched = true; }
     }
-    if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * JACK_SEC[Math.min(5, r.comboN)]); st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
+    if (r.jackpot) { out.jackGold = Math.ceil(goldPerSec(st) * JACK_SEC[r.v4 ? 3 : Math.min(5, r.comboN)]); st.gold += out.jackGold; st.jackpots = (st.jackpots || 0) + 1; }
     return out;
   }
   const coinGold = (st, coins) => Math.ceil(coins * killGold(st.floor) * 0.3 * stat.coinX(st.lv.coin) * goldX(st));
-  const goldPerKill = st => Math.ceil(killGold(st.floor) * stat.coinX(st.lv.coin) * goldX(st));
+  const goldPerKill = st => Math.ceil(killGold(st.floor) * stat.coinX(st.lv.coin) * goldX(st) * (V4 ? KILL4 : 1));
+  const KILL4 = +env0('KILL4') || 2, REGEN4 = +env0('REGEN4') || 0.25;   // 4종: 코인 몫 → 처치 광석, 렌치 몫 → 처치 회복
 
   // 평균 초당 대미지 (몬테카를로)
   function avgDmg(st, n = 600) {
@@ -346,7 +396,7 @@
     let tot = 0, coins = 0;
     const s2 = Object.assign({}, st, { dragon: 0 });               // 용은 잠깐이라 평균에서 뺌
     let base = 0;
-    for (let i = 0; i < n; i++) { const r = evalSpin(s2, roll(s2, rng), rng); tot += r.dmg * (1 + r.respins); coins += r.coins; base += r.dmg / SLOT_X / (r.jackpot ? r.combo : 1) / r.mimicMult; }
+    for (let i = 0; i < n; i++) { const r = evalSpin(s2, roll(s2, rng), rng); tot += r.dmg * (1 + r.respins); coins += r.coins; base += r.dmg / (r.slotX || SLOT_X) / (r.jackpot ? r.combo : 1) / r.mimicMult; }
     base /= n;
     // 공격 한 번당 평균 = 평소 한 대 + 큰 슬롯 몫(GAUGE 번에 한 번)
     return { dmg: base * BASIC + tot / n / IDLE.GAUGE, coins: coins / n / IDLE.GAUGE, slot: tot / n, base };
@@ -370,7 +420,7 @@
   function onKill(st) {
     const g = goldPerKill(st);
     st.gold += g; st.totalKills++;
-    st.dur = Math.min(maxDur(st), st.dur + maxDur(st) * IDLE.REGEN);
+    st.dur = Math.min(maxDur(st), st.dur + maxDur(st) * (V4 ? REGEN4 * abil.rep(st) : IDLE.REGEN));
     if (!isBossStage(st.floor)) advance(st);
     return g;
   }
@@ -380,7 +430,22 @@
     st.allBest = Math.max(st.allBest || 0, st.floor);
   }
   const bossReady = st => isBossStage(st.floor);
-  const pierceMax = comboN => (globalThis.process && process.env.PIERCE === '0') ? 0 : (IDLE.PIERCE[Math.min(5, comboN)] || 0);
+  // 보스 '준비' 한 번 = 다시 탐지 또는 수리 (docs/slot-4.md). 수리는 최대 내구도의 20%
+  const BOSS_REPAIR = 0.2;
+  function bossRepair(st) { const mx = maxDur(st), before = st.dur; st.dur = Math.min(mx, st.dur + mx * BOSS_REPAIR); return st.dur - before; }
+  // 자동 보스 판단 (4종): 잡을 수 있으면 공격 → 반격에 부러질 것 같으면 수리 → 황금 2개면 황금 노림 → 돌만 다시 → 아니면 공격
+  function bossPlan(st, syms, rer, hp) {
+    const r = evalSpin(st, syms), atkB = bossAtk(st.floor);
+    if (r.dmg >= hp || rer <= 0) return { act: 'attack' };
+    if (st.dur <= atkB && st.dur < maxDur(st) * 0.9) return { act: 'repair' };
+    if (r.jackpot) return { act: 'attack' };
+    const golds = syms.filter(s => s === 'gold').length;
+    const held = syms.map(s => s === 'gold' || s === 'tnt' || s === 'gem');
+    if (golds >= 2 && held.some(h => !h)) return { act: 'reroll', held };
+    if (rer >= 2 && syms.some(s => s === 'stone')) return { act: 'reroll', held };   // 1번은 수리용으로 남겨 둠
+    return { act: 'attack' };
+  }
+  const pierceMax = comboN => (globalThis.process && process.env.PIERCE === '0') ? 0 : V4 ? 9 : (IDLE.PIERCE[Math.min(5, comboN)] || 0);
   // 보스에게 지면 챕터 처음(x-1)으로
   function bossLose(st) { st.floor = chapterStart(st.floor); st.bossFails++; st.dur = maxDur(st); }
   function bossWin(st) {
@@ -446,5 +511,5 @@
     return { ...list[idx], tier, grade, idx };
   }
 
-  root.Idle = { pierceMax, isBossStage, migrateStages, advance, lx, gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
+  root.Idle = { V4, setSlot, ladderOf, LADDER, bossRepair, bossPlan, BOSS_REPAIR, TNT_X, GEM_V, pierceMax, isBossStage, migrateStages, advance, lx, gradeName, pickName, abilText, dexCount, noteDex, boxPrice, openBox, sellPrice, sellPick, scrapPick, craftPick, migratePicks, RB, setRun, diff, CUP, cLv, holdX, dmgX, goldX, crystalsFor, canPrestige, prestige, buyC, zoneOf, PICK, pickMult, dropGrade, addPick, mergePicks, autoMerge, equipPick, rollDrop, SLOT_X, basicHit, weights, EGG_N, DRAGON_T, DRAGON_X, unlocked, resolveWild, applySpin, JACKPOT, IDLE, BAL, isSBoss, mobAtk, bossAtk, chapterStart, stageNo, maxDur, breakPick, bossLose, SYMS, COMBO, UP, stat, mobHp, killGold, bossHp, newState, canBuy, buy, roll, evalSpin, coinGold, goldPerKill, avgDmg, goldPerSec, offline, onKill, bossReady, bossWin, mineOf, mobCard, FLOORS_PER_MINE };
 })(typeof window !== 'undefined' ? window : globalThis);
