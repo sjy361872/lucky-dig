@@ -84,13 +84,13 @@
       this.dur = pick.dur; this.t = 0; this.events = []; this.queue = this.S.ores.slice(); this.total = this.queue.length;
       this.slots = [null, null, null]; this.pending = []; this.burns = []; this.boss = null; this.done = null; this.killed = 0;
       this.swingT = 0.6; this.bossDue = -1; this.spawnT = [0.2, 0.5, 0.8];
-      this.loot = { gold: 0 };
+      this.loot = { gold: 0 }; this.uid = 0;
     }
     ev(type, o = {}) { this.events.push(Object.assign({ type, t: this.t }, o)); }
     alive() { return this.slots.filter(o => o && o.hp > 0); }
     spawn(i, key, boss) {
       const d = boss ? BOSSES[key] : ORES[key];
-      const o = { id: Math.floor(this.rng() * 1e9), key, d, slot: i, hp: d.hp, max: d.hp, atkT: d.every * (0.8 + 0.4 * this.rng()), boss: !!boss };
+      const o = { id: ++this.uid, key, d, slot: i, hp: d.hp, max: d.hp, atkT: d.every * (0.8 + 0.4 * this.rng()), boss: !!boss };
       if (boss) { o.slamT = d.slamEvery * 0.7; o.warnLeft = -1; o.sumT = d.sumEvery * 0.6; }
       this.slots[i] = o; this.ev('spawn', { o });
       return o;

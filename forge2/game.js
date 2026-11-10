@@ -91,7 +91,7 @@
   let draft = null;
   function startCraft(back) {
     draft = { head: null, blade: null, grip: null, back };
-    toForge(() => { show('pParts'); renderParts(); sF().idle(); });
+    toForge(() => { sF().idle(); show('pParts'); renderParts(); });
   }
   function renderParts() {
     $('partsRes').innerHTML = resHtml();
@@ -119,6 +119,8 @@
   }
   $('bPartsBack').onclick = () => { ac(); draft = null; openFix(); };
   $('bForge').onclick = () => {
+    if ($('bForge').disabled || !draft) return;
+    $('bForge').disabled = true;
     ac(); const p = Object.assign({ grade: 0 }, draft);
     pay(R.craftCost(p));
     show('pTap'); drawScore([]);
@@ -182,7 +184,7 @@
   function startBattle() {
     const p = eqPick(); if (!p || p.dur <= 0) return;
     G.failed = false; G.rec.tries[G.stage]++;
-    battle = new R.Battle(Object.assign({}, p), G.stage);
+    battle = new R.Battle(Object.assign({}, p), G.stage); battle.pickId = p.id;
     show('hud', 'log'); clearLog();
     const S = R.STAGES[G.stage];
     $('hTtl').innerHTML = `${S.id} ${S.name}`;
@@ -242,13 +244,13 @@
     } else { $('fxTitle').textContent = '정비'; $('fxResult').innerHTML = ''; }
     // 부활
     const rv = $('bRevive');
-    rv.classList.toggle('hide', !(ctx.fail && battle && !battle.revived && G.revive > 0));
+    rv.classList.toggle('hide', !(ctx.fail && battle && !battle.revived && G.revive > 0 && eqPick()?.id === battle.pickId));
     rv.innerHTML = `💖 부활 — 그 자리에서 이어서 (내구도 50%)<small>원래는 부활 티켓 · 체험판은 무료 ${G.revive}번</small>`;
     $('fxRes').innerHTML = resHtml();
     // 보관함
     $('fxCards').innerHTML = G.picks.map((p, i) => cardHtml(p, { eq: i === G.eq && !!p, i })).join('');
     $('fxCards').querySelectorAll('.pcard[data-i]').forEach(el => el.onclick = () => {
-      const i = +el.dataset.i; if (G.picks[i] && G.eq !== i) { ac(); SFX.clink(); G.eq = i; openFix(); }
+      const i = +el.dataset.i; if (G.picks[i] && G.eq !== i) { ac(); SFX.clink(); G.eq = i; forfeit(); openFix(); }
     });
     // 들고 있는 곡괭이 작업
     const p = eqPick();
@@ -260,11 +262,11 @@
         <button class="btn alt" id="aFix" ${canFixSome ? '' : 'disabled'}>🔧 수리<small>${p.dur >= s.maxDur ? '멀쩡함' : G.gold >= rc ? `🪙${rc} → 가득` : `🪙${G.gold} → +${G.gold * 3}`}</small></button>
         <button class="btn alt" id="aUp" ${G.gold >= uc ? '' : 'disabled'}>🔨 재련 +${p.lv + 1}<small>🪙${uc} · 피해 ${r0(s.dmg)}→${r0(up.dmg)}</small></button>
         <button class="btn alt" id="aMelt">🔥 녹이기<small>${lootTxt(R.meltBack(p))} 회수</small></button>`;
-      $('aFix').onclick = () => { ac(); const pay2 = Math.min(G.gold, rc); G.gold -= pay2; p.dur = Math.min(s.maxDur, p.dur + pay2 * 3); SFX.anvil(0); openFix(); };
-      $('aUp').onclick = () => { ac(); G.gold -= uc; p.lv++; p.dur += up.maxDur - s.maxDur; SFX.fanfare(1); sM()?.flashPick?.(); openFix(); };
+      $('aFix').onclick = () => { ac(); forfeit(); const pay2 = Math.min(G.gold, rc); G.gold -= pay2; p.dur = Math.min(s.maxDur, p.dur + pay2 * 3); SFX.anvil(0); openFix(); };
+      $('aUp').onclick = () => { ac(); forfeit(); G.gold -= uc; p.lv++; p.dur = Math.round(p.dur * up.maxDur / s.maxDur); SFX.fanfare(1); openFix(); };
       $('aMelt').onclick = () => {
         ac(); if (!confirm(`${R.pickName(p)}을(를) 녹일까요? 재료 일부만 돌아와요.`)) return;
-        gain(R.meltBack(p)); G.picks[G.eq] = null; const other = G.picks.findIndex(x => x); G.eq = other >= 0 ? other : 0; SFX.sizzle(); openFix();
+        forfeit(); gain(R.meltBack(p)); G.picks[G.eq] = null; const other = G.picks.findIndex(x => x); G.eq = other >= 0 ? other : 0; SFX.sizzle(); openFix();
       };
     } else $('fxActs').innerHTML = '';
     // 새로 제작
@@ -286,7 +288,7 @@
     } else {
       const ok = p && p.dur > 0;
       nb.disabled = !ok;
-      nb.innerHTML = ok ? (ctx.fail ? `다시 도전: ${S.id} ${S.name} (첫 광물부터)` : `다음: ${S.id} ${S.name} →`) : '들고 있는 곡괭이가 부서졌어요 (수리하거나 바꿔 들기)';
+      nb.innerHTML = ok ? (ctx.fail ? `다시 도전: ${S.id} ${S.name} (첫 광물부터)` : `다음: ${S.id} ${S.name} →`) : !p ? '곡괭이가 없어요 (새로 제작)' : '들고 있는 곡괭이가 부서졌어요 (수리하거나 바꿔 들기)';
       nb.onclick = () => { ac(); G.fixCtx = null; if (ctx.fail) startBattle(); else stageIntro(); };
     }
   }
@@ -298,7 +300,8 @@
     show('hud', 'log'); logLine('💖 곡괭이가 다시 일어섰다! (내구도 50%)', 'good');
     toMine(() => sM().resume(battle, p, endBattle));
   };
-  $('bCraft').onclick = () => { ac(); if (battle) battle.revived = true; startCraft(true); };
+  $('bCraft').onclick = () => { ac(); forfeit(); startCraft(true); };
+  function forfeit() { if (battle && G.fixCtx?.fail) battle.revived = true; }
 
   function endGame() {
     show('pEnd'); SFX.fanfare(4);
@@ -364,17 +367,18 @@
       this.fireGlow = this.add.image(this.furnace.x, this.furnace.y, 'glow').setScale(5).setTint(0xff8a3c).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD);
       this.tweens.add({ targets: this.fireGlow, alpha: 0.55, scale: 5.6, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       this.add.particles(0, 0, 'dot', { x: { min: this.furnace.x - 60, max: this.furnace.x + 60 }, y: this.furnace.y - 20, speedY: { min: -120, max: -40 }, speedX: { min: -20, max: 30 }, lifespan: 1600, scale: { start: 0.7, end: 0 }, tint: [0xffb04a, 0xff7a1a, 0xffe08a], frequency: 90, blendMode: 'ADD' });
-      this.layer = this.add.container(0, 0);
+      this.layer = this.add.container(0, 0); this.pv = this.pvGlow = this.pvFx = this.onTap = null;
       this.spark = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 120, max: 420 }, angle: { min: 0, max: 360 }, gravityY: 900, lifespan: 550, scale: { start: 1, end: 0 }, tint: [0xffe08a, 0xffb04a, 0xffffff], blendMode: 'ADD' }).setDepth(40);
       this.input.on('pointerdown', () => ac());
       const cb = onForgeReady; onForgeReady = null; cb?.();
     }
-    clear() { this.tapTimer?.remove(); this.layer.removeAll(true); this.pv = null; if (this.onTap) this.input.off('pointerdown', this.onTap, this); }
+    clear() { this.tapTimer?.remove(); this.layer.list.forEach(c => this.tweens.killTweensOf(c)); this.layer.removeAll(true); this.pv = null; this.pvGlow = null; this.pvFx = null; if (this.onTap) this.input.off('pointerdown', this.onTap, this); }
     idle() { this.clear(); }
     // 고르는 중인 곡괭이를 화면 위쪽에 크게
     preview(p) {
       if (!this.sys.isActive()) return;
-      this.pv?.destroy(); this.pvGlow?.destroy();
+      if (this.pv) this.tweens.killTweensOf(this.pv);
+      this.pv?.destroy(); this.pvGlow?.destroy(); this.pvFx?.destroy(); this.pvFx = null;
       // 패널 위 빈 곳에 맞춰 크기·위치 (패널 윗변을 게임 좌표로)
       const cv = this.game.canvas.getBoundingClientRect(), top = ($('pParts').getBoundingClientRect().top - cv.top) * H / cv.height;
       const L = Phaser.Math.Clamp((top - 40) * 0.75, 110, 230), y = top - 25 - L;
@@ -382,8 +386,8 @@
       this.layer.add(this.pvGlow);
       const c = this.pv = makePick(this, p, L); c.setPosition(W / 2, top - 25).setAngle(-12); this.layer.add(c);
       this.tweens.add({ targets: c, angle: 12, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-      if (p.head === 'fire') { const f = this.add.particles(0, 0, 'flame', { follow: c.head, speedY: { min: -90, max: -30 }, x: { min: -60, max: 60 }, lifespan: 500, scale: { start: 1.3, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 60, blendMode: 'ADD' }); this.layer.add(f); f.startFollow(c, 0, -c.L); }
-      if (p.head === 'crystal') { const f = this.add.particles(0, 0, 'shard', { x: { min: -70, max: 70 }, y: { min: -20, max: 20 }, lifespan: 700, scale: { start: 0.8, end: 0 }, frequency: 120, blendMode: 'ADD' }); this.layer.add(f); f.startFollow(c, 0, -c.L); }
+      if (p.head === 'fire') { const f = this.add.particles(0, 0, 'flame', { speedY: { min: -90, max: -30 }, x: { min: -60, max: 60 }, lifespan: 500, scale: { start: 1.3, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 60, blendMode: 'ADD' }); this.layer.add(f); f.startFollow(c, 0, -c.L); this.pvFx = f; }
+      if (p.head === 'crystal') { const f = this.add.particles(0, 0, 'shard', { x: { min: -70, max: 70 }, y: { min: -20, max: 20 }, lifespan: 700, scale: { start: 0.8, end: 0 }, frequency: 120, blendMode: 'ADD' }); this.layer.add(f); f.startFollow(c, 0, -c.L); this.pvFx = f; }
     }
     // ---- 달군 금속 ----
     hotPoly(g, pts) {
@@ -538,6 +542,7 @@
       g.fillStyle(0x2a1d22, 1); g.fillPoints([{ x: 0, y: fy + 25 }, { x: 180, y: fy }, { x: 360, y: fy + 15 }, { x: 540, y: fy - 3 }, { x: W, y: fy + 23 }, { x: W, y: H }, { x: 0, y: H }], true);
       this.add.image(W / 2, 500 + OY, 'glow').setScale(12).setAlpha(0.16).setTint(0xffa860).setDepth(-9);
       this.spr = new Map(); this.chips = {}; this.b = null; this.hsUntil = 0;
+      this.pk = this.aura = this.headFx = this.warnG = this.warnT = null; this.running = false;
       this.flameFx = this.add.particles(0, 0, 'flame', { emitting: false, speedY: { min: -140, max: -60 }, speedX: { min: -30, max: 30 }, lifespan: 600, scale: { start: 1.6, end: 0 }, tint: [0xff8a3c, 0xffd27a, 0xff5a1a], blendMode: 'ADD' }).setDepth(7);
       this.spark = this.add.particles(0, 0, 'dot', { emitting: false, speed: { min: 120, max: 380 }, angle: { min: 0, max: 360 }, gravityY: 900, lifespan: 450, scale: { start: 0.9, end: 0 }, tint: [0xffe08a, 0xffffff], blendMode: 'ADD' }).setDepth(8);
       this.input.on('pointerdown', () => ac());
@@ -545,20 +550,24 @@
     }
     idle(keep) {
       this.running = false;
-      if (!keep) { this.spr.forEach(s => this.killSprite(s, true)); this.spr.clear(); this.pk?.destroy(); this.pk = null; }
+      if (!keep) { this.spr.forEach(s => this.killSprite(s, true)); this.spr.clear(); this.dropPick(); }
+    }
+    dropPick() {
+      for (const k of ['pk', 'aura', 'headFx', 'warnG', 'warnT']) { if (this[k]) { this.tweens.killTweensOf(this[k]); this[k].destroy(); } this[k] = null; }
+    }
+    makeBattlePick(p) {
+      this.dropPick();
+      this.pk = makePick(this, p, 235).setDepth(5);
+      this.pk.setPosition(W / 2 + 120, 900 + OY).setRotation(0.6);
+      if (p.grade >= 1) { this.aura = this.add.particles(0, 0, 'dot', { lifespan: 500, speed: 30, scale: { start: 0.9, end: 0 }, tint: R.GRADES[p.grade].hex, frequency: Math.max(40, 160 - p.grade * 30), blendMode: 'ADD' }).setDepth(6); this.aura.startFollow(this.pk); }
+      if (p.head === 'fire') this.headFx = this.add.particles(0, 0, 'flame', { speedY: { min: -60, max: -20 }, lifespan: 380, scale: { start: 1.1, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 70, blendMode: 'ADD' }).setDepth(6);
+      else if (p.head === 'crystal') this.headFx = this.add.particles(0, 0, 'dot', { lifespan: 450, scale: { start: 0.8, end: 0 }, tint: 0x9ff7ff, frequency: 100, speed: 30, blendMode: 'ADD' }).setDepth(6);
     }
     // ---- 전투 시작 / 이어서 ----
     run(b, p, done) {
       this.spr.forEach(s => this.killSprite(s, true)); this.spr.clear();
-      this.pk?.destroy(); this.aura?.destroy();
       this.b = b; this.p = p; this.done = done; this.lg = {}; this.lastTarget = null;
-      this.pk = makePick(this, p, 235).setDepth(5);
-      this.pk.setPosition(W / 2 + 120, 900 + OY).setRotation(0.6);
-      const gc = R.GRADES[p.grade];
-      if (p.grade >= 1) { this.aura = this.add.particles(0, 0, 'dot', { lifespan: 500, speed: 30, scale: { start: 0.9, end: 0 }, tint: gc.hex, frequency: Math.max(40, 160 - p.grade * 30), blendMode: 'ADD' }).setDepth(6); this.aura.startFollow(this.pk); }
-      if (p.head === 'fire') { this.headFx = this.add.particles(0, 0, 'flame', { speedY: { min: -60, max: -20 }, lifespan: 380, scale: { start: 1.1, end: 0 }, tint: [0xff8a3c, 0xffd27a], frequency: 70, blendMode: 'ADD' }).setDepth(6); }
-      else if (p.head === 'crystal') { this.headFx = this.add.particles(0, 0, 'dot', { lifespan: 450, scale: { start: 0.8, end: 0 }, tint: 0x9ff7ff, frequency: 100, speed: 30, blendMode: 'ADD' }).setDepth(6); }
-      else { this.headFx?.destroy(); this.headFx = null; }
+      this.makeBattlePick(p);
       this.running = true; this.ending = false; this.warned = {};
       hudDur(b.dur, b.st.maxDur); hudProg(b);
       const go = this.add.text(W / 2, H * 0.3, '시작!', { fontFamily: FONT, fontSize: '80px', color: '#ffd54a', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(12);
@@ -566,9 +575,8 @@
     }
     resume(b, p, done) {
       this.b = b; this.p = p; this.done = done; this.running = true; this.ending = false;
-      if (!this.pk) this.pk = makePick(this, p, 235).setDepth(5);
-      this.pk.setVisible(true).setAlpha(1).setScale(0.3).setPosition(W / 2 + 120, 900 + OY);
-      this.pk.list.forEach(c => { this.tweens.killTweensOf(c); c.setPosition(c === this.pk.head ? 0 : 0, c === this.pk.head ? -this.pk.L : 0).setAngle(0).setAlpha(1); });
+      this.makeBattlePick(p); this.warned = {};
+      this.pk.setScale(0.3);
       this.tweens.add({ targets: this.pk, scale: 1, duration: 400, ease: 'Back.Out' });
       const f = this.add.image(this.pk.x, this.pk.y - 100, 'glow').setScale(2).setTint(0xff8fb0).setBlendMode(Phaser.BlendModes.ADD).setDepth(9);
       this.tweens.add({ targets: f, scale: 10, alpha: 0, duration: 700, onComplete: () => f.destroy() });
@@ -802,6 +810,8 @@
       logLine(this.b.S.story[2], 'story');
       this.banner('의뢰 완료!', '#5be37d');
       this.time.timeScale = 1; this.tweens.timeScale = 1;
+      this.spr.forEach(s => { this.chipFx(s.o, s.img.x, s.img.y, 12); this.killSprite(s); }); this.spr.clear();
+      this.tweens.killTweensOf(this.pk);
       this.tweens.add({ targets: this.pk, y: this.pk.y - 60, rotation: 0, duration: 400, yoyo: true, ease: 'Sine.Out' });
       setTimeout(() => this.done('clear'), 1800);
     }
