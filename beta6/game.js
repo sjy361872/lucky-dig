@@ -151,21 +151,29 @@
       }, s => drawScore(s));
       return;
     }
-    // 반동 3연타: 등급 = 고정 확률(운), 망치 = 세공 보너스(공격력 +0~9%)
-    $('tapTitle').textContent = '반동 3연타';
-    $('tapSub').innerHTML = '① <b>꾹 눌러</b> 망치를 들고, 반짝일 때 떼요 ② ③ 튀어 오른 망치가 <b>꼭대기에서 반짝일 때</b> 탭!';
-    $('tapOdds').innerHTML = oddsHtml(R.BASE_ODDS);
+    // 등급 = 고정 확률(운), 망치 = 세공 보너스(공격력 +0~9%)
     const grade = rollGrade(R.BASE_ODDS);
-    sF().beginBounce(grade, scores => {
+    const fin = scores => {
       const craft = scores.reduce((a, b) => a + b, 0);
       G.rec.crafts.push({ sc: craft, grade });
       newPick(mkPick({ head: p.head, blade: p.blade, grip: p.grip, grade, craft }));
-    }, s => drawScore(s));
+    };
+    $('tapOdds').innerHTML = oddsHtml(R.BASE_ODDS);
+    if (HAMMER === 'swipe') {
+      $('tapTitle').textContent = '세 번 내려치기';
+      $('tapSub').innerHTML = '화면을 <b>아래로 쓱</b> 그으면 쾅! 빨리 그을수록 세게 쳐요';
+      sF().beginSwipe(grade, fin, s => drawScore(s));
+      return;
+    }
+    $('tapTitle').textContent = '반동 3연타';
+    $('tapSub').innerHTML = '① <b>꾹 눌러</b> 망치를 들고, 반짝일 때 떼요 ② ③ 튀어 오른 망치가 <b>꼭대기에서 반짝일 때</b> 탭!';
+    sF().beginBounce(grade, fin, s => drawScore(s));
   };
-  const HAMMER = new URLSearchParams(location.search).get('hammer') === 'old' ? 'old' : 'bounce';
+  const HAMMER = ({ old: 'old', bounce: 'bounce' })[new URLSearchParams(location.search).get('hammer')] || 'swipe';
   const oddsHtml = od => R.GRADES.map((g, i) => `<span style="color:${g.css}">${g.name} ${od[i].toFixed(0)}%</span>`).join('');
   function rollGrade(od) { const r = Math.random() * 100; let acc = 0; for (let i = 0; i < 5; i++) { acc += od[i]; if (r < acc) return i; } return 4; }
   function drawScore(s) {
+    if (HAMMER === 'swipe') { $('tapScore').innerHTML = `<span style="color:var(--gold)">세공 +${s.reduce((a, b) => a + b, 0)}%</span><span style="color:#bba">${s.length} / 3</span>`; return; }
     const lab = n => n === 3 ? '완벽' : n === 2 ? '좋음' : n === 1 ? '보통' : '빗나감', part = HAMMER === 'old' ? ['헤드', '날', '손잡이'] : ['펴기', '모양', '날'];
     $('tapScore').innerHTML = [0, 1, 2].map(i => `<span style="color:${s[i] == null ? '#776' : s[i] >= 3 ? 'var(--gold)' : s[i] ? '#fff' : 'var(--red)'}">${s[i] == null ? part[i] : `${part[i]} ${lab(s[i])}`}</span>`).join('')
       + (HAMMER === 'old' ? '' : `<span style="color:var(--gold)">세공 +${s.reduce((a, b) => a + b, 0)}%</span>`);
@@ -403,7 +411,7 @@
       this.input.on('pointerdown', () => ac()); this.game.canvas.addEventListener('contextmenu', e => e.preventDefault());
       const cb = onForgeReady; onForgeReady = null; cb?.();
     }
-    clear() { this.tapTimer?.remove(); this.layer.list.forEach(c => this.tweens.killTweensOf(c)); this.layer.removeAll(true); this.pv = null; this.pvGlow = null; this.pvFx = null; if (this.onTap) this.input.off('pointerdown', this.onTap, this); if (this.onUp) this.input.off('pointerup', this.onUp, this); }
+    clear() { this.tapTimer?.remove(); this.layer.list.forEach(c => this.tweens.killTweensOf(c)); this.layer.removeAll(true); this.pv = null; this.pvGlow = null; this.pvFx = null; if (this.onTap) this.input.off('pointerdown', this.onTap, this); if (this.onUp) this.input.off('pointerup', this.onUp, this); if (this.onMove) this.input.off('pointermove', this.onMove, this); }
     idle() { this.clear(); }
     // 고르는 중인 곡괭이를 화면 위쪽에 크게
     preview(p) {
@@ -517,6 +525,90 @@
         const steam = this.add.particles(this.cx, this.cy - 30, 'glow', { speedY: { min: -160, max: -60 }, speedX: { min: -40, max: 40 }, lifespan: 1200, scale: { start: 0.6, end: 2.2 }, alpha: { start: 0.35, end: 0 }, quantity: 2, frequency: 30 });
         this.layer.add(steam); this.time.delayedCall(500, () => steam.stop());
         this.time.delayedCall(650, () => done(scores));
+      };
+    }
+    // ---- 세게 쓱 내려치기 ----
+    // 화면 아무 데나 위→아래로 쓱 그으면 망치가 떨어짐. 빨리 그을수록 세게(세공 +1~3%). 그냥 탭해도 약하게 침 → 실패 없음.
+    // 칠 때마다 쇠 모양이 바뀜(원석 껍질 깨짐 → 납작 → 머리 모양 → 날). 등급은 이미 정해져 있음(grade).
+    beginSwipe(grade, done, onScore) {
+      this.clear();
+      const cx = this.cx, cy = this.cy;
+      const crescent = (span, thick, rise) => {
+        const top = [], bot = [], N = 10;
+        for (let i = 0; i <= N; i++) {
+          const x = -span + (2 * span * i) / N, u = 1 - (x / span) ** 2, taper = 0.12 + 0.88 * Math.sqrt(Math.max(0, u));
+          const yc = -rise * u + rise / 2;
+          top.push({ x, y: yc - (thick / 2) * taper }); bot.unshift({ x, y: yc + (thick / 2) * taper });
+        }
+        return top.concat(bot);
+      };
+      const box = (w, h) => [{ x: -w, y: -h }, { x: w, y: -h }, { x: w + 10, y: -h + 14 }, { x: w + 10, y: h - 12 }, { x: w, y: h }, { x: -w, y: h }, { x: -w - 10, y: h - 12 }, { x: -w - 10, y: -h + 14 }];
+      const SHAPES = [box(140, 70), box(192, 46), crescent(205, 64, 44), crescent(218, 46, 60)];
+      const glow = this.add.image(cx, cy, 'glow').setScale(9, 5).setTint(0xff7a1a).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
+      const metal = this.add.graphics().setPosition(cx, cy); this.hotPoly(metal, SHAPES[0]);
+      const crust = this.add.graphics().setPosition(cx, cy);                // 원석 껍질 (1타에 깨짐)
+      for (let i = 0; i < 9; i++) { crust.fillStyle(0x2a1208, 0.8); crust.fillEllipse(rnd(-120, 120), rnd(-50, 50), rnd(50, 90), rnd(24, 40)); }
+      this.layer.add([glow, metal, crust]); this.metal = metal; this.glowM = glow;
+      this.tweens.add({ targets: glow, alpha: 0.85, duration: 500, yoyo: true, repeat: -1 });
+      const SC = 1.25, R_ = 128 * SC, PV = { x: cx + 175, y: cy - 78 }, UP = 8, HIT = -88;
+      const hammer = this.hammer = this.add.image(PV.x, PV.y, 'hammer').setOrigin(0.5, 0.95).setScale(SC).setAngle(-40).setDepth(30); this.layer.add(hammer);
+      const headAt = a => { const r = Phaser.Math.DegToRad(a); return { x: PV.x + R_ * Math.sin(r), y: PV.y - R_ * Math.cos(r) }; };
+      // 아래로 긋기 안내: 손가락 자국이 위→아래로 내려가는 반복 (1타 전까지만)
+      const guide = this.add.graphics().setDepth(31); this.layer.add(guide);
+      const gs = { t: 0 }; this.tweens.add({ targets: gs, t: 1, duration: 900, repeat: -1, repeatDelay: 250, onUpdate: () => {
+        guide.clear(); const y0 = cy + 40, y1 = y0 + 170 * gs.t;
+        for (let i = 0; i < 8; i++) { const yy = y0 + (y1 - y0) * (i / 8); guide.fillStyle(0xffe08a, 0.08 + 0.06 * i); guide.fillCircle(cx - 220, yy, 6 + i * 1.6); }
+        guide.fillStyle(0xffffff, 0.9); guide.fillCircle(cx - 220, y1, 20); } });
+      const hint = this.add.text(cx, cy + 250, '아래로 쓱!  빠를수록 세게', { fontFamily: FONT, fontSize: '32px', color: '#ffe08a', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5).setDepth(31);
+      this.layer.add(hint);
+      SFX.sizzle();
+      const scores = []; let k = 0, phase = 'rise', y0 = 0, t0 = 0;
+      const raise = () => { phase = 'rise'; this.tweens.add({ targets: hammer, angle: UP, duration: k ? 220 : 350, ease: 'Back.Out', onComplete: () => { phase = 'ready'; } }); };
+      const judgeLab = n => { const lab = ['', '톡', '쾅!', '콰광!!'][n], col = ['#fff', '#ffffff', '#9ff7a0', '#ffd54a'][n];
+        const t = this.add.text(cx, cy - 170, `${lab} +${n}%`, { fontFamily: FONT, fontSize: n === 3 ? '58px' : n === 2 ? '48px' : '38px', color: col, stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(32);
+        this.layer.add(t); this.tweens.add({ targets: t, y: t.y - 50, alpha: 0, delay: 260, duration: 480, onComplete: () => t.destroy() }); };
+      const strike = n => {
+        phase = 'strike';
+        if (k === 0) { this.tweens.killTweensOf(gs); guide.clear(); hint.setVisible(false); }
+        this.tweens.add({ targets: hammer, angle: HIT, duration: [0, 150, 90, 60][n], ease: 'Quad.In', onComplete: () => impact(n) });
+      };
+      const impact = n => {
+        scores.push(n); onScore(scores.slice()); judgeLab(n);
+        const h = headAt(HIT), last = k === 2;
+        this.hotPoly(metal, SHAPES[k + 1]);
+        metal.setScale(1 + 0.03 * n, 1 - 0.06 * n); this.tweens.add({ targets: metal, scaleX: 1, scaleY: 1, duration: 170, ease: 'Back.Out' });
+        if (k === 0) { crust.clear(); const chips = this.add.particles(cx, cy - 10, 'chip', { emitting: false, speed: { min: 150, max: 420 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: 700, tint: 0x2a1208, scale: { start: 1.6, end: 0.6 } }); this.layer.add(chips); chips.explode(22); }
+        this.spark.explode(n * 14 + (last ? 30 : 6), h.x, h.y + 20); n >= 2 ? SFX.anvil(n) : SFX.hit(1);
+        this.cameras.main.shake(last ? 280 : 70 + 50 * n, last ? 0.022 : 0.004 * n + 0.002);
+        const stop = last ? 150 : 25 * n + 20;                              // 잠깐 멈춤(묵직함)
+        this.tweens.pauseAll(); setTimeout(() => { if (!this.sys.isActive()) return; this.tweens.resumeAll(); k++; k >= 3 ? finish() : raise(); }, stop);
+      };
+      // 속도 → 세기 (px/ms, 게임 좌표). 탭만 해도 1.
+      const power = v => v >= 2.2 ? 3 : v >= 1.0 ? 2 : 1;          // 휴대폰에서 게임 1px ≈ 화면 0.54px
+      const onDown = p => { if (phase !== 'ready') return; phase = 'drag'; y0 = p.y; t0 = this.time.now; };
+      const onMove = p => {
+        if (phase !== 'drag') return;
+        const dy = p.y - y0;
+        hammer.setAngle(UP - Math.max(0, Math.min(dy, 80)) * 0.25);        // 손가락 따라 살짝 내려옴
+        if (dy >= 80) strike(power(dy / Math.max(16, this.time.now - t0)));
+      };
+      const onUp = () => { if (phase === 'drag') strike(1); };              // 거의 안 긋고 떼면 약하게
+      this.onTap = onDown; this.onUp = onUp; this.onMove = onMove;
+      this.input.on('pointerdown', onDown, this); this.input.on('pointerup', onUp, this); this.input.on('pointermove', onMove, this);
+      raise();
+      this.tapCur = { k: () => k, phase: () => phase,                      // 테스트용
+        swipe: (dy, ms) => { if (phase !== 'ready') return false; phase = 'drag'; t0 = this.time.now - ms; y0 = 0; onMove({ y: dy }); return true; },
+        tap: () => { if (phase !== 'ready') return false; phase = 'drag'; onUp(); return true; } };
+      const finish = () => {
+        phase = 'done'; this.input.off('pointerdown', onDown, this); this.input.off('pointerup', onUp, this); this.input.off('pointermove', onMove, this);
+        this.tweens.add({ targets: hammer, x: W + 160, angle: 10, duration: 350, ease: 'Quad.In' });
+        this.time.delayedCall(250, () => {
+          SFX.sizzle(); SFX.sizzle();
+          const steam = this.add.particles(cx, cy - 20, 'glow', { speedY: { min: -220, max: -80 }, speedX: { min: -90, max: 90 }, lifespan: 1300, scale: { start: 1, end: 3.4 }, alpha: { start: 0.5, end: 0 }, quantity: 4, frequency: 25 });
+          this.layer.add(steam); steam.setDepth(33);
+          this.tweens.add({ targets: glow, alpha: 0, duration: 500 });
+          this.time.delayedCall(650, () => { steam.stop(); this.reveal(grade, [], () => done(scores)); });
+        });
       };
     }
     // ---- 반동 3연타 ----
