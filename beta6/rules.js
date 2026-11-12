@@ -31,7 +31,7 @@
   const BASE_DMG = 14;
   function pickStats(p) {
     const H = HEADS[p.head], B = BLADES[p.blade], G = GRIPS[p.grip], gm = GRADES[p.grade].m, lv = p.lv || 0;
-    const dmg = BASE_DMG * H.dmg * B.dmg * G.dmg * gm * (1 + 0.15 * lv);
+    const dmg = BASE_DMG * H.dmg * B.dmg * G.dmg * gm * (1 + 0.15 * lv) * (1 + (p.craft || 0) / 100);   // craft = 망치 세공 보너스(%)
     const every = B.every / G.speed;
     const maxDur = Math.round(G.dur * (1 + (gm - 1) * 0.6) * (1 + 0.08 * lv));
     return { dmg, every, dps: dmg / every, maxDur, head: p.head, blade: p.blade, grip: p.grip,
@@ -191,6 +191,7 @@
     }
   }
 
-  const R = { HEADS, BLADES, GRIPS, GRADES, odds, pickStats, pickName, pickShort, MATS, START, craftCost, upCost, repairCost, meltBack, ORES, BOSSES, STAGES, Battle };
+  const BASE_ODDS = odds(5);   // 반동 3연타: 등급은 망치 점수와 무관한 고정 확률 (빛나는 광석은 나중)
+  const R = { BASE_ODDS, HEADS, BLADES, GRIPS, GRADES, odds, pickStats, pickName, pickShort, MATS, START, craftCost, upCost, repairCost, meltBack, ORES, BOSSES, STAGES, Battle };
   if (typeof module !== 'undefined') module.exports = R; else root.RULES = R;
 })(this);

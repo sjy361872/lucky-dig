@@ -10,7 +10,7 @@
   :root { --bg:#120e14; --panel:rgba(28,20,24,.94); --line:#5a4134; --text:#fbefe2; --dim:#c4ab98; --gold:#ffd54a; --fire:#ff8a3c; --cry:#7fe8ff; --red:#ff5a5f; --green:#5be37d; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
-    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif; overscroll-behavior:none; user-select:none; -webkit-user-select:none; }
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif; overscroll-behavior:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   #app { position:relative; max-width:480px; height:100%; margin:0 auto; overflow:hidden; }
   #game { position:absolute; inset:0; }
   #game canvas { display:block; margin:0 auto; touch-action:none; }
@@ -118,9 +118,10 @@
 
     <!-- 약점 3타 -->
     <div id="pTap" class="panel top hide" style="text-align:center">
-      <h2>세 번 내려치기</h2>
-      <p class="sub" style="margin:0">흰 빛줄이 <b style="color:var(--gold)">금색 선</b>에 겹칠 때 화면을 <b>아래로 쓸어</b> 내려쳐요</p>
+      <h2 id="tapTitle">세 번 내려치기</h2>
+      <p class="sub" id="tapSub" style="margin:0">흰 빛줄이 <b style="color:var(--gold)">금색 선</b>에 겹칠 때 화면을 <b>아래로 쓸어</b> 내려쳐요</p>
       <div class="score" id="tapScore"></div>
+      <div class="odds" id="tapOdds" style="margin-top:6px"></div>
     </div>
 
     <!-- 룰렛 -->
@@ -174,7 +175,7 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
-<script src="rules.js?v=1794400573"></script>
-<script src="game.js?v=1794400573"></script>
+<script src="rules.js?v=1794451304"></script>
+<script src="game.js?v=1794451304"></script>
 </body>
 </html>
