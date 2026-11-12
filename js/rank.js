@@ -18,7 +18,7 @@
   // ---------- 기록 계산 ----------
   function emptyStats() {
     return {
-      plays: 0, spent: 0, earned: 0, rankPoints: C.START_POINTS,
+      plays: 0, spent: 0, earned: 0, rankPoints: C.RANK_BASE,
       best: null,                       // { mult, grade, mode, bet, card, value, at }
       grades: { mild: {}, hard: {} },   // 모드별 등급 횟수
       collection: [],                   // 모은 카드 키 'S:3'
@@ -36,7 +36,7 @@
     if (!st || typeof st !== 'object') return d;
     const out = { ...d };
     for (const k of ['plays', 'spent', 'earned', 'charged']) out[k] = num(st[k]);
-    out.rankPoints = C.START_POINTS + out.earned - out.spent;
+    out.rankPoints = C.RANK_BASE + out.earned - out.spent;
     const b = st.best;
     out.best = b && typeof b === 'object' ? { mult: num(b.mult), grade: okGrade(b.grade), mode: okMode(b.mode), bet: num(b.bet), card: String(b.card || '').slice(0, 20), value: num(b.value), at: num(b.at) } : null;
     for (const m of ['mild', 'hard']) { out.grades[m] = {}; const src = (st.grades && st.grades[m]) || {}; for (const g of GRADE_IDS) if (src[g]) out.grades[m][g] = num(src[g]); }
@@ -50,7 +50,7 @@
   function applyPlay(st, p) {
     // p = { mode, bet, grade, cardIdx, card, value }
     st.plays++; st.spent += p.bet; st.earned += p.value;
-    st.rankPoints = C.START_POINTS + st.earned - st.spent;
+    st.rankPoints = C.RANK_BASE + st.earned - st.spent;
     const mult = p.value / p.bet;
     let newBest = false;
     if (!st.best || mult > st.best.mult) { st.best = { mult, grade: p.grade, mode: p.mode, bet: p.bet, card: p.card, value: p.value, at: Date.now() }; newBest = true; }
@@ -249,7 +249,7 @@
       for (const r of rows) {
         try { const st0 = Rank.me && r.nickname === Rank.me.nickname ? r.stats : normStats(r.stats);
           // 보유 포인트: 저장된 게임 상태의 포인트 (없으면 시작 포인트)
-          const st = { ...st0, wallet: Math.max(0, Number.isFinite(+r.wallet) && r.wallet !== null ? +r.wallet : C.START_POINTS) };
+          const st = { ...st0, wallet: Math.max(0, Number.isFinite(+r.wallet) && r.wallet !== null ? +r.wallet : C.RANK_BASE) };
           out.push({ nickname: String(r.nickname).slice(0, 10), score: def.score(st), show: def.show(st), sub: def.sub(st) }); } catch (e) { /* 깨진 기록은 건너뜀 */ }
       }
       return out.sort((a, b) => b.score - a.score);

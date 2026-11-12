@@ -16,7 +16,7 @@
     R.state.speed = 40;
     await window.Rank.login('테스터');
     const st = () => window.Rank.me.stats;
-    check(st().rankPoints === C.START_POINTS, '랭크 포인트 시작 10,000');
+    check(st().rankPoints === C.RANK_BASE, '랭크 포인트 시작 10,000');
     const ROUNDS = 8;
     for (let i = 0; i < ROUNDS; i++) {
       const P = num($('#pointsText').textContent), B = num($('#betText').textContent);
@@ -39,7 +39,7 @@
     }
     // 랭킹 기록: 랭크 포인트 = 10,000 + 받은 합 − 쓴 합
     check(st().plays === ROUNDS, `랭킹 플레이 수 ${st().plays}`);
-    check(st().rankPoints === C.START_POINTS + st().earned - st().spent, `랭크 포인트 ${st().rankPoints} = 10,000 + ${st().earned} − ${st().spent}`);
+    check(st().rankPoints === C.RANK_BASE + st().earned - st().spent, `랭크 포인트 ${st().rankPoints} = 10,000 + ${st().earned} − ${st().spent}`);
     check(st().best && st().best.mult > 0, '최고 배율 기록됨');
     // 도감: 뽑은 카드 종류 수만큼 등록
     const saved0 = JSON.parse(localStorage.getItem('luckydig.v1'));
