@@ -159,6 +159,12 @@
       newPick(mkPick({ head: p.head, blade: p.blade, grip: p.grip, grade, craft }));
     };
     $('tapOdds').innerHTML = oddsHtml(R.BASE_ODDS);
+    if (HAMMER === 'swing') {
+      $('tapTitle').textContent = '세 번 내려치기';
+      $('tapSub').innerHTML = '흔들리는 망치가 쇠의 <b>빛나는 곳</b> 위에 오면 탭!';
+      sF().beginSwing(grade, fin, s => drawScore(s));
+      return;
+    }
     if (HAMMER === 'swipe') {
       $('tapTitle').textContent = '세 번 내려치기';
       $('tapSub').innerHTML = '화면을 <b>아래로 쓱</b> 그으면 쾅! 빨리 그을수록 세게 쳐요';
@@ -169,11 +175,11 @@
     $('tapSub').innerHTML = '① <b>꾹 눌러</b> 망치를 들고, 반짝일 때 떼요 ② ③ 튀어 오른 망치가 <b>꼭대기에서 반짝일 때</b> 탭!';
     sF().beginBounce(grade, fin, s => drawScore(s));
   };
-  const HAMMER = ({ old: 'old', bounce: 'bounce' })[new URLSearchParams(location.search).get('hammer')] || 'swipe';
+  const HAMMER = ({ old: 'old', bounce: 'bounce', swipe: 'swipe' })[new URLSearchParams(location.search).get('hammer')] || 'swing';
   const oddsHtml = od => R.GRADES.map((g, i) => `<span style="color:${g.css}">${g.name} ${od[i].toFixed(0)}%</span>`).join('');
   function rollGrade(od) { const r = Math.random() * 100; let acc = 0; for (let i = 0; i < 5; i++) { acc += od[i]; if (r < acc) return i; } return 4; }
   function drawScore(s) {
-    if (HAMMER === 'swipe') { $('tapScore').innerHTML = `<span style="color:var(--gold)">세공 +${s.reduce((a, b) => a + b, 0)}%</span><span style="color:#bba">${s.length} / 3</span>`; return; }
+    if (HAMMER === 'swipe' || HAMMER === 'swing') { $('tapScore').innerHTML = `<span style="color:var(--gold)">세공 +${s.reduce((a, b) => a + b, 0)}%</span><span style="color:#bba">${s.length} / 3</span>`; return; }
     const lab = n => n === 3 ? '완벽' : n === 2 ? '좋음' : n === 1 ? '보통' : '빗나감', part = HAMMER === 'old' ? ['헤드', '날', '손잡이'] : ['펴기', '모양', '날'];
     $('tapScore').innerHTML = [0, 1, 2].map(i => `<span style="color:${s[i] == null ? '#776' : s[i] >= 3 ? 'var(--gold)' : s[i] ? '#fff' : 'var(--red)'}">${s[i] == null ? part[i] : `${part[i]} ${lab(s[i])}`}</span>`).join('')
       + (HAMMER === 'old' ? '' : `<span style="color:var(--gold)">세공 +${s.reduce((a, b) => a + b, 0)}%</span>`);
@@ -525,6 +531,101 @@
         const steam = this.add.particles(this.cx, this.cy - 30, 'glow', { speedY: { min: -160, max: -60 }, speedX: { min: -40, max: 40 }, lifespan: 1200, scale: { start: 0.6, end: 2.2 }, alpha: { start: 0.35, end: 0 }, quantity: 2, frequency: 30 });
         this.layer.add(steam); this.time.delayedCall(500, () => steam.stop());
         this.time.delayedCall(650, () => done(scores));
+      };
+    }
+    // ---- 흔들리는 망치 (시안 A) ----
+    // 망치가 쇠 위에서 시계추처럼 좌우로 흔들림. 쇠의 빛나는 곳 위에 올 때 탭 → 그 자리를 쾅.
+    // 가까울수록 완벽(+3%)/좋음(+2%)/보통(+1%). 빗나감 없음. 칠수록 조금 빨라짐. 등급은 이미 정해져 있음(grade).
+    beginSwing(grade, done, onScore) {
+      this.clear();
+      const cx = this.cx, cy = this.cy;
+      const crescent = (span, thick, rise) => {
+        const top = [], bot = [], N = 10;
+        for (let i = 0; i <= N; i++) {
+          const x = -span + (2 * span * i) / N, u = 1 - (x / span) ** 2, taper = 0.12 + 0.88 * Math.sqrt(Math.max(0, u));
+          const yc = -rise * u + rise / 2;
+          top.push({ x, y: yc - (thick / 2) * taper }); bot.unshift({ x, y: yc + (thick / 2) * taper });
+        }
+        return top.concat(bot);
+      };
+      const box = (w, h) => [{ x: -w, y: -h }, { x: w, y: -h }, { x: w + 10, y: -h + 14 }, { x: w + 10, y: h - 12 }, { x: w, y: h }, { x: -w, y: h }, { x: -w - 10, y: h - 12 }, { x: -w - 10, y: -h + 14 }];
+      const SHAPES = [box(140, 70), box(192, 46), crescent(205, 64, 44), crescent(218, 46, 60)];
+      const glow = this.add.image(cx, cy, 'glow').setScale(9, 5).setTint(0xff7a1a).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
+      const metal = this.add.graphics().setPosition(cx, cy); this.hotPoly(metal, SHAPES[0]);
+      const crust = this.add.graphics().setPosition(cx, cy);                // 원석 껍질 (1타에 깨짐)
+      for (let i = 0; i < 9; i++) { crust.fillStyle(0x2a1208, 0.8); crust.fillEllipse(rnd(-120, 120), rnd(-50, 50), rnd(50, 90), rnd(24, 40)); }
+      const dents = this.add.graphics().setPosition(cx, cy);               // 친 자국
+      this.layer.add([glow, metal, crust, dents]); this.metal = metal; this.glowM = glow;
+      this.tweens.add({ targets: glow, alpha: 0.85, duration: 500, yoyo: true, repeat: -1 });
+      // 빛나는 곳 (칠 곳)
+      const spotG = this.add.image(cx, cy, 'glow').setScale(1.6, 1).setTint(0xfff6c8).setBlendMode(Phaser.BlendModes.ADD).setDepth(29);
+      const spotC = this.add.ellipse(cx, cy, 30, 16, 0xfffbe6).setDepth(29);
+      this.layer.add([spotG, spotC]);
+      this.tweens.add({ targets: [spotG, spotC], alpha: 0.55, duration: 260, yoyo: true, repeat: -1 });
+      // 망치: 머리가 아래로 오게 뒤집어 매달고, 좌우로 흔듦
+      const SC = 1.25, R_ = 128 * SC, A = 135, TOPY = cy - R_ - 170, HITY = cy - R_ - 62;
+      const hammer = this.hammer = this.add.image(cx, TOPY, 'hammer').setOrigin(0.5, 0.95).setScale(SC).setAngle(180).setDepth(30); this.layer.add(hammer);
+      const guide = this.add.graphics().setDepth(28); this.layer.add(guide);  // 망치 밑 점선 (어디에 떨어질지)
+      const hint = this.add.text(cx, cy + 250, '빛나는 곳 위에 오면 탭!', { fontFamily: FONT, fontSize: '32px', color: '#ffe08a', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5).setDepth(31);
+      this.layer.add(hint); this.tweens.add({ targets: hint, alpha: 0.45, duration: 500, yoyo: true, repeat: -1 });
+      SFX.sizzle();
+      const scores = []; let k = 0, phase = 'ready', t0 = this.time.now, spot = 0;
+      const W_ = [2.4, 2.9, 3.4];                                            // 흔들림 빠르기 (타마다)
+      const newSpot = () => {
+        spot = Phaser.Math.FloatBetween(-0.75, 0.75);
+        const sx = cx + A * spot, top = Math.min(...SHAPES[k].map(p => p.y)) + cy;
+        spotG.setPosition(sx, top + 4); spotC.setPosition(sx, top + 4).setVisible(true); spotG.setVisible(true);
+        t0 = this.time.now - Phaser.Math.Between(0, 1200);                 // 매번 다른 위치에서 출발
+      };
+      const swingX = () => cx + A * Math.sin(((this.time.now - t0) / 1000) * W_[Math.min(k, 2)]);
+      const judgeLab = n => { const lab = ['', '보통', '좋음', '완벽!'][n], col = ['#fff', '#ffffff', '#9ff7a0', '#ffd54a'][n];
+        const t = this.add.text(cx, cy - 190, `${lab} +${n}%`, { fontFamily: FONT, fontSize: n === 3 ? '58px' : n === 2 ? '48px' : '40px', color: col, stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(32);
+        this.layer.add(t); this.tweens.add({ targets: t, y: t.y - 50, alpha: 0, delay: 280, duration: 480, onComplete: () => t.destroy() }); };
+      const onDown = () => {
+        if (phase !== 'ready') return;
+        phase = 'strike'; hint.setVisible(false); guide.clear();
+        const x = hammer.x, e = Math.abs(x - (cx + A * spot)) / A, n = e < 0.1 ? 3 : e < 0.28 ? 2 : 1;
+        this.tweens.add({ targets: hammer, y: HITY, angle: 180, duration: 90, ease: 'Quad.In', onComplete: () => impact(n, x) });
+      };
+      const impact = (n, x) => {
+        scores.push(n); onScore(scores.slice()); judgeLab(n);
+        const last = k === 2, top = Math.min(...SHAPES[k].map(p => p.y)) + cy;
+        spotC.setVisible(false); spotG.setVisible(false);
+        this.hotPoly(metal, SHAPES[k + 1]);
+        dents.fillStyle(0x5a1a06, 0.5); dents.fillEllipse(x - cx, Math.min(...SHAPES[k + 1].map(p => p.y)) + 10, 26, 10);
+        metal.setScale(1 + 0.02 * n, 1 - 0.05 * n); this.tweens.add({ targets: metal, scaleX: 1, scaleY: 1, duration: 170, ease: 'Back.Out' });
+        if (k === 0) { crust.clear(); const chips = this.add.particles(cx, cy - 10, 'chip', { emitting: false, speed: { min: 150, max: 420 }, angle: { min: 200, max: 340 }, gravityY: 900, lifespan: 700, tint: 0x2a1208, scale: { start: 1.6, end: 0.6 } }); this.layer.add(chips); chips.explode(22); }
+        this.spark.explode(n * 14 + (last ? 30 : 6), x, top); n >= 2 ? SFX.anvil(n) : SFX.hit(1);
+        this.cameras.main.shake(last ? 280 : 70 + 50 * n, last ? 0.022 : 0.004 * n + 0.002);
+        const stop = last ? 150 : 25 * n + 30;                              // 잠깐 멈춤(묵직함)
+        this.tweens.pauseAll(); setTimeout(() => {
+          if (!this.sys.isActive()) return; this.tweens.resumeAll(); k++;
+          if (k >= 3) return finish();
+          this.tweens.add({ targets: hammer, y: TOPY, duration: 260, ease: 'Back.Out', onComplete: () => { newSpot(); phase = 'ready'; } });
+        }, stop);
+      };
+      const tick = () => {
+        if (phase !== 'ready') return;
+        const x = swingX(), v = Math.cos(((this.time.now - t0) / 1000) * W_[Math.min(k, 2)]);
+        hammer.setPosition(x, TOPY).setAngle(180 - v * 10);                // 움직이는 쪽으로 살짝 기울기
+        guide.clear(); guide.lineStyle(3, 0xffe08a, 0.35);
+        for (let y = TOPY + R_ + 20; y < spotC.y - 12; y += 16) guide.lineBetween(x, y, x, Math.min(y + 8, spotC.y - 12));
+      };
+      newSpot();
+      this.onTap = onDown;
+      this.input.on('pointerdown', onDown, this);
+      this.tapTimer = this.time.addEvent({ delay: 16, loop: true, callback: tick });
+      this.tapCur = { k: () => k, phase: () => phase, off: () => (hammer.x - cx) / A - spot, tap: () => onDown() };   // 테스트용
+      const finish = () => {
+        phase = 'done'; this.input.off('pointerdown', onDown, this); this.tapTimer.remove(); guide.clear();
+        this.tweens.add({ targets: hammer, x: W + 160, y: TOPY, duration: 350, ease: 'Quad.In' });
+        this.time.delayedCall(250, () => {
+          SFX.sizzle(); SFX.sizzle();
+          const steam = this.add.particles(cx, cy - 20, 'glow', { speedY: { min: -220, max: -80 }, speedX: { min: -90, max: 90 }, lifespan: 1300, scale: { start: 1, end: 3.4 }, alpha: { start: 0.5, end: 0 }, quantity: 4, frequency: 25 });
+          this.layer.add(steam); steam.setDepth(33);
+          this.tweens.add({ targets: glow, alpha: 0, duration: 500 });
+          this.time.delayedCall(650, () => { steam.stop(); this.reveal(grade, [], () => done(scores)); });
+        });
       };
     }
     // ---- 세게 쓱 내려치기 ----
