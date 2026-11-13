@@ -553,3 +553,9 @@ body:not(.admin) .pill .plus { display: none; }
 #giftBadge { position: absolute; left: 50%; bottom: -19px; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 800; line-height: 1; padding: 4px 9px; border-radius: 999px; background: #5b3a12; color: #ffe9b0; border: 2px solid #e0a92b; pointer-events: none; z-index: 3; }
 #giftBadge.ready { background: linear-gradient(#ff5a4e, #d81b2c); color: #fff; border-color: #ffe14a; animation: giftPulse 0.9s ease-in-out infinite alternate; }
 @keyframes giftPulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.12); } }
+
+/* 업데이트 완료 알림 (화면 가운데) */
+.upd-done { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 400; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 26px; min-width: 260px; max-width: 86vw; border-radius: 18px; background: rgba(30, 16, 4, .92); border: 3px solid #ffd54a; box-shadow: 0 8px 30px rgba(0,0,0,.45), 0 0 24px rgba(255, 213, 74, .45); color: #fff; text-align: center; transition: opacity .45s, transform .45s; }
+.upd-done b { white-space: nowrap; font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 26px; color: #ffd54a; letter-spacing: 1px; }
+.upd-done span { font-size: 15px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+.upd-done.out { opacity: 0; transform: translate(-50%, -60%); }

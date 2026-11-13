@@ -574,6 +574,18 @@
     const meta = document.querySelector('meta[name="app-version"]');
     const mine = meta ? meta.content : '';
     if (!mine || location.protocol === 'file:') return;
+    // 자동 업데이트로 새로고침돼서 들어온 경우: 가운데에 '업데이트 완료' 알림 (바뀐 내용이 있으면 같이)
+    const url = new URL(location.href);
+    if (url.searchParams.get('u') === mine) {
+      url.searchParams.delete('u'); history.replaceState(null, '', url.toString());
+      fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).catch(() => '').then(t => {
+        const note = String(t || '').split(/\r?\n/).slice(1).join(' ').trim();
+        const d = document.createElement('div'); d.className = 'upd-done';
+        d.innerHTML = `<b>✨ 업데이트 완료!</b>${note ? `<span>${esc(note)}</span>` : '<span>새 버전이 적용됐어요</span>'}`;
+        document.body.appendChild(d);
+        setTimeout(() => d.classList.add('out'), 3200); setTimeout(() => d.remove(), 3700);
+      });
+    }
     let newer = null, going = false;
     const idle = () => !busy && $('#overlay').hidden;
     const apply = () => {
@@ -591,7 +603,7 @@
       try {
         const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
         if (!r.ok) return;
-        const v = (await r.text()).trim();
+        const v = (await r.text()).trim().split(/\r?\n/)[0].trim();
         if (/^\d+$/.test(v) && v !== mine && v > mine) newer = v;
       } catch (e) { /* 연결 실패는 무시 */ }
       apply();
