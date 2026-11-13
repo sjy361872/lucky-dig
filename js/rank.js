@@ -85,9 +85,14 @@
   // 랭킹 보드 정의: 점수 계산 + 표시
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
   const BOARDS = [
+    { id: 'today', name: '오늘 수익', desc: '오늘(한국 시간 0시부터) 번 포인트 순위예요', only: st => !!(st.daily && st.daily.date === todayKST() && st.daily.plays > 0), score: st => todayNet(st), show: st => (todayNet(st) >= 0 ? '+' : '') + fmt(todayNet(st)) + ' pt',
+      sub: st => (st.daily && st.daily.date === todayKST() ? `${st.daily.plays}판` : '0판') },
     // 주간 랭킹: 매주 월요일 0시(한국)에 모두 0부터. 이번 주에 한 판이라도 한 사람만 보임
     { id: 'week', name: '주간 수익', desc: '이번 주(월요일 0시부터) 번 포인트 순위예요. 매주 새로 시작!', only: weekOn,
       score: st => weekNet(st), show: st => (weekNet(st) >= 0 ? '+' : '') + fmt(weekNet(st)) + ' pt', sub: st => `${weekOn(st) ? st.weekly.plays : 0}판` },
+    // 누적 수익: 지금까지 번 포인트 − 쓴 포인트 (충전·출석·지급·초기화는 빼고 플레이 결과만)
+    { id: 'total', name: '누적 수익', desc: '처음부터 지금까지 플레이로 번 포인트예요 (출석·지급 제외)', only: st => st.plays > 0,
+      score: st => st.earned - st.spent, show: st => (st.earned - st.spent >= 0 ? '+' : '') + fmt(st.earned - st.spent) + ' pt', sub: st => `${fmt(st.plays)}판` },
     // 랭크 = 보유 포인트(화면에 보이는 내 포인트). 예전엔 '충전 안 했다면 남았을 포인트'라 크게 잃으면 마이너스가 됐음
     { id: 'rank', name: '보유 포인트', desc: '지금 가지고 있는 포인트 순위예요', score: st => st.wallet, show: st => fmt(st.wallet) + ' pt', sub: st => `${fmt(st.plays)}판` },
     { id: 'best', name: '최고 배율', score: st => (st.best ? st.best.mult : 0), show: st => (st.best ? '×' + st.best.mult.toFixed(2) : '—'),
@@ -95,8 +100,6 @@
     { id: 'S', name: 'S상 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
     { id: 'dex', name: '도감 수집', score: st => st.collection.length * 1000 + doneMines(st), show: st => `${st.collection.length} / ${totalCards()}장`,
       sub: st => `${Math.floor(st.collection.length / totalCards() * 100)}% · 완성 광산 ${doneMines(st)}곳` },
-    { id: 'today', name: '오늘 수익', score: st => todayNet(st), show: st => (todayNet(st) >= 0 ? '+' : '') + fmt(todayNet(st)) + ' pt',
-      sub: st => (st.daily && st.daily.date === todayKST() ? `${st.daily.plays}판` : '0판') },
   ];
 
   // ---------- 저장소: 이 기기 ----------
