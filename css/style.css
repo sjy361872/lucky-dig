@@ -574,3 +574,8 @@ body:not(.admin) .pill .plus { display: none; }
 .pointcard .pc-val { font-family: 'Black Han Sans', sans-serif; font-size: 2em; line-height: 1; color: #8a3a00; }
 .pointcard .pc-unit { font-weight: 900; font-size: 1.1em; }
 .pointcard .pc-name { font-weight: 800; font-size: .95em; margin-top: 2px; }
+
+/* 메뉴 단색 아이콘 */
+.mico { flex-shrink: 0; vertical-align: -4px; margin-right: 8px; color: #7a4a10; }
+.rowbtn { display: flex; align-items: center; justify-content: center; }
+.slider span { display: flex; align-items: center; width: 96px; }

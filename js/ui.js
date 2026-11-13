@@ -112,14 +112,24 @@
     });
   }
 
+  // 메뉴용 단색 선 아이콘 (이모지 대신, 글자색을 따라감)
+  const ICO = {
+    sound: '<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
+    music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+    reset: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>',
+    gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13"/><path d="M12 8C10 4 6 4 7 7s5 1 5 1 4 2 5-1-3-3-5 1z"/>',
+  };
+  const ico = k => `<svg class="mico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>`;
   function openMenu() {
     const m = modal(`
-      <label class="slider"><span>🔊 BGM</span><input type="range" min="0" max="1" step="0.05" id="volBgm" value="${S.settings.bgm}"></label>
-      <label class="slider"><span>🔊 효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
-      ${Rank.isAdmin() ? '<button class="rowbtn gold" id="btnGrant">👑 포인트 지급 (관리자)</button>' : ''}
-      <button class="rowbtn" id="btnDaily">📅 출석 체크</button>
-      <button class="rowbtn" id="btnTitle">🏠 타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
-      <button class="rowbtn" id="btnReset">🗑 기록 초기화 (포인트 ${fmt(C.START_POINTS)}pt, 보관함 비움)</button>`, { title: '메뉴', cls: 'small' });
+      <label class="slider"><span>${ico('music')}BGM</span><input type="range" min="0" max="1" step="0.05" id="volBgm" value="${S.settings.bgm}"></label>
+      <label class="slider"><span>${ico('sound')}효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
+      ${Rank.isAdmin() ? `<button class="rowbtn gold" id="btnGrant">${ico('gift')}포인트 지급 (관리자)</button>` : ''}
+      <button class="rowbtn" id="btnDaily">${ico('calendar')}출석 체크</button>
+      <button class="rowbtn" id="btnTitle">${ico('home')}타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
+      <button class="rowbtn" id="btnReset">${ico('reset')}기록 초기화 (${fmt(C.START_POINTS)}pt로 새로 시작)</button>`, { title: '메뉴', cls: 'small' });
     m.el.querySelector('#volBgm').oninput = e => { S.settings.bgm = +e.target.value; Sound.setVolume('bgm', S.settings.bgm); save(); };
     m.el.querySelector('#volSfx').oninput = e => { S.settings.sfx = +e.target.value; Sound.setVolume('sfx', S.settings.sfx); save(); };
     m.el.querySelector('#btnDaily').onclick = () => { m.close(); openDaily(true); };
@@ -511,7 +521,7 @@
     const m = modal(`<p class="muted center">${d.claimed ? '오늘 출석 완료! 내일 또 와요' : '하루 한 번 출석하고 포인트 받아 가세요'}<br><small>연속 ${d.claimed ? d.streak : d.streak + 1}일째 · 하루라도 빠지면 1일차부터</small></p>
       <div class="daily">${R.map((r, i) => `<div class="dday ${i < d.idx || (d.claimed && i === d.idx) ? 'got' : ''} ${i === d.idx && !d.claimed ? 'today' : ''} ${i === R.length - 1 ? 'big' : ''}">
         <small>${i + 1}일차</small><span class="coin"></span><b>${fmt(r)}</b>${i < d.idx || (d.claimed && i === d.idx) ? '<i>✔</i>' : ''}</div>`).join('')}</div>
-      ${d.claimed ? '' : `<button id="dailyClaim" class="rowbtn gold big">🎁 ${fmt(R[d.idx])}pt 받기</button>`}`, { title: '출석 체크', cls: 'small' });
+      ${d.claimed ? '' : `<button id="dailyClaim" class="rowbtn gold big">${ico('gift')}${fmt(R[d.idx])}pt 받기</button>`}`, { title: '출석 체크', cls: 'small' });
     const b = m.el.querySelector('#dailyClaim');
     if (b) b.onclick = () => {
       const cur = dailyInfo();
