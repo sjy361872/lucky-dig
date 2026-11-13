@@ -247,7 +247,12 @@
   }
 
   // 카드 환원 포인트 = 소비 포인트 × 등급 기준 배수 × 카드별 r
-  function cardValue(g, card, bet, mode = 'mild') { const pay = (C.MODES && C.MODES[mode] && C.MODES[mode].pay) || 1; return Math.round(bet * g.need * card.r * pay); }
+  function cardValue(g, card, bet, mode = 'mild') { // eslint-disable-line no-unused-vars
+    const list = C.cardsFor(bet, g.id);
+    const idx = Number.isInteger(card.idx) ? card.idx : list.findIndex(x => x.name === card.name);
+    const m = C.PAY && C.PAY[g.id] && C.PAY[g.id][idx];
+    return Math.round(bet * (m != null ? m : g.need * card.r));
+  }
 
   // 플레이 1회: 등급 추첨 → 카드 추첨 → 판 생성
   function playRound(bet, seed, mode = 'mild') {
