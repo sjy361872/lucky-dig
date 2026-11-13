@@ -247,7 +247,7 @@
   }
 
   // 카드 환원 포인트 = 소비 포인트 × 등급 기준 배수 × 카드별 r
-  function cardValue(g, card, bet) { return Math.round(bet * g.need * card.r); }
+  function cardValue(g, card, bet, mode = 'mild') { const pay = (C.MODES && C.MODES[mode] && C.MODES[mode].pay) || 1; return Math.round(bet * g.need * card.r * pay); }
 
   // 플레이 1회: 등급 추첨 → 카드 추첨 → 판 생성
   function playRound(bet, seed, mode = 'mild') {
@@ -256,7 +256,7 @@
     const g = C.GRADES[gi];
     const card = drawCard(g.id, rng, bet);
     const sim = findRound(gi, bet, rng);
-    return { grade: g.id, gradeIndex: gi, card, payout: cardValue(g, card, bet), sim };
+    return { grade: g.id, gradeIndex: gi, card, payout: cardValue(g, card, bet, mode), sim };
   }
 
   root.Engine = { rateOf, cardValue, makeRng, simulate, findRound, playRound, gradeIndexForScore, drawGradeIndex, drawCard };

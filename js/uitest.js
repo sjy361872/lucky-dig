@@ -30,7 +30,7 @@
       const gi = C.GRADES.findIndex(g => g.id === grade);
       const lo = C.GRADES[gi].need * B, hi = (gi === 0 ? C.S_CAP : C.GRADES[gi - 1].need) * B;
       check(score >= lo && score < hi, `[${i}] ${grade}상, 화면 스코어 ${score}가 구간 [${lo}, ${hi}) 안`);
-      check(C.cardsFor(B, grade).some(c => value === window.Engine.cardValue(C.GRADES[gi], c, B)), `[${i}] 환원 값 ${value}이 ${grade}상 카드 값 중 하나`);
+      check(C.cardsFor(B, grade).some(c => ['mild', 'hard'].some(m => value === window.Engine.cardValue(C.GRADES[gi], c, B, m))), `[${i}] 환원 값 ${value}이 ${grade}상 카드 값 중 하나`);
       const sell = i % 2 === 0;
       if (sell) { $('#sell').click(); await until(() => $('#ok')); $('#ok').click(); }
       else $('#keep').click();

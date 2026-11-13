@@ -174,7 +174,7 @@
       return `<p class="muted center"><b class="modetag ${S.mode}">${C.MODES[S.mode].name}</b> <b>${C.tierName(bet)}</b> · 소비 포인트 ${fmt(bet)}pt 기준</p><div class="plist">${C.GRADES.map(g => `
         <details class="prow"><summary><span class="chip" style="background:${g.color}">${g.id}상</span>
           <span class="need">스코어 <b>${fmt(g.need * bet)}</b> 이상</span><span class="rate">출현율 <b>${E.rateOf(g, S.mode).toFixed(1)}%</b></span></summary>
-          <div class="pcards">${C.cardsFor(bet, g.id).map((c, idx) => `<div class="pcard" data-g="${g.id}" data-i="${idx}" data-b="${bet}">${Art.card({ ...c, grade: g.id, idx, tier: g.id === 'G' ? 'G' : C.tierOf(bet) })}<small>${c.name}<br>환원 <b>${fmt(E.cardValue(g, c, bet))}</b>pt<br>등급 내 ${(c.w / C.cardsFor(bet, g.id).reduce((a, x) => a + x.w, 0) * 100).toFixed(0)}%</small></div>`).join('')}</div>
+          <div class="pcards">${C.cardsFor(bet, g.id).map((c, idx) => `<div class="pcard" data-g="${g.id}" data-i="${idx}" data-b="${bet}">${Art.card({ ...c, grade: g.id, idx, tier: g.id === 'G' ? 'G' : C.tierOf(bet) })}<small>${c.name}<br>환원 <b>${fmt(E.cardValue(g, c, bet, S.mode))}</b>pt<br>등급 내 ${(c.w / C.cardsFor(bet, g.id).reduce((a, x) => a + x.w, 0) * 100).toFixed(0)}%</small></div>`).join('')}</div>
         </details>`).join('')}</div>`;
     });
     box.addEventListener('click', e => {
