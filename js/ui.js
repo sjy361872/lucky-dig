@@ -22,9 +22,9 @@
     if (!C.BETS.includes(S.bet)) S.bet = C.DEFAULT_BET;
     S.points = Math.max(0, Number.isFinite(+S.points) ? Math.round(+S.points) : C.START_POINTS);
     // 보관함 카드: 광산(tier) 정보가 없으면 소비 포인트로 계산, 지금 없는 카드는 제거
-    S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).map(x => x && ({ ...x, tier: x.grade === 'G' ? 'G' : (C.TIERS[x.tier] ? String(x.tier) : C.tierOf(+x.bet || C.DEFAULT_BET)), idx: x.idx | 0 }))
-      .filter(x => x && (x.grade === 'G' ? C.G_CARDS[x.idx] : (C.TIERS[x.tier] && (C.TIERS[x.tier].cards[x.grade] || [])[x.idx])))
-      .map(x => ({ ...x, value: Math.max(0, Math.round(+x.value || 0)), name: String((x.grade === 'G' ? C.G_CARDS[x.idx] : C.TIERS[x.tier].cards[x.grade][x.idx]).name).slice(0, 20) })); // 이름은 항상 지금 카드 목록 기준 (그림과 일치)
+    S.inventory = (Array.isArray(S.inventory) ? S.inventory : []).map(x => x && (x.grade === 'P' ? { ...x, tier: 'P', idx: 0 } : { ...x, tier: x.grade === 'G' ? 'G' : (C.TIERS[x.tier] ? String(x.tier) : C.tierOf(+x.bet || C.DEFAULT_BET)), idx: x.idx | 0 }))
+      .filter(x => x && (x.grade === 'P' ? true : x.grade === 'G' ? C.G_CARDS[x.idx] : (C.TIERS[x.tier] && (C.TIERS[x.tier].cards[x.grade] || [])[x.idx])))
+      .map(x => ({ ...x, value: Math.max(0, Math.round(+x.value || 0)), name: x.grade === 'P' ? String(x.name || '포인트 카드').slice(0, 20) : String((x.grade === 'G' ? C.G_CARDS[x.idx] : C.TIERS[x.tier].cards[x.grade][x.idx]).name).slice(0, 20) })); // 이름은 항상 지금 카드 목록 기준 (그림과 일치)
     S.nextId = Math.max(+S.nextId || 1, ...S.inventory.map(x => (+x.id || 0) + 1), 1);
     // 도감: 형식이 맞는 기록만 남기고, 보관함에 있는 카드는 도감에도 등록
     const valid = new Set(C.allCards().map(C.cardKey)), dex = {};
@@ -248,7 +248,7 @@
         S.points += t2; S.inventory = []; toast(`${fmt(t2)} pt 환원했습니다`);
       } else {
         const bi = e.target.closest('.bagitem .card');
-        if (bi) { const x = S.inventory.find(v => v.id === +bi.closest('.bagitem').dataset.item); if (x) zoomCard(x); }
+        if (bi) { const x = S.inventory.find(v => v.id === +bi.closest('.bagitem').dataset.item); if (x && x.grade !== 'P') zoomCard(x); }
         return;
       }
       Sound.play('coin'); save(); showPoints(); showBet(); rerender();
@@ -543,22 +543,21 @@
   const GIFT_MS = 3600e3;
   const giftLeft = () => { const g = S.gift && +S.gift.last || 0; return Math.max(0, GIFT_MS - (Date.now() - g)); };
   const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  // 시간이 되면 자동으로 보관함에 '포인트 카드'가 들어옴 (보관함에서 교환하면 포인트)
   function claimGift() {
     if (giftLeft() > 0) return;
     const amt = C.HOURLY_GIFT || 10000;
     S.gift = { last: Date.now() };
-    S.points += amt; Rank.noteCharge(amt);                  // 지갑에만 (수익 랭킹 제외)
-    save(); showPoints(); showBet(); Sound.play('coin');
-    news(`🎁 시간 선물 +${fmt(amt)}pt! 1시간 뒤 또 받아요`); updateGift();
+    S.inventory.push({ id: S.nextId++, grade: 'P', tier: 'P', idx: 0, kind: 'gift', name: '시간 선물', value: amt, bet: 0, at: Date.now() });
+    Rank.noteCharge(amt);                                   // 수익 랭킹 제외 (선물)
+    save(); Sound.play('coin');
+    news(`🎁 시간 선물 도착! 보관함에 ${fmt(amt)}pt 포인트 카드가 들어왔어요`); updateGift();
   }
-  let giftReadyShown = false;
   function updateGift() {
     const b = $('#giftBadge'); if (!b) return;
     const left = giftLeft();
-    b.classList.toggle('ready', left === 0);
-    b.textContent = left === 0 ? '🎁 받기!' : '🎁 ' + mmss(left);
-    if (left === 0 && !giftReadyShown) { giftReadyShown = true; news('🎁 시간 선물 도착! 포인트 칸을 눌러 받으세요'); }
-    if (left > 0) giftReadyShown = false;
+    if (left === 0) { claimGift(); return; }
+    b.innerHTML = `🎁 다음 선물 <b>${mmss(left)}</b>`;
   }
   function startGiftTimer() {
     const pill = $('#pointsPill');
@@ -644,8 +643,7 @@
     $('#scoreText').textContent = '0';
 
     $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click');
-      if (giftLeft() === 0) { claimGift(); return; }
-      if (Rank.isAdmin()) openCharge(); else toast(`다음 시간 선물까지 ${mmss(giftLeft())} 남았어요`); };
+      if (Rank.isAdmin()) openCharge(); else toast(`다음 시간 선물까지 ${mmss(giftLeft())} · 선물은 보관함에 들어와요`); };
     startGiftTimer();
     $('#btnRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(); };
     $('#btnMenu').onclick = () => { Sound.unlock(); Sound.play('click'); openMenu(); };

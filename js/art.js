@@ -174,6 +174,8 @@
   }
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
   function card(c, opts = {}) {
+    if (c.grade === 'P') return `<div class="card pointcard ${opts.cls || ''}"><div class="pc-in"><div class="pc-top">POINT</div><div class="pc-ico">🎁</div>
+      <div class="pc-val">${Number(c.value || 0).toLocaleString()}</div><div class="pc-unit">pt</div><div class="pc-name">${esc(c.name || '포인트 카드')}</div></div></div>`;
     const [l, m, d] = ELEM[c.elem] || ELEM.stone;
     const g = root.CONFIG.GRADES.find(x => x.id === c.grade) || root.CONFIG.GRADES[root.CONFIG.GRADES.length - 1];
     const stars = '★'.repeat(Math.max(1, 8 - root.CONFIG.GRADES.indexOf(g)));

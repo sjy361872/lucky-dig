@@ -559,3 +559,18 @@ body:not(.admin) .pill .plus { display: none; }
 .upd-done b { white-space: nowrap; font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 26px; color: #ffd54a; letter-spacing: 1px; }
 .upd-done span { font-size: 15px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
 .upd-done.out { opacity: 0; transform: translate(-50%, -60%); }
+
+/* 시간 선물 배지 크게 */
+#giftBadge { bottom: -26px; font-size: 15px; font-weight: 800; padding: 6px 14px; border-width: 2px; background: linear-gradient(#7a4a12, #4a2a08); color: #ffe9b0; box-shadow: 0 3px 8px rgba(0,0,0,.4); }
+#giftBadge b { color: #fff; font-size: 16px; font-variant-numeric: tabular-nums; }
+/* 상단 공지 크게 */
+.news-item { font-size: 16px; padding: 12px 20px; line-height: 1.35; word-break: keep-all; }
+#news { width: min(94vw, 460px); }
+/* 포인트 카드 (선물) */
+.card.pointcard { background: linear-gradient(145deg, #fff3b0, #f2b51b 50%, #ffe27a); }
+.pointcard .pc-in { height: 100%; border-radius: 6px; background: radial-gradient(circle at 50% 38%, #fff8d6, #ffcc3a 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #6b3a10; text-align: center; }
+.pointcard .pc-top { font-family: 'Black Han Sans', sans-serif; font-size: 1.2em; letter-spacing: 2px; color: #b5651d; }
+.pointcard .pc-ico { font-size: 3em; line-height: 1.1; }
+.pointcard .pc-val { font-family: 'Black Han Sans', sans-serif; font-size: 2em; line-height: 1; color: #8a3a00; }
+.pointcard .pc-unit { font-weight: 900; font-size: 1.1em; }
+.pointcard .pc-name { font-weight: 800; font-size: .95em; margin-top: 2px; }
