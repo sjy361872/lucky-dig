@@ -411,7 +411,7 @@
         const rows = await Rank.board(Rank.BOARDS[i].id);
         if (my !== seq) return;
         const medal = k => ['🥇', '🥈', '🥉'][k] || (k + 1);
-        el.innerHTML = note + (i === 0 ? '<p class="muted center">지금 가지고 있는 포인트 순위예요</p>' : '') +
+        el.innerHTML = note + (Rank.BOARDS[i].desc ? `<p class="muted center">${Rank.BOARDS[i].desc}</p>` : '') +
           `<div class="rlist">${rows.map((r, k) => `<div class="rrow2 ${Rank.me && r.nickname === Rank.me.nickname ? 'me' : ''}">
             <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${esc(r.sub)}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
       } else {

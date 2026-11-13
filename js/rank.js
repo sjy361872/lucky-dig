@@ -14,6 +14,8 @@
   const C = root.CONFIG;
   const BIG_FEED = g => g === 'S' || g === 'A';           // 피드에 올릴 당첨
   const todayKST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  // 이번 주 월요일(한국 시간) 날짜 — 주간 랭킹은 매주 월요일 0시에 새로 시작
+  const weekKST = () => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
 
   // ---------- 기록 계산 ----------
   function emptyStats() {
@@ -23,6 +25,7 @@
       grades: { mild: {}, hard: {} },   // 모드별 등급 횟수
       collection: [],                   // 모은 카드 키 'S:3'
       daily: { date: todayKST(), net: 0, plays: 0 },
+      weekly: { week: weekKST(), net: 0, plays: 0 },  // 이번 주 수익(주간 랭킹)
       charged: 0,                       // 참고용: 무료 충전 합계 (랭킹에는 안 씀)
     };
   }
@@ -42,6 +45,8 @@
     for (const m of ['mild', 'hard']) { out.grades[m] = {}; const src = (st.grades && st.grades[m]) || {}; for (const g of GRADE_IDS) if (src[g]) out.grades[m][g] = num(src[g]); }
     out.collection = Array.isArray(st.collection) ? st.collection.filter(k => /^(\d+:[SABCDEF]|G):\d+$/.test(k)) : [];
     out.daily = st.daily && typeof st.daily === 'object' ? { date: String(st.daily.date || ''), net: num(st.daily.net), plays: num(st.daily.plays) } : d.daily;
+    if (st.weekly && typeof st.weekly === 'object') out.weekly = { week: String(st.weekly.week || ''), net: num(st.weekly.net), plays: num(st.weekly.plays) };
+    else if (out.daily.date >= weekKST()) out.weekly = { week: weekKST(), net: out.daily.net, plays: out.daily.plays }; // 주간 기록 생기기 전 기록: 오늘 것만 옮김
     return out;
   }
   function cleanFeed(f) {
@@ -61,10 +66,14 @@
     if (newCard) st.collection.push(key);
     if (st.daily.date !== todayKST()) st.daily = { date: todayKST(), net: 0, plays: 0 };
     st.daily.net += p.value - p.bet; st.daily.plays++;
+    if (!st.weekly || st.weekly.week !== weekKST()) st.weekly = { week: weekKST(), net: 0, plays: 0 };
+    st.weekly.net += p.value - p.bet; st.weekly.plays++;
     return { newBest, newCard };
   }
   const sCount = st => (st.grades.mild.S || 0) + (st.grades.hard.S || 0);
   const todayNet = st => (st.daily && st.daily.date === todayKST() ? st.daily.net : 0);
+  const weekOn = st => !!(st.weekly && st.weekly.week === weekKST() && st.weekly.plays > 0);
+  const weekNet = st => (weekOn(st) ? st.weekly.net : 0);
   const totalCards = () => C.allCards().length;
   // 다 모은 광산 수 (공통 G상 포함)
   function doneMines(st) {
@@ -76,8 +85,11 @@
   // 랭킹 보드 정의: 점수 계산 + 표시
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
   const BOARDS = [
+    // 주간 랭킹: 매주 월요일 0시(한국)에 모두 0부터. 이번 주에 한 판이라도 한 사람만 보임
+    { id: 'week', name: '주간 수익', desc: '이번 주(월요일 0시부터) 번 포인트 순위예요. 매주 새로 시작!', only: weekOn,
+      score: st => weekNet(st), show: st => (weekNet(st) >= 0 ? '+' : '') + fmt(weekNet(st)) + ' pt', sub: st => `${weekOn(st) ? st.weekly.plays : 0}판` },
     // 랭크 = 보유 포인트(화면에 보이는 내 포인트). 예전엔 '충전 안 했다면 남았을 포인트'라 크게 잃으면 마이너스가 됐음
-    { id: 'rank', name: '보유 포인트', score: st => st.wallet, show: st => fmt(st.wallet) + ' pt', sub: st => `${fmt(st.plays)}판` },
+    { id: 'rank', name: '보유 포인트', desc: '지금 가지고 있는 포인트 순위예요', score: st => st.wallet, show: st => fmt(st.wallet) + ' pt', sub: st => `${fmt(st.plays)}판` },
     { id: 'best', name: '최고 배율', score: st => (st.best ? st.best.mult : 0), show: st => (st.best ? '×' + st.best.mult.toFixed(2) : '—'),
       sub: st => (st.best ? `${st.best.mode.toUpperCase()} ${st.best.grade}상 · ${fmt(st.best.bet)}pt` : '') },
     { id: 'S', name: 'S상 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
@@ -250,6 +262,7 @@
         try { const st0 = Rank.me && r.nickname === Rank.me.nickname ? r.stats : normStats(r.stats);
           // 보유 포인트: 저장된 게임 상태의 포인트 (없으면 시작 포인트)
           const st = { ...st0, wallet: Math.max(0, Number.isFinite(+r.wallet) && r.wallet !== null ? +r.wallet : C.RANK_BASE) };
+          if (def.only && !def.only(st)) continue;
           out.push({ nickname: String(r.nickname).slice(0, 10), score: def.score(st), show: def.show(st), sub: def.sub(st) }); } catch (e) { /* 깨진 기록은 건너뜀 */ }
       }
       return out.sort((a, b) => b.score - a.score);
