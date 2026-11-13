@@ -539,6 +539,41 @@
     } catch (e) { /* 연결 실패는 조용히 무시 */ }
   }
 
+  // ---------- 새 버전 자동 적용 ----------
+  // 배포하면 version.txt 숫자가 바뀜 → 1분마다 확인 → 플레이 중·창(결과·메뉴 등)이 열려 있으면 기다렸다가
+  // 한가할 때 저장하고 새로고침. 하던 판·고르던 카드는 끊기지 않음
+  function startUpdateWatch() {
+    const meta = document.querySelector('meta[name="app-version"]');
+    const mine = meta ? meta.content : '';
+    if (!mine || location.protocol === 'file:') return;
+    let newer = null, going = false;
+    const idle = () => !busy && $('#overlay').hidden;
+    const apply = () => {
+      if (!newer || going || !idle()) return;
+      // 같은 버전으로 이미 한 번 새로고침했는데도 그대로면(서버 캐시 등) 무한 새로고침 막기
+      let tried = ''; try { tried = sessionStorage.getItem('ld_upd') || ''; } catch (e) { /* 무시 */ }
+      if (tried === newer) return;
+      try { sessionStorage.setItem('ld_upd', newer); } catch (e) { /* 무시 */ }
+      going = true;
+      try { save(); Rank.flush(true); } catch (e) { /* 저장 실패해도 진행 */ }
+      news('✨ 새 버전이 나왔어요! 잠깐만요…');
+      setTimeout(() => { const u = new URL(location.href); u.searchParams.set('u', newer); location.replace(u.toString()); }, 1500);
+    };
+    const check = async () => {
+      try {
+        const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) return;
+        const v = (await r.text()).trim();
+        if (/^\d+$/.test(v) && v !== mine && v > mine) newer = v;
+      } catch (e) { /* 연결 실패는 무시 */ }
+      apply();
+    };
+    setInterval(check, 60000);
+    setInterval(apply, 2000);                                   // 업데이트 대기 중이면 한가해지는 순간 적용
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });  // 앱으로 돌아오면 바로 확인
+    setTimeout(check, 5000);
+  }
+
   // ---------- 모드 ----------
   function showMode() {
     const mode = C.MODES[S.mode];
@@ -598,6 +633,7 @@
     showWho();
     if (Rank.store.online) { pollFeed(); setInterval(pollFeed, 10000); }
     setInterval(checkGrants, 20000);
+    startUpdateWatch();
     showAdmin();
     // 시작 화면: GAME START 를 누르면 사라지면서 BGM 시작 (테스트용 주소(#...)로 열면 건너뜀)
     const title = $('#title');
