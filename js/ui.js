@@ -531,8 +531,9 @@
   async function pollFeed() {
     try {
       const f = await Rank.feed();
-      if (lastFeedId !== null) f.filter(x => x.id > lastFeedId && (!Rank.me || x.nickname !== Rank.me.nickname)).reverse()
-        .forEach(x => news(`🎉 ${x.nickname}님이 ${String(x.mode).toUpperCase()}에서 ${x.grade}상 「${x.card}」 획득!`));
+      // S·A·B상은 나를 포함해 모두에게 매번 알림 (받은 포인트까지). 최고 배율 갱신만 있는 낮은 등급은 소식 탭에만
+      if (lastFeedId !== null) f.filter(x => x.id > lastFeedId && ['S', 'A', 'B'].includes(x.grade)).reverse()
+        .forEach(x => news(`🎉 ${x.nickname}님이 ${String(x.mode).toUpperCase()} ${x.grade}상 「${x.card}」 획득! +${fmt(x.value)}pt`));
       if (f.length) lastFeedId = Math.max(...f.map(x => x.id));
       else if (lastFeedId === null) lastFeedId = 0;
     } catch (e) { /* 연결 실패는 조용히 무시 */ }
@@ -595,7 +596,7 @@
       }).catch(() => { if (mySeq === loginSeq) { Rank.me = null; showWho(); } });
     }
     showWho();
-    if (Rank.store.online) { pollFeed(); setInterval(pollFeed, 20000); }
+    if (Rank.store.online) { pollFeed(); setInterval(pollFeed, 10000); }
     setInterval(checkGrants, 20000);
     showAdmin();
     // 시작 화면: GAME START 를 누르면 사라지면서 BGM 시작 (테스트용 주소(#...)로 열면 건너뜀)

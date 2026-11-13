@@ -12,7 +12,7 @@
 // =====================================================
 (function (root) {
   const C = root.CONFIG;
-  const BIG_FEED = g => g === 'S' || g === 'A';           // 피드에 올릴 당첨
+  const BIG_FEED = g => g === 'S' || g === 'A' || g === 'B'; // 피드에 올릴 당첨 (모두에게 상단 알림)
   const todayKST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   // 이번 주 월요일(한국 시간) 날짜 — 주간 랭킹은 매주 월요일 0시에 새로 시작
   const weekKST = () => { const d = new Date(Date.now() + 9 * 3600e3); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
