@@ -579,3 +579,18 @@ body:not(.admin) .pill .plus { display: none; }
 .mico { flex-shrink: 0; vertical-align: -4px; margin-right: 8px; color: #7a4a10; }
 .rowbtn { display: flex; align-items: center; justify-content: center; }
 .slider span { display: flex; align-items: center; width: 96px; }
+
+/* 이모지 대신 단색 아이콘 — 놓이는 곳마다 색 */
+.news-item { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.news-item .mico { color: #fff; margin: 0; width: 22px; height: 22px; }
+#giftBadge .mico { color: #ffd54a; width: 18px; height: 18px; margin-right: 5px; vertical-align: -4px; }
+.upd-done b .mico { color: #ffd54a; width: 24px; height: 24px; margin-right: 6px; vertical-align: -3px; }
+.dex-done .mico { width: 16px; height: 16px; margin-right: 3px; vertical-align: -3px; color: inherit; }
+#btnWho .mico { color: #ffe9b0; width: 18px; height: 18px; margin-right: 6px; vertical-align: -4px; }
+.daily .mico { width: 16px; height: 16px; margin: 0; color: #fff; }
+.rowbtn.gold .mico { color: #3b2208; }
+/* 랭킹 1~3등 메달 */
+.medal { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-style: normal; font-family: 'Black Han Sans', sans-serif; font-size: 16px; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,.25); }
+.medal.m1 { background: linear-gradient(160deg, #ffe27a, #e0a10f); color: #6b3a10; }
+.medal.m2 { background: linear-gradient(160deg, #f1f3f6, #a5adb8); color: #3c4450; }
+.medal.m3 { background: linear-gradient(160deg, #f6c79c, #c06f2c); }

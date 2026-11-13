@@ -55,7 +55,7 @@
     } else {
       // 새 계정: 이 기기에 남아 있던 기록과 상관없이 시작 포인트로 새로 시작 (소리 설정·모드만 유지)
       applyState({ settings: S.settings, mode: S.mode });
-      if (r.created !== false) setTimeout(() => news(`🎉 가입 축하! ${fmt(C.START_POINTS)}pt를 드렸어요`), 600);
+      if (r.created !== false) setTimeout(() => news(`가입 축하! ${fmt(C.START_POINTS)}pt를 드렸어요`, 'gift'), 600);
     }
     S.owner = nick;
     save(); refreshAll();
@@ -120,6 +120,12 @@
     home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
     reset: '<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>',
     gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13"/><path d="M12 8C10 4 6 4 7 7s5 1 5 1 4 2 5-1-3-3-5 1z"/>',
+    star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/>',
+    check: '<path d="M5 12l5 5 9-10"/>',
   };
   const ico = k => `<svg class="mico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>`;
   function openMenu() {
@@ -171,7 +177,7 @@
         <p><b>플레이</b> 포인트를 쓰고 스핀 시작</p>
         <p><b>상품</b> 소비 포인트별 등급 기준·출현율·카드 목록</p>
         <p><b>보관함</b> 받은 카드 확인 / 포인트 교환</p>
-        <p><b>⚡ 고속</b> 연출을 3배 빠르게 (결과는 그대로)</p>
+        <p><b>고속 버튼</b> 연출을 3배 빠르게 (결과는 그대로)</p>
         <p><b>종료 연출 중 화면 탭</b> 건너뛰기</p></div>`;
     });
   }
@@ -228,7 +234,7 @@
       return `<div class="dex-total"><b>${have}</b> / ${all.length}장 <small>(${pct(have / all.length)}%)</small><div class="bar"><i style="width:${have / all.length * 100}%"></i></div></div>
         <div class="dex-tiers">${tiers.map(t => { const tc = tierCards(t), g = tc.filter(owned).length;
           return `<button data-tier="${t}" class="${t === dexTier ? 'on' : ''} ${g === tc.length ? 'done' : ''}">${t === 'G' ? '공통' : fmt(+t)}<small>${g}/${tc.length}</small></button>`; }).join('')}</div>
-        <h4 class="dex-title">${esc(tierLabel(dexTier))} ${got === list.length ? '<span class="dex-done">🏆 완성!</span>' : `<small>${got}/${list.length}</small>`}</h4>
+        <h4 class="dex-title">${esc(tierLabel(dexTier))} ${got === list.length ? `<span class="dex-done">${ico('trophy')}완성!</span>` : `<small>${got}/${list.length}</small>`}</h4>
         ${(dexTier === 'G' ? ['G'] : 'SABCDEF'.split('')).map(g => {
           const cs = list.filter(c => c.grade === g); if (!cs.length) return '';
           const col = C.GRADES.find(x => x.id === g).color;
@@ -306,8 +312,8 @@
       R.state.skipping = false;
       await R.replay(round.sim);
       await finale(round, item);
-      if (rec.newBest) setTimeout(() => news(`🏆 최고 배율 갱신! ×${(round.payout / round.sim.bet).toFixed(2)}`), 300);
-      else if (newDex) setTimeout(() => news(`📖 도감 등록: ${round.card.name}`), 300);
+      if (rec.newBest) setTimeout(() => news(`최고 배율 갱신! ×${(round.payout / round.sim.bet).toFixed(2)}`, 'trophy'), 300);
+      else if (newDex) setTimeout(() => news(`도감 등록: ${round.card.name}`, 'book'), 300);
     } catch (e) {
       // 연출 중 오류가 나도 결과(포인트·카드)는 이미 저장돼 있으므로 화면만 원래대로
       console.error(e);
@@ -400,9 +406,9 @@
   }
 
   // ---------- 랭킹 ----------
-  function news(msg) { // 화면 위쪽에 잠깐 뜨는 소식 띠
+  function news(msg, icon) { // 화면 위쪽에 잠깐 뜨는 소식 띠 (icon: ICO 이름, 단색 선 아이콘)
     const n = document.createElement('div');
-    n.className = 'news-item'; n.textContent = msg;
+    n.className = 'news-item'; n.innerHTML = (icon ? ico(icon) : '') + `<span>${esc(msg)}</span>`;
     $('#news').appendChild(n);
     setTimeout(() => n.classList.add('out'), 3200);
     setTimeout(() => n.remove(), 3700);
@@ -420,7 +426,7 @@
       if (i < Rank.BOARDS.length) {
         const rows = await Rank.board(Rank.BOARDS[i].id);
         if (my !== seq) return;
-        const medal = k => ['🥇', '🥈', '🥉'][k] || (k + 1);
+        const medal = k => (k < 3 ? `<i class="medal m${k + 1}">${k + 1}</i>` : (k + 1));
         el.innerHTML = note + (Rank.BOARDS[i].desc ? `<p class="muted center">${Rank.BOARDS[i].desc}</p>` : '') +
           `<div class="rlist">${rows.map((r, k) => `<div class="rrow2 ${Rank.me && r.nickname === Rank.me.nickname ? 'me' : ''}">
             <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${esc(r.sub)}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
@@ -497,7 +503,7 @@
     grantBusy = true;
     try {
       const got = await Rank.claimGrants();
-      for (const g of got) { S.points += g.amount; Rank.noteCharge(g.amount); news(`🎁 ${g.by}님이 ${fmt(g.amount)}pt를 보냈어요!`); }
+      for (const g of got) { S.points += g.amount; Rank.noteCharge(g.amount); news(`${g.by}님이 ${fmt(g.amount)}pt를 보냈어요!`, 'gift'); }
       if (got.length) { save(); showPoints(); showBet(); Sound.play('coin'); }
     } catch (e) { /* 지급 테이블이 없거나 연결 실패 → 조용히 넘어감 */ }
     grantBusy = false;
@@ -520,7 +526,7 @@
     const R = C.DAILY_REWARDS;
     const m = modal(`<p class="muted center">${d.claimed ? '오늘 출석 완료! 내일 또 와요' : '하루 한 번 출석하고 포인트 받아 가세요'}<br><small>연속 ${d.claimed ? d.streak : d.streak + 1}일째 · 하루라도 빠지면 1일차부터</small></p>
       <div class="daily">${R.map((r, i) => `<div class="dday ${i < d.idx || (d.claimed && i === d.idx) ? 'got' : ''} ${i === d.idx && !d.claimed ? 'today' : ''} ${i === R.length - 1 ? 'big' : ''}">
-        <small>${i + 1}일차</small><span class="coin"></span><b>${fmt(r)}</b>${i < d.idx || (d.claimed && i === d.idx) ? '<i>✔</i>' : ''}</div>`).join('')}</div>
+        <small>${i + 1}일차</small><span class="coin"></span><b>${fmt(r)}</b>${i < d.idx || (d.claimed && i === d.idx) ? `<i>${ico('check')}</i>` : ''}</div>`).join('')}</div>
       ${d.claimed ? '' : `<button id="dailyClaim" class="rowbtn gold big">${ico('gift')}${fmt(R[d.idx])}pt 받기</button>`}`, { title: '출석 체크', cls: 'small' });
     const b = m.el.querySelector('#dailyClaim');
     if (b) b.onclick = () => {
@@ -530,12 +536,12 @@
       S.attend = { last: cur.today, streak: cur.streak + 1 };
       S.points += amt; Rank.noteCharge(amt);                  // 지갑에만 더함 (랭크 포인트 제외)
       save(); showPoints(); showBet(); Sound.play('coin');
-      m.close(); news(`📅 출석 ${S.attend.streak}일째! ${fmt(amt)}pt 획득`);
+      m.close(); news(`출석 ${S.attend.streak}일째! ${fmt(amt)}pt 획득`, 'calendar');
     };
     return true;
   }
 
-  function showWho() { const w = $('#btnWho'); if (w) w.innerHTML = Rank.me ? `👤 <b>${esc(Rank.me.nickname)}</b> · 변경` : '👤 닉네임 설정'; }
+  function showWho() { const w = $('#btnWho'); if (w) w.innerHTML = Rank.me ? `${ico('user')}<b>${esc(Rank.me.nickname)}</b> · 변경` : `${ico('user')}닉네임 설정`; }
   // 다른 사람의 큰 당첨 소식 확인 (온라인일 때 20초마다)
   let lastFeedId = null;
   async function pollFeed() {
@@ -543,7 +549,7 @@
       const f = await Rank.feed();
       // S·A·B상은 나를 포함해 모두에게 매번 알림 (받은 포인트까지). 최고 배율 갱신만 있는 낮은 등급은 소식 탭에만
       if (lastFeedId !== null) f.filter(x => x.id > lastFeedId && ['S', 'A', 'B'].includes(x.grade)).reverse()
-        .forEach(x => news(`🎉 ${x.nickname}님이 ${String(x.mode).toUpperCase()} ${x.grade}상 「${x.card}」 획득! +${fmt(x.value)}pt`));
+        .forEach(x => news(`${x.nickname}님이 ${String(x.mode).toUpperCase()} ${x.grade}상 「${x.card}」 획득! +${fmt(x.value)}pt`, 'star'));
       if (f.length) lastFeedId = Math.max(...f.map(x => x.id));
       else if (lastFeedId === null) lastFeedId = 0;
     } catch (e) { /* 연결 실패는 조용히 무시 */ }
@@ -561,13 +567,13 @@
     S.inventory.push({ id: S.nextId++, grade: 'P', tier: 'P', idx: 0, kind: 'gift', name: '시간 선물', value: amt, bet: 0, at: Date.now() });
     Rank.noteCharge(amt);                                   // 수익 랭킹 제외 (선물)
     save(); Sound.play('coin');
-    news(`🎁 시간 선물 도착! 보관함에 ${fmt(amt)}pt 포인트 카드가 들어왔어요`); updateGift();
+    news(`시간 선물 도착! 보관함에 ${fmt(amt)}pt 포인트 카드가 들어왔어요`, 'gift'); updateGift();
   }
   function updateGift() {
     const b = $('#giftBadge'); if (!b) return;
     const left = giftLeft();
     if (left === 0) { claimGift(); return; }
-    b.innerHTML = `🎁 다음 선물 <b>${mmss(left)}</b>`;
+    b.innerHTML = `${ico('gift')}다음 선물 <b>${mmss(left)}</b>`;
   }
   function startGiftTimer() {
     const pill = $('#pointsPill');
@@ -594,7 +600,7 @@
       if (mine >= came) {
         const note = metaOf(document, 'app-note');
         const d = document.createElement('div'); d.className = 'upd-done';
-        d.innerHTML = `<b>✨ 업데이트 완료!</b><span>${note ? esc(note) : '새 버전이 적용됐어요'}</span>`;
+        d.innerHTML = `<b>${ico('spark')}업데이트 완료!</b><span>${note ? esc(note) : '새 버전이 적용됐어요'}</span>`;
         document.body.appendChild(d);
         setTimeout(() => d.classList.add('out'), 3500); setTimeout(() => d.remove(), 4000);
       }
@@ -610,7 +616,7 @@
       try { sessionStorage.setItem('ld_upd', JSON.stringify({ v: newer, n: (t.v === newer ? t.n : 0) + 1, at: Date.now() })); } catch (e) { /* 무시 */ }
       going = true;
       try { save(); Rank.flush(true); } catch (e) { /* 저장 실패해도 진행 */ }
-      news('✨ 새 버전이 나왔어요! 잠깐만요…');
+      news('새 버전이 나왔어요! 잠깐만요…', 'spark');
       setTimeout(() => { const u = new URL(location.href); u.searchParams.set('u', newer); location.replace(u.toString()); }, 1500);
     };
     const check = async () => {
