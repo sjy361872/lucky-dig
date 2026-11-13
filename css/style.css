@@ -547,3 +547,9 @@ body:not(.admin) .pill .plus { display: none; }
 /* 등급 표시(○상)는 한글이 예쁜 검은고딕으로 */
 .chip, .card-back span { font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; letter-spacing: .5px; }
 .chip.big small { font-family: 'Pretendard', 'Malgun Gothic', sans-serif; font-weight: 700; }
+
+/* 시간 선물 배지 (포인트 칸 아래) */
+#pointsPill { position: relative; }
+#giftBadge { position: absolute; left: 50%; bottom: -19px; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 800; line-height: 1; padding: 4px 9px; border-radius: 999px; background: #5b3a12; color: #ffe9b0; border: 2px solid #e0a92b; pointer-events: none; z-index: 3; }
+#giftBadge.ready { background: linear-gradient(#ff5a4e, #d81b2c); color: #fff; border-color: #ffe14a; animation: giftPulse 0.9s ease-in-out infinite alternate; }
+@keyframes giftPulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.12); } }

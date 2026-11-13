@@ -9,7 +9,7 @@
 
   // ---------- 저장 ----------
   const S = { mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 } };
-  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, attend: { last: '', streak: 0 }, owner: null, savedAt: 0 });
+  const DEFAULTS = () => ({ mode: 'mild', points: C.START_POINTS, bet: C.DEFAULT_BET, inventory: [], nextId: 1, settings: { bgm: 0.5, sfx: 0.8 }, dex: {}, attend: { last: '', streak: 0 }, gift: { last: 0 }, owner: null, savedAt: 0 });
   // 불러온 저장 데이터를 기본 형식에 맞춰 정리 (빠진 칸·이상한 값·지금 없는 카드 제거)
   function applyState(d) {
     const base = DEFAULTS();
@@ -539,6 +539,34 @@
     } catch (e) { /* 연결 실패는 조용히 무시 */ }
   }
 
+  // ---------- 시간 선물: 1시간마다 C.HOURLY_GIFT pt (포인트 칸을 눌러 받음, 쌓이지 않음) ----------
+  const GIFT_MS = 3600e3;
+  const giftLeft = () => { const g = S.gift && +S.gift.last || 0; return Math.max(0, GIFT_MS - (Date.now() - g)); };
+  const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  function claimGift() {
+    if (giftLeft() > 0) return;
+    const amt = C.HOURLY_GIFT || 10000;
+    S.gift = { last: Date.now() };
+    S.points += amt; Rank.noteCharge(amt);                  // 지갑에만 (수익 랭킹 제외)
+    save(); showPoints(); showBet(); Sound.play('coin');
+    news(`🎁 시간 선물 +${fmt(amt)}pt! 1시간 뒤 또 받아요`); updateGift();
+  }
+  let giftReadyShown = false;
+  function updateGift() {
+    const b = $('#giftBadge'); if (!b) return;
+    const left = giftLeft();
+    b.classList.toggle('ready', left === 0);
+    b.textContent = left === 0 ? '🎁 받기!' : '🎁 ' + mmss(left);
+    if (left === 0 && !giftReadyShown) { giftReadyShown = true; news('🎁 시간 선물 도착! 포인트 칸을 눌러 받으세요'); }
+    if (left > 0) giftReadyShown = false;
+  }
+  function startGiftTimer() {
+    const pill = $('#pointsPill');
+    if (!pill || $('#giftBadge')) return;
+    const b = document.createElement('span'); b.id = 'giftBadge'; pill.appendChild(b);
+    updateGift(); setInterval(updateGift, 1000);
+  }
+
   // ---------- 새 버전 자동 적용 ----------
   // 배포하면 version.txt 숫자가 바뀜 → 1분마다 확인 → 플레이 중·창(결과·메뉴 등)이 열려 있으면 기다렸다가
   // 한가할 때 저장하고 새로고침. 하던 판·고르던 카드는 끊기지 않음
@@ -603,7 +631,10 @@
     R.drawBoard(preview.board, preview.chests);
     $('#scoreText').textContent = '0';
 
-    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click'); if (Rank.isAdmin()) openCharge(); else toast('포인트 충전은 관리자에게 요청하세요'); };
+    $('#pointsPill').onclick = () => { Sound.unlock(); Sound.play('click');
+      if (giftLeft() === 0) { claimGift(); return; }
+      if (Rank.isAdmin()) openCharge(); else toast(`다음 시간 선물까지 ${mmss(giftLeft())} 남았어요`); };
+    startGiftTimer();
     $('#btnRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(); };
     $('#btnMenu').onclick = () => { Sound.unlock(); Sound.play('click'); openMenu(); };
     $('#btnHelp').onclick = () => { Sound.unlock(); Sound.play('click'); openHelp(); };
