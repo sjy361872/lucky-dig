@@ -570,29 +570,34 @@
   // 배포하면 version.txt 숫자가 바뀜 → 1분마다 확인 → 플레이 중·창(결과·메뉴 등)이 열려 있으면 기다렸다가
   // 한가할 때 저장하고 새로고침. 하던 판·고르던 카드는 끊기지 않음
   function startUpdateWatch() {
-    const meta = document.querySelector('meta[name="app-version"]');
-    const mine = meta ? meta.content : '';
+    // 원인 메모(2026-11-14): GitHub Pages CDN은 ?t= 같은 주소 뒤 숫자를 무시하고 파일을 최대 10분(max-age=600) 캐시함.
+    // → 배포 직후 새로고침하면 옛 화면/옛 js 가 섞여 올 수 있음. 그래서 '배포 시각 + 11분'이 지난 뒤에 적용(그때는 캐시가 다 갱신됨).
+    const metaOf = (doc, name) => { const m = doc.querySelector(`meta[name="${name}"]`); return m ? m.content : ''; };
+    const mine = metaOf(document, 'app-version');
     if (!mine || location.protocol === 'file:') return;
-    // 자동 업데이트로 새로고침돼서 들어온 경우: 가운데에 '업데이트 완료' 알림 (바뀐 내용이 있으면 같이)
+    const kstMs = v => Date.UTC(+v.slice(0, 4), +v.slice(4, 6) - 1, +v.slice(6, 8), +v.slice(8, 10), +v.slice(10, 12), +v.slice(12, 14)) - 9 * 3600e3;
+    // 자동 업데이트로 새로고침돼서 들어온 경우: 가운데에 '업데이트 완료' 알림 (바뀐 내용 한 줄과 같이)
     const url = new URL(location.href);
-    if (url.searchParams.get('u') === mine) {
+    const came = url.searchParams.get('u');
+    if (came) {
       url.searchParams.delete('u'); history.replaceState(null, '', url.toString());
-      fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).catch(() => '').then(t => {
-        const note = String(t || '').split(/\r?\n/).slice(1).join(' ').trim();
+      if (mine >= came) {
+        const note = metaOf(document, 'app-note');
         const d = document.createElement('div'); d.className = 'upd-done';
-        d.innerHTML = `<b>✨ 업데이트 완료!</b>${note ? `<span>${esc(note)}</span>` : '<span>새 버전이 적용됐어요</span>'}`;
+        d.innerHTML = `<b>✨ 업데이트 완료!</b><span>${note ? esc(note) : '새 버전이 적용됐어요'}</span>`;
         document.body.appendChild(d);
-        setTimeout(() => d.classList.add('out'), 3200); setTimeout(() => d.remove(), 3700);
-      });
+        setTimeout(() => d.classList.add('out'), 3500); setTimeout(() => d.remove(), 4000);
+      }
     }
     let newer = null, going = false;
     const idle = () => !busy && $('#overlay').hidden;
     const apply = () => {
       if (!newer || going || !idle()) return;
-      // 같은 버전으로 이미 한 번 새로고침했는데도 그대로면(서버 캐시 등) 무한 새로고침 막기
-      let tried = ''; try { tried = sessionStorage.getItem('ld_upd') || ''; } catch (e) { /* 무시 */ }
-      if (tried === newer) return;
-      try { sessionStorage.setItem('ld_upd', newer); } catch (e) { /* 무시 */ }
+      if (Date.now() < kstMs(newer) + 11 * 60e3) return;          // CDN 캐시가 다 바뀔 때까지 기다림
+      // 같은 버전 재시도는 2분 간격·최대 3번 (무한 새로고침 방지)
+      let t = {}; try { t = JSON.parse(sessionStorage.getItem('ld_upd') || '{}'); } catch (e) { t = {}; }
+      if (t.v === newer && (t.n >= 3 || Date.now() - t.at < 120e3)) return;
+      try { sessionStorage.setItem('ld_upd', JSON.stringify({ v: newer, n: (t.v === newer ? t.n : 0) + 1, at: Date.now() })); } catch (e) { /* 무시 */ }
       going = true;
       try { save(); Rank.flush(true); } catch (e) { /* 저장 실패해도 진행 */ }
       news('✨ 새 버전이 나왔어요! 잠깐만요…');
@@ -601,14 +606,15 @@
     const check = async () => {
       try {
         const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
-        if (!r.ok) return;
-        const v = (await r.text()).trim().split(/\r?\n/)[0].trim();
-        if (/^\d+$/.test(v) && v !== mine && v > mine) newer = v;
+        if (r.ok) {
+          const v = (await r.text()).trim().split(/\r?\n/)[0].trim();
+          if (/^\d{14}$/.test(v) && v > mine && (!newer || v > newer)) newer = v;
+        }
       } catch (e) { /* 연결 실패는 무시 */ }
       apply();
     };
     setInterval(check, 60000);
-    setInterval(apply, 2000);                                   // 업데이트 대기 중이면 한가해지는 순간 적용
+    setInterval(apply, 3000);                                   // 업데이트 대기 중이면 한가해지는 순간 적용
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });  // 앱으로 돌아오면 바로 확인
     setTimeout(check, 5000);
   }
