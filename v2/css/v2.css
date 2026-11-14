@@ -497,3 +497,39 @@ html, body { background: var(--p-bg); color: var(--p-text); }
 .result .rname { color: var(--p-text); }
 .result .rrow b { color: var(--p-accent); font-size: 18px; }
 @media (prefers-reduced-motion: reduce) { .f2-rays { animation: none; } }
+
+/* =========================================================
+   상단 E (2026-11-14): 잔고 + 이번 주 순위 + 도감 진행 · 선물은 작은 상자 + 시간
+   ========================================================= */
+#topbar { height: 74px; gap: 8px; align-items: stretch; margin: 0; width: auto; }
+#topbar > button, .hd-goals, .hd-side { font-family: inherit; }
+.hd-money { flex: 1.25; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; padding: 0 12px;
+  background: var(--p-surface); color: var(--p-text); border: 3px solid var(--p-line); box-shadow: 3px 3px 0 rgba(0,0,0,.5); text-align: left; }
+.hd-lab { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--p-muted); }
+#modeBadge, #modeBadge.mild, #modeBadge.hard { position: static; transform: none; border: 0; box-shadow: none; font: 900 10px/1.4 'Noto Sans KR', sans-serif; padding: 0 6px; }
+#modeBadge.mild { background: var(--p-info); color: var(--p-bg); } #modeBadge.hard { background: var(--p-accent-d); color: #fff; }
+#pointsText { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 28px; line-height: 1; color: var(--p-accent); white-space: nowrap; }
+:root[data-ui="pixel"] #pointsText { font-family: 'Galmuri11', sans-serif; font-weight: 700; font-size: 25px; }
+.hd-money .plus { position: absolute; right: 6px; top: 4px; width: 22px; height: 22px; line-height: 22px; font-size: 18px; background: none; color: var(--p-muted); }
+#giftBadge { display: none !important; }
+
+.hd-goals { flex: 1; display: flex; flex-direction: column; background: var(--p-surface); border: 3px solid var(--p-line); box-shadow: 3px 3px 0 rgba(0,0,0,.5); }
+.hd-rank, .hd-dex { flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: none; color: var(--p-text); min-width: 0; }
+.hd-rank svg { width: 16px; height: 16px; color: var(--p-accent); flex-shrink: 0; }
+.hd-rank small, .hd-dex small { font-size: 11px; color: var(--p-muted); white-space: nowrap; }
+#rankText { margin-left: auto; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 24px; line-height: 1; color: var(--p-text); white-space: nowrap; }
+:root[data-ui="pixel"] #rankText { font-family: 'Galmuri11', sans-serif; font-weight: 700; font-size: 20px; }
+#rankText.none { font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 900; color: var(--p-muted); }
+.hd-dex { border-top: 2px solid var(--p-line); }
+.hd-bar { flex: 1; height: 6px; background: var(--p-well); display: block; min-width: 20px; }
+.hd-bar i { display: block; height: 100%; width: 0; background: var(--p-info); }
+#dexText { font-family: 'Galmuri11', 'Do Hyeon', sans-serif; font-size: 11px; font-weight: 700; color: var(--p-info); white-space: nowrap; }
+
+.hd-side { width: 44px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.hd-gift { position: relative; display: flex; flex-direction: column; align-items: center; background: none; padding: 0; }
+.hd-gift img { width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.5)); }
+#giftTime { margin-top: -4px; font-family: 'Galmuri11', monospace; font-size: 10px; font-weight: 700; color: var(--p-accent); background: var(--p-line); padding: 0 3px; }
+.hd-side .iconbtn, :root[data-ui="pixel"] .hd-side .iconbtn { width: 30px; height: 24px; border-width: 2px !important; box-shadow: none !important; }
+.hd-side .iconbtn svg { width: 14px; height: 14px; }
+#middle { margin-top: 12px; }
+body:not(.admin) .hd-money .plus { display: none; }

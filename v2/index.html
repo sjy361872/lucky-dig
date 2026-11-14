@@ -10,9 +10,9 @@
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&display=swap">
-<link rel="stylesheet" href="v2/css/style.css?v=20261114164837">
+<link rel="stylesheet" href="v2/css/style.css?v=20261114171254">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
-<link rel="stylesheet" href="v2/css/v2.css?v=20261114164837">
+<link rel="stylesheet" href="v2/css/v2.css?v=20261114171254">
 <script>try{var q=(location.search.match(/ui=(\w+)/)||[])[1];if(q)localStorage.setItem('ld_ui',q);document.documentElement.dataset.ui=localStorage.getItem('ld_ui')||'pixel';document.documentElement.dataset.theme='dark';}catch(e){}</script>
 </head>
 <body>
@@ -21,15 +21,22 @@
 <div id="viewport">
   <div id="app">
     <!-- 상단: 이름·모드 · 잔고(선물 배지) · 하는 법 -->
+    <!-- 상단: 게임 목표 두 개(점수 랭킹·도감)를 메인으로 -->
     <div id="topbar">
-      <div id="logo"><b class="lg-name">럭키 디그</b><span id="modeBadge">MILD</span></div>
-      <button id="pointsPill" class="pill" title="잔고">
-        <span class="pt-col"><small>잔고</small><b id="pointsText">0 pt</b></span>
+      <button id="pointsPill" class="hd-money" title="잔고">
+        <span class="hd-lab">잔고 <span id="modeBadge">MILD</span></span>
+        <b id="pointsText">0 pt</b>
         <span class="plus">+</span>
       </button>
-      <button id="btnHelp" class="iconbtn" title="하는 법" aria-label="하는 법"><svg class="ico-px" viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor"><path d="M2 0h6v1h-6zM1 1h2v1h-2zM7 1h2v1h-2zM1 2h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM5 4h2v1h-2zM4 5h2v1h-2zM4 6h2v1h-2zM4 8h2v1h-2zM4 9h2v1h-2z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17v.5"/></svg></button>
+      <div class="hd-goals">
+        <button id="hdRank" class="hd-rank" title="이번 주 순위 (랭킹 열기)"><svg viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor" aria-hidden="true"><path d="M0 0h12v1H0zM0 1h1v2H0zM11 1h1v2h-1zM2 1h8v4H2zM1 3h1v1H1zM10 3h1v1h-1zM3 5h6v1H3zM4 6h4v1H4zM5 7h2v2H5zM3 9h6v2H3z"/></svg><small>이번 주</small><b id="rankText">–</b></button>
+        <button id="hdDex" class="hd-dex" title="도감 열기"><small>도감</small><i class="hd-bar"><i id="dexFill"></i></i><b id="dexText">0/0</b></button>
+      </div>
+      <div class="hd-side">
+        <button id="giftBtn" class="hd-gift" title="시간 선물"><img src="assets/chests/c3.png" alt=""><b id="giftTime">--:--</b></button>
+        <button id="btnHelp" class="iconbtn" title="하는 법" aria-label="하는 법"><svg class="ico-px" viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor"><path d="M2 0h6v1h-6zM1 1h2v1h-2zM7 1h2v1h-2zM1 2h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM5 4h2v1h-2zM4 5h2v1h-2zM4 6h2v1h-2zM4 8h2v1h-2zM4 9h2v1h-2z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17v.5"/></svg></button>
+      </div>
     </div>
-    <div id="goal"><i class="goal-gem"></i><span id="goalText">이번 판 목표</span><span class="goal-bar"><i id="goalFill"></i></span></div>
 
     <div id="middle">
       <div id="leftcol">
@@ -98,16 +105,16 @@
 <div id="news"></div>
 <div id="overlay" hidden></div>
 
-<script src="v2/js/config.js?v=20261114164837"></script>
-<script src="v2/js/engine.js?v=20261114164837"></script>
-<script src="v2/js/sound.js?v=20261114164837"></script>
-<script src="v2/js/art.js?v=20261114164837"></script>
-<script src="v2/js/render.js?v=20261114164837"></script>
-<script src="v2/js/online-config.js?v=20261114164837"></script>
-<script src="v2/js/rank.js?v=20261114164837"></script>
-<script src="v2/js/ui.js?v=20261114164837"></script>
-<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/picktest.js?v=20261114164837'; document.body.appendChild(s); });</script>
-<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/fxtest.js?v=20261114164837'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/uitest.js?v=20261114164837'; document.body.appendChild(s); });</script>
+<script src="v2/js/config.js?v=20261114171254"></script>
+<script src="v2/js/engine.js?v=20261114171254"></script>
+<script src="v2/js/sound.js?v=20261114171254"></script>
+<script src="v2/js/art.js?v=20261114171254"></script>
+<script src="v2/js/render.js?v=20261114171254"></script>
+<script src="v2/js/online-config.js?v=20261114171254"></script>
+<script src="v2/js/rank.js?v=20261114171254"></script>
+<script src="v2/js/ui.js?v=20261114171254"></script>
+<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/picktest.js?v=20261114171254'; document.body.appendChild(s); });</script>
+<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/fxtest.js?v=20261114171254'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/uitest.js?v=20261114171254'; document.body.appendChild(s); });</script>
 </body>
 </html>

@@ -338,6 +338,7 @@
       $('#panelIdle').hidden = false; $('#panelPlay').hidden = true;
       showPoints(); showBet();
       busy = false;
+      updateHeaderGoals();
     }
   }
 
@@ -420,7 +421,7 @@
     setTimeout(() => n.classList.add('out'), 3200);
     setTimeout(() => n.remove(), 3700);
   }
-  function openRanking() {
+  function openRanking(startTab = 0) {
     const m = modal('<div id="rankTabs"></div>', { title: '랭킹', cls: 'tall' });
     const box = m.el.querySelector('#rankTabs');
     const names = Rank.BOARDS.map(b => b.name).concat(['소식']);
@@ -452,7 +453,8 @@
           <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A 등급, 최고 배율 갱신 시 기록)</p>'}</div>`;
       }
     };
-    tabs(box, names, i => { setTimeout(() => render(i).catch(e => { body().innerHTML = `<p class="note center">불러오기 실패: ${esc(e.message)}</p>`; }), 0); return '<p class="muted center">불러오는 중…</p>'; });
+    const showTab = tabs(box, names, i => { setTimeout(() => render(i).catch(e => { body().innerHTML = `<p class="note center">불러오기 실패: ${esc(e.message)}</p>`; }), 0); return '<p class="muted center">불러오는 중…</p>'; });
+    if (startTab) showTab(startTab);
   }
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   function timeAgo(at) {
@@ -589,6 +591,21 @@
     const left = giftLeft();
     if (left === 0) { claimGift(); return; }
     b.innerHTML = `${ico('gift')}다음 선물 <b>${mmss(left)}</b>`;
+    const gt = $('#giftTime'); if (gt) gt.textContent = mmss(left);
+  }
+  // 상단: 이번 주 순위 + 도감 진행 (게임 목표 두 개)
+  async function updateHeaderGoals() {
+    const dexN = Object.keys(S.dex || {}).length, dexAll = C.allCards().length;
+    const dt = $('#dexText'), df = $('#dexFill');
+    if (dt) dt.textContent = `${dexN}/${dexAll}`;
+    if (df) df.style.width = (dexAll ? dexN / dexAll * 100 : 0) + '%';
+    const rt = $('#rankText'); if (!rt || !Rank.me) return;
+    try {
+      const rows = (await Rank.board('week')).filter(r => r.score > 0);   // 수익 랭킹은 플러스인 사람만 순위
+      const i = rows.findIndex(r => r.nickname === Rank.me.nickname);
+      rt.textContent = i >= 0 ? `${i + 1}위` : '도전 중';
+      rt.classList.toggle('none', i < 0);
+    } catch (e) { /* 서버 오류면 그대로 둠 */ }
   }
   function startGiftTimer() {
     const pill = $('#pointsPill');
@@ -684,6 +701,10 @@
       if (Rank.isAdmin()) openCharge(); else toast(`다음 시간 선물까지 ${mmss(giftLeft())} · 선물은 보관함에 들어와요`); };
     startGiftTimer();
     $('#btnRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(); };
+    $('#hdRank').onclick = () => { Sound.unlock(); Sound.play('click'); openRanking(1); };
+    $('#hdDex').onclick = () => { Sound.unlock(); Sound.play('click'); if (busy) { toast('플레이 중에는 열 수 없습니다'); return; } openBag(1); };
+    $('#giftBtn').onclick = () => { Sound.unlock(); Sound.play('click'); toast(`다음 시간 선물까지 ${mmss(giftLeft())} · 보관함에 포인트 카드로 들어와요`); };
+    setInterval(updateHeaderGoals, 60000); setTimeout(updateHeaderGoals, 1500);
     $('#btnMenu').onclick = () => { Sound.unlock(); Sound.play('click'); openMenu(); };
     $('#btnHelp').onclick = () => { Sound.unlock(); Sound.play('click'); openHelp(); };
     $('#btnPrizes').onclick = () => { Sound.unlock(); Sound.play('click'); openPrizes(); };

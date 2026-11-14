@@ -68,7 +68,7 @@
     check(!document.querySelector('.chargegrid') && !$('#overlay').hidden === false, '일반 계정: 포인트 부족해도 충전 창 안 뜸');
     $('#pointsPill').click(); await sleep(50);
     check(!document.querySelector('.chargegrid'), '일반 계정: + 눌러도 충전 불가');
-    check(getComputedStyle(document.querySelector('.pill .plus')).display === 'none', '일반 계정: + 버튼 숨김');
+    check(getComputedStyle(document.querySelector('#pointsPill .plus')).display === 'none', '일반 계정: + 버튼 숨김');
     // 관리자 지급: 관리자(관리자1)로 바꿔서 테스터에게 지급 → 테스터로 돌아와서 받기
     C.ADMINS.push('관리자1');
     const P2 = num($('#pointsText').textContent);
