@@ -571,3 +571,25 @@ body:not(.admin) .hd-money .plus { display: none; }
 #slot::after { background-blend-mode: normal; }
 #app.playing #slot::after { opacity: 0; }
 #slot::after { padding-top: 46px; box-sizing: border-box; background: url('../../assets/items/pick3.png') calc(50% - 26px) 26% / 38px no-repeat, url('../../assets/items/tnt.png') calc(50% + 26px) 26% / 34px no-repeat; }
+
+/* =========================================================
+   휴대폰 점검 3차 (2026-11-14)
+   ========================================================= */
+/* 1) 배경: 어두운 막을 옅게 → 갱도 기둥·철길이 은은하게 보이게 */
+#bg { background: linear-gradient(rgba(20,22,35,.42), rgba(20,22,35,.66)), url('../../assets/v2/bg_dark.jpg') center / cover no-repeat; }
+/* 2) 게이지 아래 등급 배지 없앰 → 게이지를 아래 끝까지 */
+#gradeBadge { display: none !important; }
+#gauge { bottom: 6px; }
+/* 3) 작은 '?' 버튼 없앰 (하는 법은 설정 안에) · 선물 상자 키움 */
+.hd-side #btnHelp { display: none; }
+.hd-side { justify-content: center; width: 46px; }
+.hd-gift img { width: 44px; height: 44px; }
+#giftTime { font-size: 11px; }
+/* 4) 대기 중: 관 바닥에 불씨가 일렁이고 랜턴이 살짝 깜빡임 */
+#gaugeTrack::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255,173,59,.85), rgba(217,102,28,.35) 55%, transparent 75%); animation: ember 1.6s ease-in-out infinite; }
+#app.playing #gaugeTrack::before { animation: none; opacity: 0; }
+@keyframes ember { 0%, 100% { opacity: .45; transform: scaleY(.8); transform-origin: bottom; } 50% { opacity: 1; transform: scaleY(1.15); transform-origin: bottom; } }
+#app:not(.playing) #leftcol .lantern { animation: lanFlicker 2.4s ease-in-out infinite; }
+@keyframes lanFlicker { 0%, 100% { opacity: 1; } 45% { opacity: .82; } 55% { opacity: .95; } 70% { opacity: .86; } }
+@media (prefers-reduced-motion: reduce) { #gaugeTrack::before, #app:not(.playing) #leftcol .lantern { animation: none; } }
