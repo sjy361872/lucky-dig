@@ -635,3 +635,34 @@ body:not(.admin) .hd-money .plus { display: none; }
 #board::before { background: #3a3f5c; }
 .hole::before { inset: 2px; border-radius: 0; background: #11131e; box-shadow: inset 0 0 0 2px #555b7d, inset 0 4px 8px rgba(0,0,0,.6); }
 .block { padding: 2px; }
+
+/* =========================================================
+   탐지기 · 갱도 틀을 재질로 구분 (2026-11-14)
+   - 칸 구분이 흐렸던 이유: 선과 칸의 밝기가 비슷 + 틈이 얇음 + 두 틀이 같은 색
+   - 탐지기 = 강철 탐지 기계 (리벳 · 청록 유리 화면 칸)
+   - 갱도   = 나무 틀 (칸 사이 새까만 두꺼운 틈)
+   ========================================================= */
+/* 탐지기: 강철 틀 + 모서리 리벳 */
+#slot::before { inset: -10px; border: 3px solid #08090f; border-image: none;
+  background:
+    radial-gradient(circle at 7px 7px, #c9cee0 0 2px, #3b4058 3px, transparent 4px),
+    radial-gradient(circle at calc(100% - 7px) 7px, #c9cee0 0 2px, #3b4058 3px, transparent 4px),
+    radial-gradient(circle at 7px calc(100% - 7px), #c9cee0 0 2px, #3b4058 3px, transparent 4px),
+    radial-gradient(circle at calc(100% - 7px) calc(100% - 7px), #c9cee0 0 2px, #3b4058 3px, transparent 4px),
+    linear-gradient(#7d84a3, #5a6080);
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35), 3px 3px 0 rgba(0,0,0,.5); }
+.slot-cell::before, :root[data-ui="pixel"] .slot-cell::before { inset: 3px; border-radius: 0;
+  background: radial-gradient(circle at 50% 40%, #16353a, #0b1a1e 75%);
+  box-shadow: inset 0 0 0 2px #7fe0ea, inset 0 0 0 4px #0b1a1e, inset 0 0 12px rgba(108,198,217,.35); }
+#slot::after { color: #cdeef2; text-shadow: 0 2px 0 #08090f; }
+
+/* 갱도: 나무 틀 + 칸 사이 새까만 두꺼운 틈 */
+#board::before { inset: -10px; border: 3px solid #08090f; border-image: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 24px),
+    linear-gradient(#7a4f2c, #5a3820);
+  box-shadow: inset 2px 2px 0 rgba(255,214,150,.25), inset -2px -2px 0 rgba(0,0,0,.4), 3px 3px 0 rgba(0,0,0,.5); }
+#board { background: #07080d; }
+.hole::before { inset: 0; border-radius: 0; background: #07080d; box-shadow: none; }
+.block { padding: 3px; }
+.block .blockimg { filter: drop-shadow(0 0 1px rgba(0,0,0,.6)); }
