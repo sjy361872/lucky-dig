@@ -50,7 +50,8 @@
     check(document.querySelectorAll('.dexcard').length > 0 && document.querySelectorAll('.dexcard:not(.none)').length >= 1, '도감 화면: 얻은 카드 표시');
     document.querySelectorAll('.tabs button')[0].click(); await sleep(100);
     const n = document.querySelectorAll('.bagitem').length;
-    check(n === ROUNDS / 2, `보관함 ${n}장 (기대 ${ROUNDS / 2})`);
+    const gifts = window.UI.state().inventory.filter(x => x.kind === 'gift').length; // 시간 선물 포인트 카드 (테스트 중 자동 지급)
+    check(n === ROUNDS / 2 + gifts, `보관함 ${n}장 (기대 ${ROUNDS / 2} + 선물 ${gifts})`);
     const P1 = num($('#pointsText').textContent);
     const total = [...document.querySelectorAll('.bagitem small')].reduce((a, s) => a + num(s.innerHTML.split('<br>')[1]), 0);
     $('#sellAll').click();
@@ -117,7 +118,7 @@
     $('#btnRank').click(); await sleep(300);
     check(!!document.querySelector('.rrow2.me') && document.querySelector('.rrow2.me .rn').textContent === '테스터', '랭킹 보드에 내 기록 표시');
     for (let t = 0; t < 6; t++) { document.querySelectorAll('.tabs button')[t].click(); await sleep(250); }
-    document.querySelectorAll('.tabs button')[3].click(); await sleep(300);
+    [...document.querySelectorAll('.tabs button')].find(b => b.textContent.includes('도감')).click(); await sleep(300);
     const dexRow = document.querySelector('.rrow2.me');
     const myDex = Object.keys(window.UI.state().dex).length;
     check(dexRow && dexRow.textContent.includes(`${myDex} / ${C.allCards().length}장`) && dexRow.textContent.includes('완성 광산'), `도감 수집 랭킹: 내 도감 ${myDex}장과 일치`);
