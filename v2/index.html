@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<base href="../">
+<meta name="app-version" content="20261114032312">
+<meta name="app-note" content="아이콘을 깔끔한 스타일로 바꿨어요">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>럭키 디그 (새 화면 시험)</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&display=swap">
+<link rel="stylesheet" href="v2/css/style.css?v=20261114032312">
+<link rel="stylesheet" href="v2/css/v2.css?v=20261114032312">
+<script>try{var t=localStorage.getItem('ld_theme')||'auto';document.documentElement.dataset.theme=(t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))?'dark':'light'}catch(e){}</script>
+</head>
+<body>
+<div id="bg"></div>
+
+<div id="viewport">
+  <div id="app">
+    <!-- 상단: 이름·모드 · 잔고(선물 배지) · 하는 법 -->
+    <div id="topbar">
+      <div id="logo"><b class="lg-name">럭키 디그</b><span id="modeBadge">MILD</span></div>
+      <button id="pointsPill" class="pill" title="잔고">
+        <span class="pt-col"><small>잔고</small><b id="pointsText">0 pt</b></span>
+        <span class="plus">+</span>
+      </button>
+      <button id="btnHelp" class="iconbtn" title="하는 법" aria-label="하는 법"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17v.5"/></svg></button>
+    </div>
+    <div id="goal"><i class="goal-gem"></i><span id="goalText">이번 판 목표</span><span class="goal-bar"><i id="goalFill"></i></span></div>
+
+    <div id="middle">
+      <div id="leftcol">
+        <img class="lantern" src="assets/v2/lantern.png" alt="" draggable="false">
+        <div id="gauge">
+          <div id="gaugeTrack"><div id="gaugeFill"></div></div>
+          <div id="gaugeLabels"></div>
+        </div>
+      </div>
+      <div id="stagewrap">
+        <div id="stage">
+          <div id="slot"></div>
+          <div id="board"></div>
+          <div id="fx"></div>
+        </div>
+        <div id="chests"></div>
+      </div>
+    </div>
+
+    <div id="panel">
+      <div id="panelIdle">
+        <button id="betMinus" class="roundbtn minus" aria-label="줄이기">−</button>
+        <button id="betBox"><small>이번 판</small><b id="betText">1,000 pt</b></button>
+        <button id="betPlus" class="roundbtn plus" aria-label="늘리기">+</button>
+        <button id="btnPlay"><span class="tri"></span><small>채굴</small></button>
+      </div>
+      <div id="panelPlay" hidden>
+        <div class="info">
+          <div><small>이번 판</small><b id="playBet">0 pt</b></div>
+          <div><small>남은 탐지</small><b id="spinsText">0회</b></div>
+        </div>
+        <div class="scorebox"><small>점수</small><b id="scoreText">0</b></div>
+        <button id="btnSpeed" class="speedbtn" title="빠르게" aria-label="빠르게"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/></svg></button>
+      </div>
+    </div>
+
+    <nav id="tabbar">
+      <button id="navHome" class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V10l7-6 7 6v10"/><path d="M10 20v-5h4v5"/></svg><small>갱도</small></button>
+      <button id="btnRank" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3a3 3 0 0 1-3 4M7 6H4a3 3 0 0 0 3 4"/></svg><small>랭킹</small></button>
+      <button id="btnBag" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M8 8V5h8v3"/></svg><small>보관함</small></button>
+      <button id="btnPrizes" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg><small>보상표</small></button>
+      <button id="btnMenu" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><small>설정</small></button>
+    </nav>
+    <div id="makerGame" class="maker-game">제작 <b>파도</b> · sjy361872</div>
+    <div id="toast"></div>
+  </div>
+</div>
+
+<div id="title">
+  <div class="title-glow"></div>
+  <div class="maker">제작 <b>파도</b> (sjy361872)</div>
+  <img class="title-lantern" src="assets/v2/lantern.png" alt="" draggable="false">
+  <h1 class="title-name">럭키 디그</h1>
+  <div class="title-blocks"><img src="assets/v2/blocks/ruby_0.webp" alt=""><img src="assets/v2/blocks/gold_0.webp" alt=""><img src="assets/v2/blocks/diamond_0.webp" alt=""><img src="assets/v2/blocks/obsidian_0.webp" alt=""><img src="assets/v2/blocks/mystery_0.webp" alt=""></div>
+  <div class="mode-select">
+    <button class="mode-btn" data-mode="mild"><b>MILD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>오래 즐기는 안정형<br>본전 근처가 자주 나와요</small></button>
+    <button class="mode-btn" data-mode="hard"><b>HARD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>한 방을 노리는 승부형<br>전설·다이아가 약 2배 자주</small></button>
+  </div>
+  <button id="btnStart"><span>갱도 들어가기</span></button>
+  <button id="btnWho" class="who"></button>
+  <div class="title-hint">화면을 눌러 시작하세요</div>
+  <div class="title-sparkles"></div>
+</div>
+
+<div id="news"></div>
+<div id="overlay" hidden></div>
+
+<script src="v2/js/config.js?v=20261114032312"></script>
+<script src="v2/js/engine.js?v=20261114032312"></script>
+<script src="v2/js/sound.js?v=20261114032312"></script>
+<script src="v2/js/art.js?v=20261114032312"></script>
+<script src="v2/js/render.js?v=20261114032312"></script>
+<script src="v2/js/online-config.js?v=20261114032312"></script>
+<script src="v2/js/rank.js?v=20261114032312"></script>
+<script src="v2/js/ui.js?v=20261114032312"></script>
+<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/picktest.js?v=20261114032312'; document.body.appendChild(s); });</script>
+<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/fxtest.js?v=20261114032312'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/uitest.js?v=20261114032312'; document.body.appendChild(s); });</script>
+</body>
+</html>
