@@ -77,9 +77,9 @@
   // ---------- 화면 맞추기 ----------
   function fit() {
     const app = $('#app');
-    const s = Math.min(window.innerWidth / 440, window.innerHeight / 900, 1.4);
+    const s = Math.min(window.innerWidth / 440, window.innerHeight / 860, 1.4);
     app.style.transform = `scale(${s})`;
-    $('#viewport').style.height = Math.ceil(900 * s) + 'px';
+    $('#viewport').style.height = Math.ceil(860 * s) + 'px';
   }
 
   // ---------- 표시 ----------
@@ -318,6 +318,7 @@
       const rec = Rank.recordPlay({ mode: S.mode, bet: S.bet, grade: round.grade, cardIdx: round.card.idx, key: C.cardKey(round.card), card: round.card.name, value: round.payout });
       save(); showPoints();
 
+      $('#app').classList.add('playing');
       $('#panelIdle').hidden = true; $('#panelPlay').hidden = false;
       $('#playBet').textContent = fmt(S.bet) + ' pt';
       R.setBet(S.bet);
@@ -335,6 +336,7 @@
       toast('오류가 발생했습니다. 받은 카드는 보관함에 있습니다');
     } finally {
       R.state.skipping = false;
+      $('#app').classList.remove('playing');
       $('#panelIdle').hidden = false; $('#panelPlay').hidden = true;
       showPoints(); showBet();
       busy = false;

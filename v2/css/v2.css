@@ -543,3 +543,31 @@ body:not(.admin) .hd-money .plus { display: none; }
 #pointsPill.hd-money { justify-content: center; gap: 6px; }
 /* 3) 순위 밖일 때 '도전 중'이 숫자 크기로 크게 나오던 문제 */
 :root[data-ui="pixel"] #rankText.none, #rankText.none { font-family: 'Galmuri11', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: var(--p-muted); }
+
+/* =========================================================
+   휴대폰 점검 2차 (2026-11-14)
+   1) 왼쪽 칸: 게이지를 위아래로 길게, 랜턴은 관 꼭대기, 등급 배지는 아래 빈자리(상자 줄 옆)
+   2) 대기 중 탐지기 빈칸에 안내 문구
+   3) 전체 높이 900 → 860 (휴대폰 브라우저에서 양옆 빈 띠 줄이기)
+   ========================================================= */
+#app { height: 860px; }
+#topbar { height: 70px; }
+#middle { margin-top: 8px; }
+#panel { height: 78px; padding: 6px 12px; }
+#tabbar { height: 64px; margin-top: 8px; }
+.tab svg { width: 28px; height: 28px; }
+
+/* 1) 왼쪽 칸 */
+#leftcol { align-self: stretch; }
+#leftcol .lantern { top: 0; width: 54px; z-index: 2; }
+#gauge { top: 58px; bottom: 84px; height: auto; }
+#gradeBadge { top: auto; bottom: 14px; }
+#gauge::before { content: ''; position: absolute; left: 50%; top: -12px; width: 3px; height: 12px; margin-left: -1px; background: var(--p-line); }
+
+/* 2) 대기 중 탐지기 안내 */
+#slot::after { content: '채굴을 누르면\A곡괭이가 나와요'; white-space: pre; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-family: 'Galmuri11', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 16px; line-height: 1.5; color: var(--p-muted); pointer-events: none; z-index: 3;
+  background: url('../../assets/items/pick3.png') 18% 50% / 44px no-repeat, url('../../assets/items/tnt.png') 82% 50% / 40px no-repeat; transition: opacity .2s; }
+#slot::after { background-blend-mode: normal; }
+#app.playing #slot::after { opacity: 0; }
+#slot::after { padding-top: 46px; box-sizing: border-box; background: url('../../assets/items/pick3.png') calc(50% - 26px) 26% / 38px no-repeat, url('../../assets/items/tnt.png') calc(50% + 26px) 26% / 34px no-repeat; }
