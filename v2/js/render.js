@@ -100,14 +100,39 @@
       d.className = 'glabel';
       d.dataset.grade = g.id;
       d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
-      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
+      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname" style="--gc:${g.color}">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
       box.appendChild(d);
     });
   }
+  // 랜턴 기름관 게이지: 액체가 차오르고, 지나간 등급 꼬리표에 불이 켜짐.
+  // 등급이 오르는 순간: 관이 하얗게 번쩍 + 그 꼬리표·위쪽 배지가 '펑' + 랜턴이 확 밝아짐
+  let shownGi = -1;
+  const restart = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
   function setGauge(score) {
-    $('#gaugeFill').style.height = (gaugeFrac(score) * 100) + '%';
-    const gi = root.Engine.gradeIndexForScore(score, bet);
-    document.querySelectorAll('.glabel').forEach(el => el.classList.toggle('on', gi >= 0 && el.dataset.grade === C.GRADES[gi].id));
+    const f = gaugeFrac(score);
+    $('#gaugeFill').style.height = (f * 100) + '%';
+    const gi = root.Engine.gradeIndexForScore(score, bet);           // 0 = S … 7 = G, -1 = 아직 없음
+    document.querySelectorAll('.glabel').forEach(el => {
+      const k = C.GRADES.findIndex(g => g.id === el.dataset.grade);
+      el.classList.toggle('on', gi >= 0 && k === gi);
+      el.classList.toggle('got', gi >= 0 && k >= gi);
+    });
+    const lan = $('#leftcol .lantern');
+    if (lan) lan.style.filter = `drop-shadow(0 0 ${6 + f * 26}px rgba(255,170,60,${(0.45 + f * 0.55).toFixed(2)})) brightness(${(0.85 + f * 0.45).toFixed(2)})`;
+    const badge = $('#gradeBadge');
+    if (badge) {
+      const g = gi >= 0 ? C.GRADES[gi] : null;
+      badge.querySelector('span').textContent = g ? g.name : '–';
+      badge.style.setProperty('--gc', g ? g.color : '#3a3550');
+      badge.classList.toggle('lit', !!g);
+    }
+    if (gi >= 0 && (shownGi < 0 || gi < shownGi)) {                   // 등급이 올랐을 때만 (점수가 0으로 돌아갈 땐 X)
+      restart($('#gaugeFlash'), 'go');
+      restart(badge, 'pop');
+      restart(document.querySelector(`.glabel[data-grade="${C.GRADES[gi].id}"]`), 'pop');
+      restart(lan, 'flare');
+    }
+    shownGi = gi;
     setGoal(score, gi);
   }
   // 다음 등급까지 한 줄 ("금까지 260점 남음")

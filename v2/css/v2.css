@@ -285,3 +285,51 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 :root[data-ui="pixel"] .goal-bar i { background: repeating-linear-gradient(90deg, #ffd56a 0 8px, transparent 8px 11px); transition: none; }
 :root[data-ui="pixel"] .goal-bar { height: 9px; background: rgba(255,255,255,.18); }
 #giftBadge { gap: 5px; white-space: nowrap; }
+
+/* =========================================================
+   랜턴 기름관 게이지 (①+④): 액체가 차오름 · 지나간 등급 불 켜짐 · 등급 오를 때 번쩍 + 배지 '펑'
+   ========================================================= */
+#leftcol .lantern { top: 4px; width: 58px; transition: filter .2s; }
+#gradeBadge { position: absolute; left: 50%; top: 92px; width: 50px; height: 50px; margin-left: -25px; transform: rotate(45deg); background: var(--gc, #3a3550); border: 3px solid #2a1608; box-shadow: 3px 3px 0 rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; }
+:root[data-theme="dark"] #gradeBadge { border-color: #08070c; }
+#gradeBadge span { transform: rotate(-45deg); font-family: 'Black Han Sans', sans-serif; font-size: 28px; line-height: 1; color: #fff; text-shadow: 2px 2px 0 rgba(0,0,0,.35); }
+:root[data-ui="pixel"] #gradeBadge span { font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+#gradeBadge.lit { box-shadow: 3px 3px 0 rgba(0,0,0,.4), 0 0 18px var(--gc); }
+#gradeBadge.pop { animation: gbPop .45s ease-out; }
+@keyframes gbPop { 0% { transform: rotate(45deg) scale(1.75); } 55% { transform: rotate(45deg) scale(.9); } 100% { transform: rotate(45deg) scale(1); } }
+
+/* 관 */
+#gaugeTrack, :root[data-ui="pixel"] #gaugeTrack { left: 7px; width: 22px; border: 3px solid #2a1608; border-radius: 0; background: #241f33; overflow: hidden; }
+:root[data-theme="dark"] #gaugeTrack { border-color: #08070c; }
+#gaugeTrack::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(to top, transparent 0 calc(100% / 9 - 2px), rgba(8,7,12,.55) calc(100% / 9 - 2px) calc(100% / 9)); }
+#gaugeFill, :root[data-ui="pixel"] #gaugeFill { background: linear-gradient(to top, #e2541b, #ff9a2a 55%, #ffd56a); box-shadow: 0 0 16px rgba(255,150,40,.7); transition: height .12s ease-out; overflow: hidden; }
+#gaugeFill::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: #fff3b0; }
+#gaugeFill .bub { position: absolute; width: 4px; height: 4px; background: #fff6c0; bottom: -6px; animation: gbBub 2.2s linear infinite; }
+#gaugeFill .b1 { left: 3px; } #gaugeFill .b2 { left: 10px; animation-delay: .8s; } #gaugeFill .b3 { left: 6px; animation-delay: 1.5s; }
+@keyframes gbBub { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .85; } 100% { transform: translateY(-160px); opacity: 0; } }
+#gaugeFlash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 3; }
+#gaugeFlash.go { animation: gbFlash .5s ease-out; }
+@keyframes gbFlash { 0% { opacity: .95; } 100% { opacity: 0; } }
+
+/* 등급 꼬리표: 지나간 등급은 그 색으로 불이 켜짐, 지금 등급은 크게 */
+#gaugeLabels { left: 34px; }
+.glabel .gem { display: none; }
+.glabel .gname, :root[data-ui="pixel"] .glabel .gname { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 2px; font-size: 15px; border: 2px solid rgba(128,128,128,.4); color: var(--muted); background: transparent; transition: transform .2s; }
+.glabel.got .gname { color: #fff; border-color: #2a1608; }
+:root[data-theme="dark"] .glabel.got .gname { border-color: #08070c; }
+.glabel.on .gname, :root[data-theme="dark"] .glabel.on .gname { color: #fff; transform: scale(1.25); transform-origin: left center; }
+.glabel small { opacity: .55; }
+.glabel.got small { opacity: 1; }
+.glabel.pop .gname { animation: tagPop .45s ease-out; }
+@keyframes tagPop { 0% { transform: scale(1.9); } 60% { transform: scale(1.1); } 100% { transform: scale(1.25); } }
+#leftcol .lantern.flare { animation: lanFlare .5s ease-out; }
+@keyframes lanFlare { 0% { transform: translateX(-50%) scale(1.25); filter: drop-shadow(0 0 30px #fff3b0) brightness(1.8); } 100% { transform: translateX(-50%) scale(1); } }
+.glabel.got .gname { background: var(--gc); } .glabel.on .gname { box-shadow: 0 0 12px var(--gc); }
+#leftcol, #gauge { width: 88px; } #middle { gap: 10px; }
+/* 꼬리표 색: 도트 스타일 규칙보다 우선 */
+:root .glabel.got .gname, :root[data-ui="pixel"] .glabel.got .gname { background: var(--gc); color: #fff; border-color: #2a1608; }
+:root[data-theme="dark"] .glabel.got .gname { border-color: #08070c; }
+:root .glabel.on .gname, :root[data-ui="pixel"] .glabel.on .gname { box-shadow: 0 0 12px var(--gc); transform: scale(1.25); transform-origin: left center; }
+:root .glabel.pop .gname, :root[data-ui="pixel"] .glabel.pop .gname { animation: tagPop .45s ease-out; }
+#leftcol .lantern { width: 64px; }
