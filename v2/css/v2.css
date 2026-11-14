@@ -803,3 +803,24 @@ body:not(.admin) .hd-money .plus { display: none; }
 .hd-money.bump #pointsText { animation: ptBump .35s ease-out; }
 @keyframes ptBump { 50% { transform: scale(1.12); color: #fff3b0; } }
 @media (prefers-reduced-motion: reduce) { .f2-p, .fly-coin, .fin2.shake { animation: none; } }
+
+/* =========================================================
+   게이지 높이 맞춤 · 칸 간격 · 등불 아래로 (2026-11-14)
+   - 탐지기 틀과 갱도 틀 사이 10px 틈: --gap 14 → 30 (틀 inset 10px × 2 + 10)
+     ※ js/render.js 의 GAP 도 30 (둘이 항상 같아야 함)
+   - 게이지 = 탐지기 틀 위쪽 끝 ~ 갱도 틀 아래쪽 끝 (틀 inset 10px 포함)
+   - 게이지와 오른쪽 틀 사이 10px 틈 (#middle gap 20 = 틀 10 + 틈 10), 오른쪽 틀 10px 만큼 보정해 가운데 정렬
+   - 등불은 왼쪽 아래 (상자 줄 옆)로. 나중에 바꿀 수 있게 img.lantern 하나 그대로
+   - 늘어난 세로 16px: 상단바 -2 · 상자 줄 -4 · 판 -4 · 판 위 여백 -2 · 아래 탭 -4 · 남는 여백 2 (중간 위 여백 +4 는 틀이 상단바에 닿지 않게)
+   ========================================================= */
+:root { --gap: 30px; }
+#topbar { height: 68px; }
+#middle { margin-top: 12px; gap: 20px; }
+#stagewrap { margin-right: 10px; }
+#gauge { top: -10px; bottom: auto; height: calc(var(--cell) * 9 + var(--gap) + 20px); }
+#gauge::before { display: none; }
+#leftcol .lantern { top: auto; bottom: 0; width: 50px; }
+#chests { height: 52px; }
+.chest { height: 52px; }
+#panel { margin-top: 8px; height: 74px; }
+#tabbar { height: 60px; }
