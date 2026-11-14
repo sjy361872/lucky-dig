@@ -713,3 +713,6 @@ body:not(.admin) .hd-money .plus { display: none; }
 #gaugeTrack::after { display: none; }
 .gline { left: 4px; z-index: 3; }
 #gaugeLabels { z-index: 4; }
+/* 등급 칸 구분선·바탕 없앰 (사용자: 등급에는 구분선 필요 없음). 관 안 눈금만 짧게 남김 */
+.gband { display: none; }
+.gline { left: 9px; right: auto; width: 18px; height: 2px; background: rgba(255,226,170,.55); box-shadow: none; }
