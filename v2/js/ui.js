@@ -84,6 +84,30 @@
 
   // ---------- 표시 ----------
   function showPoints() { $('#pointsText').textContent = fmt(S.points) + ' pt'; }
+  // 코인이 화면 가운데에서 위쪽 잔고로 촤르륵 날아가고, 잔고 숫자가 올라감 (끝나면 정확한 값으로)
+  function flyCoins(amount) {
+    return new Promise(res => {
+      const pt = $('#pointsText'), r = pt.getBoundingClientRect();
+      const from = S.points - amount, n = Math.min(14, 5 + Math.floor(Math.log10(Math.max(10, amount)) * 2));
+      for (let k = 0; k < n; k++) {
+        const c = document.createElement('i');
+        c.className = 'fly-coin';
+        c.style.left = (window.innerWidth / 2 + (Math.random() - 0.5) * 80) + 'px';
+        c.style.top = (window.innerHeight * 0.55 + (Math.random() - 0.5) * 60) + 'px';
+        c.style.setProperty('--tx', (r.left + r.width / 2) + 'px'); c.style.setProperty('--ty', (r.top + r.height / 2) + 'px');
+        c.style.animationDelay = (k * 0.04) + 's';
+        document.body.appendChild(c);
+        setTimeout(() => { c.remove(); if (k % 3 === 0) Sound.play('tick'); }, 650 + k * 40);
+      }
+      const t0 = performance.now(), dur = 700;
+      const step = () => {
+        const p = Math.min(1, (performance.now() - t0 - 250) / dur);
+        pt.textContent = fmt(from + amount * Math.max(0, p)) + ' pt';
+        if (p < 1) setTimeout(step, 30); else { showPoints(); pt.parentElement.classList.remove('bump'); void pt.offsetWidth; pt.parentElement.classList.add('bump'); res(); }
+      };
+      step();
+    });
+  }
   function showBet() {
     $('#betText').textContent = fmt(S.bet) + ' pt';
     $('#btnPlay').classList.toggle('disabled', S.points < S.bet);
@@ -376,17 +400,39 @@
       }
     }
 
-    // 1) 랜턴 감정: 랜턴이 등급 색으로 빛나고, 보석 배지에 등급이 '펑' (2026-11-14 우리만의 연출)
-    ov.innerHTML = `<div class="fin fin2" style="--gc:${g.color}">
-      <div class="f2-rays"></div>
+    // 1) 랜턴 감정 + 등급 엠블럼 (2026-11-14). 등급이 높을수록 연출이 세짐
+    //    단계: 0 = G·F (먼지, 짧게) / 1 = E·D (코인) / 2 = C·B (보석 비 + 빛줄기 + 흔들림) / 3 = A·S (번쩍 + 불꽃 + 띠)
+    const tier = { G: 0, F: 0, E: 1, D: 1, C: 2, B: 2, A: 3, S: 3 }[g.id] || 0;
+    const BANNER = { S: 'LEGEND!', A: 'AMAZING!', B: 'GREAT!', C: 'NICE!' };
+    ov.innerHTML = `<div class="fin fin2 ft${tier}" style="--gc:${g.color}">
+      ${tier >= 2 ? '<div class="f2-rays"></div>' : ''}
       <img class="f2-lantern" src="assets/v2/lantern.png" alt="">
-      <div class="f2-badge"><span>${g.name}</span></div>
+      <div class="f2-emb"><img src="assets/v2/emblems/${g.id}.webp" alt=""><b>${g.name}</b></div>
+      ${BANNER[g.id] ? `<div class="f2-banner">${BANNER[g.id]}</div>` : ''}
       <div class="f2-title">${g.name} 등급</div>
       <div class="f2-score">점수 <b>${fmt(score)}</b></div>
       ${next ? `<div class="f2-next">${next.name} 등급까지 ${fmt(next.need * bet - score)}점 모자랐어요</div>` : '<div class="f2-next top">최고 등급!</div>'}
       <div class="tapskip">탭해서 건너뛰기</div></div>`;
-    Sound.play('fanfare');
-    await w(1700);
+    const finEl = ov.querySelector('.fin2');
+    if (tier >= 3) { const fl = document.createElement('div'); fl.className = 'f2-flash'; finEl.appendChild(fl); }
+    Sound.play(tier >= 2 ? 'fanfare' : tier === 1 ? 'chest' : 'stop');
+    // 파편: 0 먼지 · 1 코인 · 2 등급 색 보석 · 3 보석 + 금 불꽃 여러 번
+    const burstFx = (n, kind) => {
+      for (let k = 0; k < n; k++) {
+        const p = document.createElement('i');
+        p.className = 'f2-p ' + kind;
+        const a = Math.random() * Math.PI * 2, d = 90 + Math.random() * 150;
+        p.style.setProperty('--dx', Math.cos(a) * d + 'px'); p.style.setProperty('--dy', Math.sin(a) * d - 40 + 'px');
+        p.style.animationDelay = (Math.random() * 0.15) + 's';
+        finEl.appendChild(p);
+        setTimeout(() => p.remove(), 1400);
+      }
+    };
+    await w(350);
+    burstFx([10, 16, 22, 30][tier], ['dust', 'coin', 'gem', 'gem'][tier]);
+    if (tier >= 2) finEl.classList.add('shake');
+    if (tier >= 3) { await w(350); burstFx(24, 'coin'); await w(300); burstFx(24, 'gem'); }
+    await w([750, 1050, 1350, 1300][tier]);
 
     // 2) 원석 깨기: 등급에 맞는 원석이 세 번 맞아 금이 가다가 터지고, 안에서 카드가 나옴 (룰렛 대신)
     const ORE = { S: 'obsidian', A: 'diamond', B: 'ruby', C: 'gold', D: 'stone', E: 'stone', F: 'dirt', G: 'grass' };
@@ -419,7 +465,7 @@
     // 4) 결과 팝업
     ov.onclick = null;
     await new Promise(res => {
-      const m = modal(`<div class="result"><div class="r-badge" style="--gc:${g.color}"><span>${g.name}</span></div>
+      const m = modal(`<div class="result"><div class="r-emb"><img src="assets/v2/emblems/${g.id}.webp" alt=""><b>${g.name}</b></div>
         ${Art.card(item, { cls: 'big' })}<b class="rname">${item.name}</b>
         <div class="rrow"><span>포인트 교환 시</span><b>${fmt(item.value)} pt</b></div>
         <div class="rbtns"><button id="keep">보관함에 두기</button><button id="sell" class="red">포인트로 바꾸기</button></div></div>`, { title: `${g.name} 등급 획득`, noClose: true });
@@ -433,7 +479,8 @@
         c.el.querySelector('#ok').onclick = () => {
           const i = S.inventory.findIndex(x => x.id === item.id);
           if (i >= 0) { S.inventory.splice(i, 1); S.points += item.value; }
-          save(); showPoints(); Sound.play('coin'); c.close(); toast(`${fmt(item.value)} pt 환원했습니다`); res();
+          save(); Sound.play('coin'); c.close();
+          flyCoins(item.value).then(() => { toast(`${fmt(item.value)} pt 환원했습니다`); res(); });
         };
       };
     });

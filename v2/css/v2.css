@@ -762,3 +762,44 @@ body:not(.admin) .hd-money .plus { display: none; }
 @keyframes nmShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 @keyframes nmNext { 50% { border-color: #fff3b0; } }
 #overlay:has(.fin) { background: rgba(8,9,15,.9); }
+
+/* =========================================================
+   등급 엠블럼 + 등급별 연출 세기 + 잔고로 날아가는 코인 (2026-11-14)
+   주의: 앱 안 브라우저 함정 → animation fill 'forwards' 쓰지 않음 (끝 상태는 style)
+   ========================================================= */
+.f2-badge { display: none; }
+.f2-emb { position: relative; width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; animation: embDrop .55s cubic-bezier(.2,1.5,.4,1); }
+.f2-emb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 0 rgba(0,0,0,.35)) drop-shadow(0 0 22px var(--gc)); }
+.f2-emb b { position: relative; font: 700 60px/1 'Galmuri11', 'Black Han Sans', sans-serif; color: #fff; text-shadow: 3px 3px 0 #08090f, -2px -2px 0 #08090f, 2px -2px 0 #08090f, -2px 2px 0 #08090f; }
+@keyframes embDrop { 0% { transform: translateY(-160px) scale(.6); opacity: 0; } 70% { transform: translateY(8px) scale(1.06); opacity: 1; } 100% { transform: none; } }
+.ft0 .f2-emb { width: 150px; height: 150px; animation-duration: .4s; }
+.ft0 .f2-emb b { font-size: 48px; }
+.ft3 .f2-emb { width: 230px; height: 230px; animation: embSlam .7s cubic-bezier(.2,1.6,.3,1); }
+.ft3 .f2-emb b { font-size: 76px; }
+@keyframes embSlam { 0% { transform: scale(3); opacity: 0; } 60% { transform: scale(.92); opacity: 1; } 100% { transform: none; } }
+.ft0 .f2-lantern { width: 64px; }
+.f2-banner { position: relative; margin-top: -18px; padding: 4px 26px; font: 700 28px/1.2 'Galmuri11', 'Black Han Sans', sans-serif; letter-spacing: 3px; color: #fff;
+  background: var(--gc); border: 3px solid #08090f; box-shadow: 4px 4px 0 rgba(0,0,0,.5); animation: bannerIn .5s .25s cubic-bezier(.2,1.5,.4,1) backwards; }
+@keyframes bannerIn { from { transform: scaleX(0); } }
+.ft3 .f2-banner { background: linear-gradient(90deg, #9b4dea, #ffad3b, #1f9fd6, #9b4dea); background-size: 300% 100%; animation: bannerIn .5s .25s cubic-bezier(.2,1.5,.4,1) backwards, bannerShine 1.6s linear infinite; }
+@keyframes bannerShine { to { background-position: 300% 0; } }
+.fin2.shake { animation: finShake .35s ease-in-out 2; }
+@keyframes finShake { 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+/* 파편 */
+.f2-p { position: absolute; left: 50%; top: 34%; width: 10px; height: 10px; pointer-events: none; opacity: 0; animation: pFly 1.1s cubic-bezier(.2,.7,.4,1); }
+@keyframes pFly { 0% { transform: translate(-50%,-50%) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 120px)) scale(.6) rotate(220deg); opacity: 0; } }
+.f2-p.dust { width: 14px; height: 14px; border-radius: 50%; background: rgba(214,190,150,.7); }
+.f2-p.coin { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff2a6, #ffad3b 55%, #b8660a); border: 2px solid #6b3a06; }
+.f2-p.gem { width: 12px; height: 12px; background: var(--gc); border: 2px solid #fff; transform: rotate(45deg); }
+/* 결과 창 엠블럼 */
+.r-badge { display: none; }
+.r-emb { position: relative; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; margin: -4px 0 4px; }
+.r-emb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 0 rgba(0,0,0,.4)); }
+.r-emb b { position: relative; font: 700 30px/1 'Galmuri11', 'Black Han Sans', sans-serif; color: #fff; text-shadow: 2px 2px 0 #08090f, -1px -1px 0 #08090f, 1px -1px 0 #08090f, -1px 1px 0 #08090f; }
+/* 잔고로 날아가는 코인 */
+.fly-coin { position: fixed; z-index: 300; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 35% 30%, #fff2a6, #ffad3b 55%, #b8660a); border: 2px solid #6b3a06; animation: coinFly .65s cubic-bezier(.5,0,.7,1); }
+@keyframes coinFly { 0% { opacity: 1; transform: translate(0,0) scale(1.2); } 100% { opacity: 1; left: var(--tx); top: var(--ty); transform: scale(.6); } }
+.hd-money.bump #pointsText { animation: ptBump .35s ease-out; }
+@keyframes ptBump { 50% { transform: scale(1.12); color: #fff3b0; } }
+@media (prefers-reduced-motion: reduce) { .f2-p, .fly-coin, .fin2.shake { animation: none; } }

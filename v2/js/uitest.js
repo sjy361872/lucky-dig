@@ -24,7 +24,7 @@
       await sleep(20);
       check(num($('#pointsText').textContent) === P - B, `[${i}] 플레이 시 ${B}pt 차감`);
       await until(() => $('#keep'));
-      const gtxt = $('.result .r-badge span').textContent.trim(); const grade = (C.GRADES.find(g => g.name === gtxt) || { id: gtxt }).id;
+      const gtxt = $('.result .r-emb b').textContent.trim(); const grade = (C.GRADES.find(g => g.name === gtxt) || { id: gtxt }).id;
       const value = num($('.rrow b').textContent);
       const score = num($('#scoreText').textContent);
       const gi = C.GRADES.findIndex(g => g.id === grade);
