@@ -2,98 +2,45 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="app-version" content="20261114143750">
-<meta name="app-note" content="수익 랭킹에서 마이너스가 남에게 안 보이게 바꿨어요">
-<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>럭키 디그</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20261114143750">
+<meta name="app-version" content="20261114221459">
+<meta name="app-note" content="럭키 디그 v1 종료 - 새로운 기능으로 찾아뵙겠습니다">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>럭키 디그 - COMING SOON</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow-x:hidden}
+  body{
+    background:#141623;color:#f3ead8;
+    font-family:'Galmuri11',sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;min-height:100dvh;padding:24px 16px;text-align:center;
+    -webkit-text-size-adjust:100%;
+  }
+  .card{
+    width:100%;max-width:360px;background:#1f2235;
+    border:2px solid #2e3250;border-radius:14px;padding:32px 20px 28px;
+    box-shadow:0 0 0 4px #141623,0 0 0 6px #2e3250;
+  }
+  .emblem{width:72px;height:72px;image-rendering:pixelated;margin:0 auto 16px;display:block;animation:bob 2.4s ease-in-out infinite}
+  .name{font-size:30px;color:#ffad3b;letter-spacing:2px;text-shadow:3px 3px 0 #000}
+  .msg{margin-top:22px;font-size:16px;line-height:1.6;word-break:keep-all}
+  .soon{margin-top:22px;font-size:20px;color:#ffad3b;letter-spacing:3px}
+  .soon i{font-style:normal;animation:blink 1.2s steps(1) infinite}
+  .soon i:nth-child(2){animation-delay:.2s}
+  .soon i:nth-child(3){animation-delay:.4s}
+  .note{margin-top:24px;font-size:12px;line-height:1.6;color:#a9a3bf;word-break:keep-all}
+  @keyframes blink{0%,60%{opacity:1}61%,100%{opacity:0}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+</style>
 </head>
 <body>
-<div id="bg"></div>
-
-<div id="viewport">
-  <div id="app">
-    <!-- 상단 -->
-    <div id="topbar">
-      <div id="logo"><img src="assets/ui/logo.png" alt="LUCKY DIG"><span id="modeBadge">MILD</span></div>
-      <button id="pointsPill" class="pill" title="무료 충전">
-        <span class="coin"></span>
-        <span class="pt-col"><small>보유 포인트</small><b id="pointsText">0 pt</b></span>
-        <span class="plus">+</span>
-      </button>
-      <button id="btnRank" class="sidebtn" title="랭킹"><span class="ico">🏆</span><small>랭킹</small></button>
-      <button id="btnMenu" class="sidebtn" title="메뉴"><span class="ico">☰</span><small>메뉴</small></button>
-    </div>
-
-    <div id="middle">
-      <div id="stage">
-        <div id="slot"></div>
-        <div id="board"></div>
-        <div id="fx"></div>
-      </div>
-      <div id="rightcol">
-        <button id="btnHelp" class="sidebtn" title="플레이 방법"><span class="ico">?</span><small>플레이 방법</small></button>
-        <button id="btnPrizes" class="sidebtn" title="상품 목록"><span class="ico">🂠</span><small>상품</small></button>
-        <button id="btnBag" class="sidebtn" title="보관함"><span class="ico">🎒</span><small>카드·도감</small></button>
-        <div id="gauge">
-          <div id="gaugeTrack"><div id="gaugeFill"></div></div>
-          <div id="gaugeLabels"></div>
-        </div>
-        <button id="btnSpeed" class="speedbtn" title="고속">⚡</button>
-      </div>
-    </div>
-
-    <div id="chests"></div>
-
-    <div id="panel">
-      <div id="panelIdle">
-        <button id="betMinus" class="roundbtn minus">−</button>
-        <button id="betBox"><small>소비 포인트</small><b id="betText">1,000 pt</b></button>
-        <button id="betPlus" class="roundbtn plus">+</button>
-        <button id="btnPlay"><span class="tri"></span><small>플레이</small></button>
-      </div>
-      <div id="panelPlay" hidden>
-        <div class="info">
-          <div><small>소비 포인트</small><b id="playBet">0 pt</b></div>
-          <div><small>남은 스핀</small><b id="spinsText">0회</b></div>
-        </div>
-        <div class="scorebox"><small>스코어</small><b id="scoreText">0</b></div>
-      </div>
-    </div>
-    <div id="makerGame" class="maker-game">제작 <b>파도</b> · sjy361872</div>
-    <div id="toast"></div>
-  </div>
-</div>
-
-<div id="title">
-  <div class="title-glow"></div>
-  <div class="maker">제작 <b>파도</b> (sjy361872)</div>
-  <img class="title-logo" src="assets/ui/logo.png" alt="LUCKY DIG">
-  <div class="mode-select">
-    <button class="mode-btn" data-mode="mild"><b>MILD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>오래 즐기는 안정형<br>본전 근처가 자주 나와요</small></button>
-    <button class="mode-btn" data-mode="hard"><b>HARD</b><span class="meter"><i></i><i></i><i></i><i></i><i></i></span><small>한 방을 노리는 승부형<br>S·A상이 약 2배 자주</small></button>
-  </div>
-  <button id="btnStart"><span>GAME START</span></button>
-  <button id="btnWho" class="who"></button>
-  <div class="title-hint">화면을 눌러 시작하세요</div>
-  <div class="title-sparkles"></div>
-</div>
-
-<div id="news"></div>
-<div id="overlay" hidden></div>
-
-<script src="js/config.js?v=20261114143750"></script>
-<script src="js/engine.js?v=20261114143750"></script>
-<script src="js/sound.js?v=20261114143750"></script>
-<script src="js/art.js?v=20261114143750"></script>
-<script src="js/render.js?v=20261114143750"></script>
-<script src="js/online-config.js?v=20261114143750"></script>
-<script src="js/rank.js?v=20261114143750"></script>
-<script src="js/ui.js?v=20261114143750"></script>
-<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/picktest.js?v=20261114143750'; document.body.appendChild(s); });</script>
-<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/fxtest.js?v=20261114143750'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'js/uitest.js?v=20261114143750'; document.body.appendChild(s); });</script>
+  <main class="card">
+    <img class="emblem" src="assets/v2/emblems/S.webp" alt="">
+    <h1 class="name">럭키 디그</h1>
+    <p class="msg">새로운 기능으로<br>찾아뵙겠습니다</p>
+    <p class="soon">COMING SOON<i>.</i><i>.</i><i>.</i></p>
+    <p class="note">지금까지 모은 포인트와 카드는<br>그대로 남아 있어요</p>
+  </main>
 </body>
 </html>
