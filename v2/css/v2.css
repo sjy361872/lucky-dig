@@ -616,3 +616,22 @@ body:not(.admin) .hd-money .plus { display: none; }
 .slot-tag { left: 6px; top: -18px; }
 .board-tag { right: 6px; top: calc(var(--cell) * 3 + var(--gap) - 18px); }
 .board-tag { top: calc(var(--cell) * 9 + var(--gap) - 4px); right: 6px; }
+
+/* =========================================================
+   되돌림 + 다듬기 (2026-11-14)
+   - 이름표·레일·줄 밝히기 삭제 (render.js 에서도 제거)
+   - 배경 갱도 더 밝게
+   - 탐지기 칸·블록 칸 나뉜 선이 잘 보이게
+   ========================================================= */
+.rails, .lane, .frame-tag { display: none !important; }
+#middle { margin-top: 8px; }
+/* 배경: 어두운 막을 더 옅게 */
+#bg { background: linear-gradient(rgba(20,22,35,.16), rgba(20,22,35,.40)), url('../../assets/v2/bg_dark.jpg') center / cover no-repeat; }
+/* 탐지기: 칸마다 밝은 테두리선 */
+#slot::before { background: #3a3f5c; }
+.slot-cell::before, :root[data-ui="pixel"] .slot-cell::before { inset: 2px; background: #1c1f30;
+  box-shadow: inset 0 0 0 2px #555b7d, inset 4px 4px 0 rgba(0,0,0,.35); }
+/* 블록판: 칸 사이 틈이 밝은 선으로 보이게 */
+#board::before { background: #3a3f5c; }
+.hole::before { inset: 2px; border-radius: 0; background: #11131e; box-shadow: inset 0 0 0 2px #555b7d, inset 0 4px 8px rgba(0,0,0,.6); }
+.block { padding: 2px; }
