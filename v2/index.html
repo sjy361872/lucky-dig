@@ -10,9 +10,9 @@
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&display=swap">
-<link rel="stylesheet" href="v2/css/style.css?v=20261114155327">
+<link rel="stylesheet" href="v2/css/style.css?v=20261114155639">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.css">
-<link rel="stylesheet" href="v2/css/v2.css?v=20261114155327">
+<link rel="stylesheet" href="v2/css/v2.css?v=20261114155639">
 <script>try{var q=(location.search.match(/ui=(\w+)/)||[])[1];if(q)localStorage.setItem('ld_ui',q);document.documentElement.dataset.ui=localStorage.getItem('ld_ui')||'pixel';var t=localStorage.getItem('ld_theme')||'auto';document.documentElement.dataset.theme=(t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))?'dark':'light'}catch(e){}</script>
 </head>
 <body>
@@ -27,7 +27,7 @@
         <span class="pt-col"><small>잔고</small><b id="pointsText">0 pt</b></span>
         <span class="plus">+</span>
       </button>
-      <button id="btnHelp" class="iconbtn" title="하는 법" aria-label="하는 법"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17v.5"/></svg></button>
+      <button id="btnHelp" class="iconbtn" title="하는 법" aria-label="하는 법"><svg class="ico-px" viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor"><path d="M2 0h6v1h-6zM1 1h2v1h-2zM7 1h2v1h-2zM1 2h2v1h-2zM7 2h2v1h-2zM6 3h2v1h-2zM5 4h2v1h-2zM4 5h2v1h-2zM4 6h2v1h-2zM4 8h2v1h-2zM4 9h2v1h-2z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17v.5"/></svg></button>
     </div>
     <div id="goal"><i class="goal-gem"></i><span id="goalText">이번 판 목표</span><span class="goal-bar"><i id="goalFill"></i></span></div>
 
@@ -62,16 +62,16 @@
           <div><small>남은 탐지</small><b id="spinsText">0회</b></div>
         </div>
         <div class="scorebox"><small>점수</small><b id="scoreText">0</b></div>
-        <button id="btnSpeed" class="speedbtn" title="빠르게" aria-label="빠르게"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/></svg></button>
+        <button id="btnSpeed" class="speedbtn" title="빠르게" aria-label="빠르게"><svg class="ico-px" viewBox="0 0 10 9" shape-rendering="crispEdges" fill="currentColor"><path d="M0 0h1v1h-1zM5 0h1v1h-1zM0 1h2v1h-2zM5 1h2v1h-2zM0 2h3v1h-3zM5 2h3v1h-3zM0 3h4v1h-4zM5 3h4v1h-4zM0 4h10v1h-10zM0 5h4v1h-4zM5 5h4v1h-4zM0 6h3v1h-3zM5 6h3v1h-3zM0 7h2v1h-2zM5 7h2v1h-2zM0 8h1v1h-1zM5 8h1v1h-1z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/></svg></button>
       </div>
     </div>
 
     <nav id="tabbar">
-      <button id="navHome" class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V10l7-6 7 6v10"/><path d="M10 20v-5h4v5"/></svg><small>갱도</small></button>
-      <button id="btnRank" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3a3 3 0 0 1-3 4M7 6H4a3 3 0 0 0 3 4"/></svg><small>랭킹</small></button>
-      <button id="btnBag" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M8 8V5h8v3"/></svg><small>보관함</small></button>
-      <button id="btnPrizes" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg><small>보상표</small></button>
-      <button id="btnMenu" class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><small>설정</small></button>
+      <button id="navHome" class="tab on"><svg class="ico-px" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><path d="M5 0h2v1h-2zM4 1h4v1h-4zM3 2h6v1h-6zM2 3h8v1h-8zM1 4h10v1h-10zM0 5h12v1h-12zM1 6h2v1h-2zM9 6h2v1h-2zM1 7h2v1h-2zM4 7h4v1h-4zM9 7h2v1h-2zM1 8h2v1h-2zM4 8h1v1h-1zM7 8h1v1h-1zM9 8h2v1h-2zM1 9h2v1h-2zM4 9h1v1h-1zM7 9h1v1h-1zM9 9h2v1h-2zM1 10h2v1h-2zM4 10h1v1h-1zM7 10h1v1h-1zM9 10h2v1h-2zM1 11h10v1h-10z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V10l7-6 7 6v10"/><path d="M10 20v-5h4v5"/></svg><small>갱도</small></button>
+      <button id="btnRank" class="tab"><svg class="ico-px" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><path d="M0 0h12v1h-12zM0 1h1v1h-1zM2 1h8v1h-8zM11 1h1v1h-1zM0 2h1v1h-1zM2 2h8v1h-8zM11 2h1v1h-1zM1 3h1v1h-1zM3 3h6v1h-6zM10 3h1v1h-1zM2 4h8v1h-8zM3 5h6v1h-6zM4 6h4v1h-4zM5 7h2v1h-2zM5 8h2v1h-2zM4 9h4v1h-4zM3 10h6v1h-6zM3 11h6v1h-6z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3a3 3 0 0 1-3 4M7 6H4a3 3 0 0 0 3 4"/></svg><small>랭킹</small></button>
+      <button id="btnBag" class="tab"><svg class="ico-px" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><path d="M2 0h8v1h-8zM1 1h1v1h-1zM10 1h1v1h-1zM0 2h1v1h-1zM11 2h1v1h-1zM0 3h12v1h-12zM0 4h1v1h-1zM5 4h2v1h-2zM11 4h1v1h-1zM0 5h1v1h-1zM4 5h1v1h-1zM7 5h1v1h-1zM11 5h1v1h-1zM0 6h12v1h-12zM0 7h1v1h-1zM11 7h1v1h-1zM0 8h1v1h-1zM11 8h1v1h-1zM0 9h1v1h-1zM11 9h1v1h-1zM0 10h12v1h-12z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M8 8V5h8v3"/></svg><small>보관함</small></button>
+      <button id="btnPrizes" class="tab"><svg class="ico-px" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><path d="M0 0h12v1h-12zM0 1h1v1h-1zM11 1h1v1h-1zM0 2h1v1h-1zM2 2h2v1h-2zM5 2h5v1h-5zM11 2h1v1h-1zM0 3h1v1h-1zM11 3h1v1h-1zM0 4h1v1h-1zM2 4h2v1h-2zM5 4h5v1h-5zM11 4h1v1h-1zM0 5h1v1h-1zM11 5h1v1h-1zM0 6h1v1h-1zM2 6h2v1h-2zM5 6h5v1h-5zM11 6h1v1h-1zM0 7h1v1h-1zM11 7h1v1h-1zM0 8h1v1h-1zM2 8h2v1h-2zM5 8h5v1h-5zM11 8h1v1h-1zM0 9h1v1h-1zM11 9h1v1h-1zM0 10h12v1h-12z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg><small>보상표</small></button>
+      <button id="btnMenu" class="tab"><svg class="ico-px" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><path d="M5 0h2v1h-2zM2 1h1v1h-1zM5 1h2v1h-2zM9 1h1v1h-1zM1 2h3v1h-3zM5 2h2v1h-2zM8 2h3v1h-3zM2 3h8v1h-8zM2 4h3v1h-3zM7 4h3v1h-3zM0 5h4v1h-4zM8 5h4v1h-4zM0 6h4v1h-4zM8 6h4v1h-4zM2 7h3v1h-3zM7 7h3v1h-3zM2 8h8v1h-8zM1 9h3v1h-3zM5 9h2v1h-2zM8 9h3v1h-3zM2 10h1v1h-1zM5 10h2v1h-2zM9 10h1v1h-1zM5 11h2v1h-2z"/></svg><svg class="ico-line" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><small>설정</small></button>
     </nav>
     <div id="makerGame" class="maker-game">제작 <b>파도</b> · sjy361872</div>
     <div id="toast"></div>
@@ -97,16 +97,16 @@
 <div id="news"></div>
 <div id="overlay" hidden></div>
 
-<script src="v2/js/config.js?v=20261114155327"></script>
-<script src="v2/js/engine.js?v=20261114155327"></script>
-<script src="v2/js/sound.js?v=20261114155327"></script>
-<script src="v2/js/art.js?v=20261114155327"></script>
-<script src="v2/js/render.js?v=20261114155327"></script>
-<script src="v2/js/online-config.js?v=20261114155327"></script>
-<script src="v2/js/rank.js?v=20261114155327"></script>
-<script src="v2/js/ui.js?v=20261114155327"></script>
-<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/picktest.js?v=20261114155327'; document.body.appendChild(s); });</script>
-<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/fxtest.js?v=20261114155327'; document.body.appendChild(s); });</script>
-<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/uitest.js?v=20261114155327'; document.body.appendChild(s); });</script>
+<script src="v2/js/config.js?v=20261114155639"></script>
+<script src="v2/js/engine.js?v=20261114155639"></script>
+<script src="v2/js/sound.js?v=20261114155639"></script>
+<script src="v2/js/art.js?v=20261114155639"></script>
+<script src="v2/js/render.js?v=20261114155639"></script>
+<script src="v2/js/online-config.js?v=20261114155639"></script>
+<script src="v2/js/rank.js?v=20261114155639"></script>
+<script src="v2/js/ui.js?v=20261114155639"></script>
+<script>if (location.hash.includes('picktest')) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/picktest.js?v=20261114155639'; document.body.appendChild(s); });</script>
+<script>if (/#fx\d+/.test(location.hash)) addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/fxtest.js?v=20261114155639'; document.body.appendChild(s); });</script>
+<script>if (location.hash.includes('uitest') && location.protocol === 'file:') addEventListener('load', () => { const s = document.createElement('script'); s.src = 'v2/js/uitest.js?v=20261114155639'; document.body.appendChild(s); });</script>
 </body>
 </html>

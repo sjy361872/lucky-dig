@@ -256,3 +256,32 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 /* 미터 점수: 만 단위 줄임 없이 전체 숫자. 7자리 넘으면 글씨 조금 작게 */
 .glabel small.long, :root[data-ui="pixel"] .glabel small.long { font-size: 9px; letter-spacing: -0.3px; }
 #gaugeLabels { right: 2px; }
+
+/* =========================================================
+   레트로 다듬기 2차 (2026-11-14)
+   ========================================================= */
+/* 아이콘: 기본 스타일은 선 아이콘, 도트 스타일은 도트 아이콘 */
+.ico-px { display: none; }
+:root[data-ui="pixel"] .ico-px { display: block; }
+:root[data-ui="pixel"] .ico-line { display: none; }
+
+/* 세로 공간 확보: 탐지기~판 간격 24→14, 선물 배지를 '다음 등급' 줄 오른쪽으로 */
+:root { --gap: 14px; }
+#goal { margin-top: 8px; padding-right: 168px; position: relative; }
+#giftBadge { top: 57px; bottom: auto; left: auto; right: -54px; transform: none; height: 36px; display: flex; align-items: center; padding: 0 12px; z-index: 12; }
+#middle { margin-top: 12px; }
+#panel { height: 84px; }
+
+/* 아래 탭: 웹에서도 손가락으로 누르기 편하게 크게 */
+#tabbar { height: 70px; margin-top: 10px; }
+.tab svg { width: 30px; height: 30px; }
+.tab small { font-size: 14px; margin-top: 2px; }
+.iconbtn svg, .speedbtn svg { width: 26px; height: 26px; }
+.maker-game { margin-top: 4px; font-size: 11px; line-height: 14px; }
+
+/* 칸칸이 차는 미터 (도트 스타일): 매끈한 막대 대신 블록이 하나씩 쌓이는 모양 */
+:root[data-ui="pixel"] #gaugeTrack { width: 12px; }
+:root[data-ui="pixel"] #gaugeFill { background: repeating-linear-gradient(to top, #ffb03a 0 7px, #ff7a2a 7px 9px, transparent 9px 12px); box-shadow: none; transition: none; }
+:root[data-ui="pixel"] .goal-bar i { background: repeating-linear-gradient(90deg, #ffd56a 0 8px, transparent 8px 11px); transition: none; }
+:root[data-ui="pixel"] .goal-bar { height: 9px; background: rgba(255,255,255,.18); }
+#giftBadge { gap: 5px; white-space: nowrap; }

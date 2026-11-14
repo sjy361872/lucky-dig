@@ -3,7 +3,7 @@
 // =====================================================
 (function (root) {
   const C = root.CONFIG, Art = root.Art, Sound = root.Sound;
-  const CELL = 56, GAP = 24, BOARD_TOP = C.SLOT_ROWS * CELL + GAP;
+  const CELL = 56, GAP = 14, BOARD_TOP = C.SLOT_ROWS * CELL + GAP;
   const $ = s => document.querySelector(s);
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
   // 좁은 칸용 짧은 숫자: 9,999까지 그대로, 그 위는 '3.5만', '350만'
