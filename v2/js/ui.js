@@ -247,7 +247,7 @@
       const owned = c => S.dex[C.cardKey(c)];
       const have = all.filter(owned).length;
       const tierCards = t => all.filter(c => c.tier === t);
-      const tierLabel = t => (t === 'G' ? '공통 G랭크' : C.TIERS[t].name);
+      const tierLabel = t => (t === 'G' ? '공통 G' : C.TIERS[t].name);
       const list = tierCards(dexTier), got = list.filter(owned).length;
       const pct = n => Math.floor(n * 100);
       return `<div class="dex-total"><b>${have}</b> / ${all.length}장 <small>(${pct(have / all.length)}%)</small><div class="bar"><i style="width:${have / all.length * 100}%"></i></div></div>
@@ -461,7 +461,7 @@
         const feed = await Rank.feed();
         if (my !== seq) return;
         el.innerHTML = note + `<div class="rlist">${feed.map(f => `<div class="frow"><span class="chip" style="background:${(C.GRADES.find(g => g.id === f.grade) || {}).color}">${esc(C.gname(f.grade))}</span>
-          <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A랭크, 최고 배율 갱신 시 기록)</p>'}</div>`;
+          <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A 등급, 최고 배율 갱신 시 기록)</p>'}</div>`;
       }
     };
     tabs(box, names, i => { setTimeout(() => render(i).catch(e => { body().innerHTML = `<p class="note center">불러오기 실패: ${esc(e.message)}</p>`; }), 0); return '<p class="muted center">불러오는 중…</p>'; });

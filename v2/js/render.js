@@ -114,9 +114,9 @@
     const up = C.GRADES.slice().reverse();              // 흙 → 전설
     const next = up.find(g => g.need * bet > score);
     const gem = $('.goal-gem'), fill = $('#goalFill');
-    if (!next) { t.innerHTML = `<b>${C.GRADES[0].name}</b> 달성!`; if (gem) gem.style.background = C.GRADES[0].color; if (fill) fill.style.width = '100%'; return; }
+    if (!next) { t.innerHTML = `<b>${C.GRADES[0].name}</b> 등급 달성!`; if (gem) gem.style.background = C.GRADES[0].color; if (fill) fill.style.width = '100%'; return; }
     const prev = gi >= 0 ? C.GRADES[gi].need * bet : 0;
-    t.innerHTML = `<b>${next.name}</b>까지 <b>${fmt(Math.ceil(next.need * bet - score))}</b>점`;
+    t.innerHTML = `<b>${next.name}</b> 등급까지 <b>${fmt(Math.ceil(next.need * bet - score))}</b>점`;
     if (gem) gem.style.background = next.color;
     if (fill) fill.style.width = Math.max(0, Math.min(100, (score - prev) / (next.need * bet - prev) * 100)) + '%';
   }

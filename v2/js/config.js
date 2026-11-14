@@ -40,14 +40,14 @@
       G: [0.35, 0.3, 0.25, 0.2, 0.18],
     },
     GRADES: [
-      { id: 'S', need: 7.0, rate: 1.8, color: '#9b4dea', name: 'S랭크' },
-      { id: 'A', need: 4.0, rate: 2.0, color: '#1f9fd6', name: 'A랭크' },
-      { id: 'B', need: 2.0, rate: 3.0, color: '#e0284a', name: 'B랭크' },
-      { id: 'C', need: 1.5, rate: 5.5, color: '#d99a0b', name: 'C랭크' },
-      { id: 'D', need: 1.2, rate: 22.7, color: '#7d8a99', name: 'D랭크' },
-      { id: 'E', need: 0.6, rate: 27.5, color: '#b0662f', name: 'E랭크' },
-      { id: 'F', need: 0.4, rate: 22.5, color: '#77736c', name: 'F랭크' },
-      { id: 'G', need: 0.2, rate: 15.0, color: '#7a4f2c', name: 'G랭크' },
+      { id: 'S', need: 7.0, rate: 1.8, color: '#9b4dea', name: 'S' },
+      { id: 'A', need: 4.0, rate: 2.0, color: '#1f9fd6', name: 'A' },
+      { id: 'B', need: 2.0, rate: 3.0, color: '#e0284a', name: 'B' },
+      { id: 'C', need: 1.5, rate: 5.5, color: '#d99a0b', name: 'C' },
+      { id: 'D', need: 1.2, rate: 22.7, color: '#7d8a99', name: 'D' },
+      { id: 'E', need: 0.6, rate: 27.5, color: '#b0662f', name: 'E' },
+      { id: 'F', need: 0.4, rate: 22.5, color: '#77736c', name: 'F' },
+      { id: 'G', need: 0.2, rate: 15.0, color: '#7a4f2c', name: 'G' },
     ],
 
     // 블록: hp = 부서질 때까지 필요한 타격, mult = 스코어 배율(× 소비 포인트)
