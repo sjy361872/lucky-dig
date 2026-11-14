@@ -100,7 +100,7 @@
       d.className = 'glabel';
       d.dataset.grade = g.id;
       d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
-      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small>${short(g.need * bet)}</small>`;
+      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
       box.appendChild(d);
     });
   }

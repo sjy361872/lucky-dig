@@ -253,3 +253,6 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 /* 미터 점수: 알파벳 아래 줄에 (좁은 칸에서 잘리지 않게) */
 .glabel { flex-wrap: wrap; align-items: center; }
 .glabel small, :root[data-ui="pixel"] .glabel small { flex-basis: 100%; padding-left: 0; margin-top: 1px; font-size: 11px; }
+/* 미터 점수: 만 단위 줄임 없이 전체 숫자. 7자리 넘으면 글씨 조금 작게 */
+.glabel small.long, :root[data-ui="pixel"] .glabel small.long { font-size: 9px; letter-spacing: -0.3px; }
+#gaugeLabels { right: 2px; }
