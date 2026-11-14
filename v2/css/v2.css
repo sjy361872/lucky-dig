@@ -350,7 +350,7 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
   --p-accent-d: #d9661c;  /* 강조 그림자 */
   --p-on-accent: #1a1206; /* 강조 위 글자 */
   --p-info: #6cc6d9;      /* 보조: MILD·정보·링크 */
-  --bgimg: url("../assets/v2/bg_dark.jpg");
+  --bgimg: url('../../assets/v2/bg_dark.jpg');
   --bg-veil: linear-gradient(rgba(20,22,35,.70), rgba(20,22,35,.88));
   --ink: var(--p-text); --muted: var(--p-muted);
   --panel: var(--p-surface); --panel-line: var(--p-line); --panel-shadow: 3px 3px 0 rgba(0,0,0,.5);
