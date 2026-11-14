@@ -533,3 +533,13 @@ html, body { background: var(--p-bg); color: var(--p-text); }
 .hd-side .iconbtn svg { width: 14px; height: 14px; }
 #middle { margin-top: 12px; }
 body:not(.admin) .hd-money .plus { display: none; }
+
+/* 휴대폰 스크린샷 점검 수정 (2026-11-14) */
+/* 1) 이번 판 '10,000 pt'가 두 줄로 꺾이고 '이번 판' 글자가 테두리에 잘리던 문제 */
+#betBox { min-width: 0; flex: 1; padding: 0; }
+#betBox b, :root[data-ui="pixel"] #betBox b { white-space: nowrap; font-size: 22px; line-height: 1.1; }
+#betBox small { line-height: 1.2; }
+/* 2) 잔고 칸: '잔고' 글자가 위 테두리에 붙고 숫자가 아래로 쏠리던 문제 (예전 규칙 space-between 덮어씀) */
+#pointsPill.hd-money { justify-content: center; gap: 6px; }
+/* 3) 순위 밖일 때 '도전 중'이 숫자 크기로 크게 나오던 문제 */
+:root[data-ui="pixel"] #rankText.none, #rankText.none { font-family: 'Galmuri11', 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; color: var(--p-muted); }
