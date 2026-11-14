@@ -80,15 +80,15 @@
   }
 
   // ---------- 등급 게이지 ----------
-  // 맨 아래 'G 미만' 칸은 얇게(4%), G~S 8칸은 같은 높이(12%씩). 최종 점수는 항상 G 이상이라
-  // 9칸을 똑같이 나누면 맨 아래가 비어 '한 칸 밀린 것처럼' 보였음 (2026-11-14)
-  const G_BASE = 0.04, G_STEP = (1 - G_BASE) / 8;
-  const gPos = i => G_BASE + G_STEP * i;                 // i번째 등급(0 = G … 7 = S)이 시작되는 높이
+  // 8칸 = 등급 8개. 맨 아래 칸이 G (점수 0부터 F 기준까지), 그 위로 F … 맨 위 S (S 기준부터 상한까지).
+  // 'G 미만' 빈칸 없음 (2026-11-14 사용자 피드백: G가 맨 밑에 있어야 함)
+  const G_STEP = 1 / 8;
+  const gPos = i => G_STEP * i;                          // i번째 등급 칸(0 = G … 7 = S)의 아래 끝
   function bounds() { return C.GRADES.slice().reverse().map(g => g.need * bet); } // G..S
   function gaugeFrac(score) {
     const b = bounds();
-    if (score < b[0]) return (score / b[0]) * G_BASE;
-    for (let i = 0; i < b.length; i++) {
+    if (score < b[1]) return Math.max(0, score / b[1]) * G_STEP;   // G 칸: 0 ~ F 기준
+    for (let i = 1; i < b.length; i++) {
       const lo = b[i], hi = i + 1 < b.length ? b[i + 1] : C.S_CAP * bet;
       if (score < hi || i === b.length - 1) return Math.min(1, gPos(i) + G_STEP * Math.min(1, (score - lo) / (hi - lo)));
     }
@@ -107,10 +107,12 @@
       d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname" style="--gc:${g.color}">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
       box.appendChild(d);
       // 등급 경계선 (관 눈금까지 같은 선으로)
-      const ln = document.createElement('i');
-      ln.className = 'gline';
-      ln.style.bottom = inTube(gPos(i));
-      $('#gauge').appendChild(ln);
+      if (i > 0) {
+        const ln = document.createElement('i');
+        ln.className = 'gline';
+        ln.style.bottom = inTube(gPos(i));
+        $('#gauge').appendChild(ln);
+      }
       // 등급 칸 바탕 (번갈아)
       const band = document.createElement('i');
       band.className = 'gband' + (i % 2 ? ' odd' : '');
