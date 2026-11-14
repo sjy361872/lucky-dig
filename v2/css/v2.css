@@ -666,3 +666,29 @@ body:not(.admin) .hd-money .plus { display: none; }
 .hole::before { inset: 0; border-radius: 0; background: #07080d; box-shadow: none; }
 .block { padding: 3px; }
 .block .blockimg { filter: drop-shadow(0 0 1px rgba(0,0,0,.6)); }
+
+/* =========================================================
+   왼쪽 게이지 = 갱도 나무 기둥 + 고리에 건 랜턴 (2026-11-14)
+   - 등급 글자: 등급 색 칩 (못 간 등급도 색이 보이게 반투명, 도달하면 꽉 차고 빛남)
+   - 점수 숫자: 밝고 굵게
+   ========================================================= */
+#gauge { top: 64px; bottom: 6px; border: 3px solid #08090f !important;
+  background: repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 2px, transparent 2px 22px), linear-gradient(90deg, #6a4426, #7d5230 45%, #5a3820);
+  box-shadow: inset 2px 2px 0 rgba(255,214,150,.22), inset -2px -2px 0 rgba(0,0,0,.4), 3px 3px 0 rgba(0,0,0,.5) !important; }
+/* 랜턴: 기둥 꼭대기 고리에 걸림 */
+#leftcol .lantern { top: 2px; width: 60px; }
+#gauge::before { content: ''; position: absolute; left: 50%; top: -10px; width: 14px; height: 10px; margin-left: -7px; background: none;
+  border: 3px solid #2a2016; border-bottom: 0; border-radius: 8px 8px 0 0; }
+/* 관: 두껍게, 놋쇠 테 */
+#gaugeTrack, :root[data-ui="pixel"] #gaugeTrack, :root[data-theme="dark"] #gaugeTrack { left: 6px; top: 8px; bottom: 8px; width: 24px; border: 3px solid #08090f; background: #0d0e16;
+  box-shadow: 0 0 0 2px #b8893a; }
+#gaugeLabels { left: 38px; right: 3px; top: 8px; bottom: 8px; }
+/* 등급 칩 */
+.glabel .gname, :root[data-ui="pixel"] .glabel .gname { background: var(--gc) !important; color: #fff !important; opacity: .42; min-width: 24px; height: 22px; font-size: 16px;
+  border: 2px solid #08090f !important; text-shadow: 1px 1px 0 rgba(0,0,0,.5); }
+:root .glabel.got .gname, :root[data-ui="pixel"] .glabel.got .gname { opacity: 1; }
+:root .glabel.on .gname, :root[data-ui="pixel"] .glabel.on .gname { opacity: 1; box-shadow: 0 0 0 2px #fff3b0, 0 0 14px var(--gc); }
+/* 점수 숫자 */
+.glabel small, :root[data-ui="pixel"] .glabel small { opacity: 1 !important; color: #f3ead8; font-weight: 700; font-size: 11px; text-shadow: 1px 1px 0 #08090f; margin-top: 2px; }
+.glabel:not(.got) small { color: #e2d3bb; }
+.glabel .gname, :root[data-ui="pixel"] .glabel .gname { min-width: 26px; height: 24px; font-size: 18px; } #leftcol .lantern { width: 66px; top: 0; }
