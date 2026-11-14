@@ -716,3 +716,25 @@ body:not(.admin) .hd-money .plus { display: none; }
 /* 등급 칸 구분선·바탕 없앰 (사용자: 등급에는 구분선 필요 없음). 관 안 눈금만 짧게 남김 */
 .gband { display: none; }
 .gline { left: 9px; right: auto; width: 18px; height: 2px; background: rgba(255,226,170,.55); box-shadow: none; }
+
+/* =========================================================
+   게이지 = 레트로 LED 탑 (2026-11-14, 시안 ④ + 점수 가로 표기)
+   ========================================================= */
+#gaugeTrack, .gline, .gband, #gaugeFlash { display: none !important; }
+#gauge { background: #08090f !important; box-shadow: 3px 3px 0 rgba(0,0,0,.5) !important; }
+#gauge::before { border-color: #2a2016; }
+#gaugeLabels { position: absolute; inset: 4px !important; left: 4px !important; right: 4px !important; top: 4px !important; bottom: 4px !important;
+  display: flex; flex-direction: column-reverse; gap: 4px; z-index: 1; }
+.gled { position: relative; flex: 1; min-height: 0; overflow: hidden; background: color-mix(in srgb, var(--gc) 20%, #0d0e16); border: 2px solid #20222e;
+  display: flex; flex-direction: column; justify-content: center; padding: 0 6px; transition: transform .2s; }
+.gled .gfill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--gc);
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.25); transition: height .12s ease-out; }
+.gled .gname { position: relative; font: 700 26px/1 'Galmuri11', 'Black Han Sans', sans-serif; color: var(--gc); text-shadow: 2px 2px 0 rgba(0,0,0,.5); }
+.gled small { position: relative; margin-top: 3px; font: 700 12px/1 'Galmuri11', 'Noto Sans KR', sans-serif; color: color-mix(in srgb, var(--gc) 60%, #f3ead8); white-space: nowrap; text-shadow: 1px 1px 0 rgba(0,0,0,.6); }
+.gled small.long { font-size: 10px; letter-spacing: -0.3px; }
+.gled.lit .gname, .gled.lit small { color: #fff; }
+.gled.on { border-color: #fff3b0; box-shadow: 0 0 12px var(--gc); animation: ledBlink .6s steps(2) infinite; }
+@keyframes ledBlink { 50% { border-color: var(--gc); } }
+.gled.pop { animation: ledPop .45s ease-out, ledBlink .6s steps(2) .45s infinite; }
+@keyframes ledPop { 0% { transform: scale(1.18); filter: brightness(1.8); } 100% { transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .gled.on, .gled.pop { animation: none; } }

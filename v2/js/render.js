@@ -94,59 +94,42 @@
     }
     return 1;
   }
+  // 레트로 LED 탑 (2026-11-14): 등급 8개가 블록으로 쌓이고, 아래(G)부터 그 등급 색으로 차오름.
+  // 블록마다 큰 등급 글자 + 그 아래 시작 점수(가로). 지금 등급 블록은 깜빡, 오를 때 '펑'.
   function buildGauge() {
     const box = $('#gaugeLabels');
     box.innerHTML = '';
     document.querySelectorAll('#gauge .gline, #gauge .gband').forEach(el => el.remove());
-    const inTube = f => `calc(11px + (100% - 22px) * ${f.toFixed(4)})`;   // 관 안쪽 높이 기준 (위아래 11px = 관 여백 8 + 테두리 3)
-    C.GRADES.slice().reverse().forEach((g, i) => {
+    C.GRADES.slice().reverse().forEach(g => {            // G → S (아래부터, 상자는 column-reverse)
       const d = document.createElement('div');
-      d.className = 'glabel';
+      const num = fmt(g.need * bet);
+      d.className = 'gled';
       d.dataset.grade = g.id;
-      d.style.bottom = `calc(${((gPos(i) + G_STEP / 2) * 100).toFixed(3)}% - 21px)`;   // 그 등급 칸 가운데
-      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname" style="--gc:${g.color}">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
+      d.style.setProperty('--gc', g.color);
+      d.innerHTML = `<i class="gfill"></i><b class="gname">${g.id}</b><small class="${num.length > 7 ? 'long' : ''}">${num}</small>`;
       box.appendChild(d);
-      // 등급 경계선 (관 눈금까지 같은 선으로)
-      if (i > 0) {
-        const ln = document.createElement('i');
-        ln.className = 'gline';
-        ln.style.bottom = inTube(gPos(i));
-        $('#gauge').appendChild(ln);
-      }
-      // 등급 칸 바탕 (번갈아)
-      const band = document.createElement('i');
-      band.className = 'gband' + (i % 2 ? ' odd' : '');
-      band.style.bottom = inTube(gPos(i));
-      band.style.height = `calc((100% - 22px) * ${G_STEP.toFixed(4)})`;
-      $('#gauge').appendChild(band);
     });
   }
-  // 랜턴 기름관 게이지: 액체가 차오르고, 지나간 등급 꼬리표에 불이 켜짐.
-  // 등급이 오르는 순간: 관이 하얗게 번쩍 + 그 꼬리표·위쪽 배지가 '펑' + 랜턴이 확 밝아짐
   let shownGi = -1;
   const restart = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
   function setGauge(score) {
     const f = gaugeFrac(score);
-    $('#gaugeFill').style.height = (f * 100) + '%';
-    const gi = root.Engine.gradeIndexForScore(score, bet);           // 0 = S … 7 = G, -1 = 아직 없음
-    document.querySelectorAll('.glabel').forEach(el => {
-      const k = C.GRADES.findIndex(g => g.id === el.dataset.grade);
+    const b = bounds();                                   // G..S 기준 점수
+    const gi = root.Engine.gradeIndexForScore(score, bet); // 0 = S … 7 = G, -1 = 아직 없음
+    document.querySelectorAll('.gled').forEach(el => {
+      const k = C.GRADES.findIndex(g => g.id === el.dataset.grade);   // 0 = S … 7 = G
+      const i = 7 - k;                                                  // 0 = G … 7 = S
+      const lo = i === 0 ? 0 : b[i], hi = i < 7 ? b[i + 1] : C.S_CAP * bet;
+      const fill = score >= hi ? 1 : score <= lo ? 0 : (score - lo) / (hi - lo);
+      el.querySelector('.gfill').style.height = (fill * 100) + '%';
+      el.classList.toggle('lit', fill >= 0.5);
       el.classList.toggle('on', gi >= 0 && k === gi);
       el.classList.toggle('got', gi >= 0 && k >= gi);
     });
     const lan = $('#leftcol .lantern');
     if (lan) lan.style.filter = `drop-shadow(0 0 ${6 + f * 26}px rgba(255,170,60,${(0.45 + f * 0.55).toFixed(2)})) brightness(${(0.85 + f * 0.45).toFixed(2)})`;
-    const badge = $('#gradeBadge');
-    if (badge) {
-      const g = gi >= 0 ? C.GRADES[gi] : null;
-      badge.querySelector('span').textContent = g ? g.name : '–';
-      badge.style.setProperty('--gc', g ? g.color : '#3a3550');
-      badge.classList.toggle('lit', !!g);
-    }
-    if (gi >= 0 && (shownGi < 0 || gi < shownGi)) {                   // 등급이 올랐을 때만 (점수가 0으로 돌아갈 땐 X)
-      restart($('#gaugeFlash'), 'go');
-      restart(badge, 'pop');
-      restart(document.querySelector(`.glabel[data-grade="${C.GRADES[gi].id}"]`), 'pop');
+    if (gi >= 0 && (shownGi < 0 || gi < shownGi)) {                   // 등급이 올랐을 때만
+      restart(document.querySelector(`.gled[data-grade="${C.GRADES[gi].id}"]`), 'pop');
       restart(lan, 'flare');
     }
     shownGi = gi;
