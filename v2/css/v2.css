@@ -692,3 +692,20 @@ body:not(.admin) .hd-money .plus { display: none; }
 .glabel small, :root[data-ui="pixel"] .glabel small { opacity: 1 !important; color: #f3ead8; font-weight: 700; font-size: 11px; text-shadow: 1px 1px 0 #08090f; margin-top: 2px; }
 .glabel:not(.got) small { color: #e2d3bb; }
 .glabel .gname, :root[data-ui="pixel"] .glabel .gname { min-width: 26px; height: 24px; font-size: 18px; } #leftcol .lantern { width: 66px; top: 0; }
+
+/* 게이지 등급 구분선·크기·정렬 (2026-11-14) */
+.gline { position: absolute; left: 4px; right: 3px; height: 2px; margin-bottom: -1px; z-index: 1; pointer-events: none;
+  background: rgba(255,226,170,.55); box-shadow: 0 1px 0 rgba(0,0,0,.55); }
+#gaugeTrack { z-index: 2; }
+#gaugeTrack::after { background: repeating-linear-gradient(to top, transparent 0 calc(100% / 9 - 2px), rgba(255,226,170,.6) calc(100% / 9 - 2px) calc(100% / 9)); }
+#gaugeLabels { z-index: 3; }
+.glabel { left: 0; right: 0; width: auto; flex-direction: column; flex-wrap: nowrap; align-items: center; gap: 1px; }
+.glabel .gname, :root[data-ui="pixel"] .glabel .gname { min-width: 30px; height: 26px; font-size: 20px; padding: 0 3px; }
+:root .glabel.on .gname, :root[data-ui="pixel"] .glabel.on .gname { transform: scale(1.15); transform-origin: center; }
+.glabel small, :root[data-ui="pixel"] .glabel small { flex-basis: auto; padding: 1px 3px 0; margin: 0; font-size: 13px; line-height: 1.1; text-align: center; background: rgba(8,9,15,.55); }
+.glabel small.long, :root[data-ui="pixel"] .glabel small.long { font-size: 10px; letter-spacing: -0.3px; }
+/* 꼬리표는 경계선 사이 칸 가운데, 칸 바탕 번갈아 */
+.gband { position: absolute; left: 34px; right: 3px; z-index: 0; pointer-events: none; background: rgba(0,0,0,.18); }
+.gband.odd { background: rgba(255,226,170,.07); }
+.gline { left: 34px; height: 3px; background: rgba(255,226,170,.75); box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 -1px 0 rgba(0,0,0,.35); }
+#gaugeLabels { top: 11px; bottom: 11px; }

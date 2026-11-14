@@ -94,14 +94,26 @@
   function buildGauge() {
     const box = $('#gaugeLabels');
     box.innerHTML = '';
+    document.querySelectorAll('#gauge .gline, #gauge .gband').forEach(el => el.remove());
     const seg = 100 / (C.GRADES.length + 1);
     C.GRADES.slice().reverse().forEach((g, i) => {
       const d = document.createElement('div');
       d.className = 'glabel';
       d.dataset.grade = g.id;
-      d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
+      d.style.bottom = `calc(${seg * (i + 1.5)}% - 21px)`;     // 경계선 사이 칸 가운데
       d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname" style="--gc:${g.color}">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
       box.appendChild(d);
+      // 등급 경계선: 관부터 오른쪽 끝까지 가로선 (등급 사이 구분이 잘 보이게)
+      const ln = document.createElement('i');
+      ln.className = 'gline';
+      ln.style.bottom = `calc(11px + (100% - 22px) * ${(seg * (i + 1) / 100).toFixed(4)})`;     // 관·꼬리표와 같은 위아래 8px 여백 안에서
+      $('#gauge').appendChild(ln);
+      // 등급 칸 바탕 (번갈아 칠해서 칸이 나뉘어 보이게)
+      const band = document.createElement('i');
+      band.className = 'gband' + (i % 2 ? ' odd' : '');
+      band.style.bottom = `calc(11px + (100% - 22px) * ${(seg * (i + 1) / 100).toFixed(4)})`;
+      band.style.height = `calc((100% - 22px) * ${(seg / 100).toFixed(4)})`;
+      $('#gauge').appendChild(band);
     });
   }
   // 랜턴 기름관 게이지: 액체가 차오르고, 지나간 등급 꼬리표에 불이 켜짐.
