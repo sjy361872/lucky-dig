@@ -242,3 +242,7 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 :root[data-ui="pixel"] .glabel small { font-family: 'Galmuri9', 'Galmuri11', sans-serif; padding-left: 13px; }
 :root[data-ui="pixel"] .pt-col b { font-size: 19px; line-height: 1.1; }
 :root[data-ui="pixel"] #pointsPill.pill { height: 50px; }
+/* 랭크 미터: 큰 알파벳 한 글자 */
+.glabel .gname { font-size: 17px; line-height: 1; }
+:root[data-ui="pixel"] .glabel .gname { font-size: 16px; }
+.glabel small { padding-left: 14px; }

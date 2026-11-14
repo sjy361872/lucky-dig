@@ -97,7 +97,7 @@
     { id: 'rank', name: '보유 포인트', desc: '지금 가지고 있는 포인트 순위예요', score: st => st.wallet, show: st => fmt(st.wallet) + ' pt', sub: st => `${fmt(st.plays)}판` },
     { id: 'best', name: '최고 배율', score: st => (st.best ? st.best.mult : 0), show: st => (st.best ? '×' + st.best.mult.toFixed(2) : '—'),
       sub: st => (st.best ? `${st.best.mode.toUpperCase()} ${root.CONFIG.gname(st.best.grade)} · ${fmt(st.best.bet)}pt` : '') },
-    { id: 'S', name: '전설 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
+    { id: 'S', name: 'S랭크 횟수', score: st => sCount(st), show: st => sCount(st) + '회', sub: st => `MILD ${st.grades.mild.S || 0} · HARD ${st.grades.hard.S || 0}` },
     { id: 'dex', name: '도감 수집', score: st => st.collection.length * 1000 + doneMines(st), show: st => `${st.collection.length} / ${totalCards()}장`,
       sub: st => `${Math.floor(st.collection.length / totalCards() * 100)}% · 완성 광산 ${doneMines(st)}곳` },
   ];

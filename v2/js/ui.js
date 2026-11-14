@@ -247,7 +247,7 @@
       const owned = c => S.dex[C.cardKey(c)];
       const have = all.filter(owned).length;
       const tierCards = t => all.filter(c => c.tier === t);
-      const tierLabel = t => (t === 'G' ? '공통 흙' : C.TIERS[t].name);
+      const tierLabel = t => (t === 'G' ? '공통 G랭크' : C.TIERS[t].name);
       const list = tierCards(dexTier), got = list.filter(owned).length;
       const pct = n => Math.floor(n * 100);
       return `<div class="dex-total"><b>${have}</b> / ${all.length}장 <small>(${pct(have / all.length)}%)</small><div class="bar"><i style="width:${have / all.length * 100}%"></i></div></div>
@@ -260,7 +260,7 @@
           return `<div class="dex-row"><span class="chip" style="background:${col}">${C.gname(g)}</span><div class="dex-grid">${cs.map(c => {
             const o = owned(c);
             return o ? `<div class="dexcard" data-key="${C.cardKey(c)}">${Art.card(c)}<small>${esc(c.name)}<br>×${o.n}</small></div>`
-                     : `<div class="dexcard none"><div class="card-back" style="--gc:${col}"><b>?</b><span>${C.gname(g)}</span></div><small>???</small></div>`;
+                     : `<div class="dexcard none"><div class="card-back" style="--gc:${col}"><b>?</b><span>${g}</span></div><small>???</small></div>`;
           }).join('')}</div></div>`; }).join('')}`;
     };
     const show = tabs(box, ['보관함', '도감'], i => (i === 0 ? bagHtml() : dexHtml()));
@@ -461,7 +461,7 @@
         const feed = await Rank.feed();
         if (my !== seq) return;
         el.innerHTML = note + `<div class="rlist">${feed.map(f => `<div class="frow"><span class="chip" style="background:${(C.GRADES.find(g => g.id === f.grade) || {}).color}">${esc(C.gname(f.grade))}</span>
-          <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (전설·다이아 등급, 최고 배율 갱신 시 기록)</p>'}</div>`;
+          <span><b>${esc(f.nickname)}</b> · ${esc(f.mode.toUpperCase())} · ${esc(f.card)}<br><small>${fmt(f.bet)}pt → ${fmt(f.value)}pt · ${timeAgo(f.at)}</small></span></div>`).join('') || '<p class="muted center">아직 소식이 없습니다 (S·A랭크, 최고 배율 갱신 시 기록)</p>'}</div>`;
       }
     };
     tabs(box, names, i => { setTimeout(() => render(i).catch(e => { body().innerHTML = `<p class="note center">불러오기 실패: ${esc(e.message)}</p>`; }), 0); return '<p class="muted center">불러오는 중…</p>'; });
@@ -576,7 +576,7 @@
       const f = await Rank.feed();
       // S·A·B상은 나를 포함해 모두에게 매번 알림 (받은 포인트까지). 최고 배율 갱신만 있는 낮은 등급은 소식 탭에만
       if (lastFeedId !== null) f.filter(x => x.id > lastFeedId && ['S', 'A', 'B'].includes(x.grade)).reverse()
-        .forEach(x => news(`${x.nickname}님이 ${String(x.mode).toUpperCase()} ${C.gname(x.grade)} 등급 「${x.card}」 획득! +${fmt(x.value)}pt`, 'star'));
+        .forEach(x => news(`${x.nickname}님이 ${String(x.mode).toUpperCase()} ${C.gname(x.grade)} 「${x.card}」 획득! +${fmt(x.value)}pt`, 'star'));
       if (f.length) lastFeedId = Math.max(...f.map(x => x.id));
       else if (lastFeedId === null) lastFeedId = 0;
     } catch (e) { /* 연결 실패는 조용히 무시 */ }

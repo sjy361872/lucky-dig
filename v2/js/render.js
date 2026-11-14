@@ -98,7 +98,7 @@
       d.className = 'glabel';
       d.dataset.grade = g.id;
       d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
-      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.name}</span><small>×${g.need}</small>`;
+      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small>×${g.need}</small>`;
       box.appendChild(d);
     });
   }
@@ -114,7 +114,7 @@
     const up = C.GRADES.slice().reverse();              // 흙 → 전설
     const next = up.find(g => g.need * bet > score);
     const gem = $('.goal-gem'), fill = $('#goalFill');
-    if (!next) { t.innerHTML = `<b>전설</b> 달성!`; if (gem) gem.style.background = C.GRADES[0].color; if (fill) fill.style.width = '100%'; return; }
+    if (!next) { t.innerHTML = `<b>${C.GRADES[0].name}</b> 달성!`; if (gem) gem.style.background = C.GRADES[0].color; if (fill) fill.style.width = '100%'; return; }
     const prev = gi >= 0 ? C.GRADES[gi].need * bet : 0;
     t.innerHTML = `<b>${next.name}</b>까지 <b>${fmt(Math.ceil(next.need * bet - score))}</b>점`;
     if (gem) gem.style.background = next.color;
