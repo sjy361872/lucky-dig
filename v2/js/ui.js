@@ -444,9 +444,17 @@
         const rows = await Rank.board(Rank.BOARDS[i].id);
         if (my !== seq) return;
         const medal = k => (k < 3 ? `<i class="medal m${k + 1}">${k + 1}</i>` : (k + 1));
+        const isMe = r => Rank.me && r.nickname === Rank.me.nickname;
+        const rowHtml = (r, rk, extra = '') => `<div class="rrow2 ${isMe(r) ? 'me' : ''}">
+            <span class="rk">${rk}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${extra}${esc(r.sub)}</small></span></div>`;
+        // 수익 랭킹: 플러스인 사람만 순위에. 0 이하인 사람은 숫자를 숨기고 '도전 중 N명'으로 묶음 (내 기록은 나에게만 보임)
+        const pos = Rank.BOARDS[i].posOnly ? rows.filter(r => r.score > 0) : rows;
+        const rest = Rank.BOARDS[i].posOnly ? rows.filter(r => !(r.score > 0)) : [];
+        const meRest = rest.find(isMe);
         el.innerHTML = note + (Rank.BOARDS[i].desc ? `<p class="muted center">${Rank.BOARDS[i].desc}</p>` : '') +
-          `<div class="rlist">${rows.map((r, k) => `<div class="rrow2 ${Rank.me && r.nickname === Rank.me.nickname ? 'me' : ''}">
-            <span class="rk">${medal(k)}</span><span class="rn">${esc(r.nickname)}</span><span class="rs"><b>${esc(r.show)}</b><small>${esc(r.sub)}</small></span></div>`).join('') || '<p class="muted center">기록이 없습니다</p>'}</div>`;
+          `<div class="rlist">${pos.map((r, k) => rowHtml(r, medal(k))).join('') || (rest.length ? '<p class="muted center">아직 플러스인 사람이 없어요. 첫 1등의 기회!</p>' : '<p class="muted center">기록이 없습니다</p>')}
+          ${rest.length ? `<div class="rest-note">도전 중 <b>${rest.length}명</b> · 플러스가 되면 순위에 올라요</div>` : ''}
+          ${meRest ? rowHtml(meRest, '—', '<i class="only-me">나만 보여요</i> ') : ''}</div>`;
       } else {
         const feed = await Rank.feed();
         if (my !== seq) return;

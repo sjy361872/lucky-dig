@@ -594,3 +594,8 @@ body:not(.admin) .pill .plus { display: none; }
 .medal.m1 { background: linear-gradient(160deg, #ffe27a, #e0a10f); color: #6b3a10; }
 .medal.m2 { background: linear-gradient(160deg, #f1f3f6, #a5adb8); color: #3c4450; }
 .medal.m3 { background: linear-gradient(160deg, #f6c79c, #c06f2c); }
+
+/* 수익 랭킹: 마이너스 숨김 */
+.rest-note { margin: 6px 0 2px; padding: 10px; border-radius: 12px; background: #f1e3c6; color: #7a5a2a; text-align: center; font-size: 13px; font-weight: 700; }
+.rest-note b { color: #8a4a00; }
+.only-me { font-style: normal; margin-right: 4px; padding: 1px 6px; border-radius: 8px; background: #e6d6b8; color: #7a5a2a; font-size: 10px; font-weight: 800; vertical-align: 2px; }
