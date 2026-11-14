@@ -348,61 +348,54 @@
     ov.onclick = () => { R.state.skipping = true; };
     const w = ms => R.wait(ms);
 
-    // 1) 게이지 확대 + 다음 등급까지 남은 점수
+    // 1) 랜턴 감정: 랜턴이 등급 색으로 빛나고, 보석 배지에 등급이 '펑' (2026-11-14 우리만의 연출)
     const next = round.gradeIndex > 0 ? C.GRADES[round.gradeIndex - 1] : null;
-    ov.innerHTML = `<div class="fin">
-      <div class="fin-gauge"><div class="fg-track"><div class="fg-fill" style="height:${R.gaugeFrac(score) * 100}%"></div></div>
-        <div class="fg-labels">${next ? `<div class="chip big" style="background:${next.color}">${next.name}<small>${fmt(next.need * bet)}</small></div>` : ''}
-        <div class="chip big on" style="background:${g.color}">${g.name}<small>${fmt(g.need * bet)}</small></div></div></div>
-      <div class="fin-score">${fmt(score)}</div>
-      ${next ? `<div class="fin-next">다음 등급까지 <b>${fmt(next.need * bet - score)}</b></div>` : '<div class="fin-next top">최고 등급!</div>'}
+    ov.innerHTML = `<div class="fin fin2" style="--gc:${g.color}">
+      <div class="f2-rays"></div>
+      <img class="f2-lantern" src="assets/v2/lantern.png" alt="">
+      <div class="f2-badge"><span>${g.name}</span></div>
+      <div class="f2-title">${g.name} 등급</div>
+      <div class="f2-score">점수 <b>${fmt(score)}</b></div>
+      ${next ? `<div class="f2-next">${next.name} 등급까지 ${fmt(next.need * bet - score)}점 모자랐어요</div>` : '<div class="f2-next top">최고 등급!</div>'}
       <div class="tapskip">탭해서 건너뛰기</div></div>`;
-    await w(1800);
-
-    // 2) 등급 확정 배지
     Sound.play('fanfare');
-    ov.innerHTML = `<div class="fin"><div class="gbadge" style="--gc:${g.color}"><div class="gb-ring"></div><div class="gb-letter">${g.name}</div><div class="gb-ribbon">★ 확정! ★</div></div>
-      <div class="roulette"><div class="strip"></div></div><div class="tapskip">탭해서 건너뛰기</div></div>`;
-    await w(1100);
+    await w(1700);
 
-    // 3) 카드 룰렛
-    const strip = ov.querySelector('.strip');
-    const pool = [];
-    for (let i = 0; i < 26; i++) {
-      const gid = C.GRADES[Math.floor(Math.random() * C.GRADES.length)].id;
-      const list = C.cardsFor(bet, gid), idx = Math.floor(Math.random() * list.length);
-      pool.push({ ...list[idx], grade: gid, idx, tier: gid === 'G' ? 'G' : C.tierOf(bet) });
+    // 2) 원석 깨기: 등급에 맞는 원석이 세 번 맞아 금이 가다가 터지고, 안에서 카드가 나옴 (룰렛 대신)
+    const ORE = { S: 'obsidian', A: 'diamond', B: 'ruby', C: 'gold', D: 'stone', E: 'stone', F: 'dirt', G: 'grass' };
+    const ore = ORE[g.id] || 'stone';
+    ov.innerHTML = `<div class="fin fin2" style="--gc:${g.color}">
+      <div class="f2-title small">원석을 깨는 중…</div>
+      <div class="f2-ore"><img src="${Art.blockSrc(ore, 0)}" alt=""></div>
+      <div class="f2-card" hidden>${Art.card({ ...round.card, grade: g.id }, { cls: 'big' })}</div>
+      <div class="tapskip">탭해서 건너뛰기</div></div>`;
+    const oreBox = ov.querySelector('.f2-ore'), oreImg = oreBox.querySelector('img');
+    const hitOre = (cls) => { oreBox.classList.remove('h1', 'h2'); void oreBox.offsetWidth; oreBox.classList.add(cls); };
+    await w(450);
+    for (let k = 1; k <= 3; k++) {
+      oreImg.src = Art.blockSrc(ore, k / 3);
+      hitOre(k % 2 ? 'h1' : 'h2');
+      Sound.play('hit', { type: ore, ratio: k / 3 });
+      await w(k < 3 ? 520 : 650);
     }
-    const target = 22;
-    pool[target] = { ...round.card, grade: g.id };
-    strip.innerHTML = pool.map((c, i) => `<div class="rc ${i === target ? 'target' : ''}">${Art.card(c)}</div>`).join('');
-    const itemW = 104, viewW = ov.querySelector('.roulette').clientWidth;
-    const endX = -(target * itemW) + viewW / 2 - itemW / 2;
-    let lastTick = 0;
-    const t0 = performance.now();
-    await new Promise(res => {
-      const step = now => {
-        const p = Math.max(0, Math.min(1, (now - t0) / (R.state.skipping ? 250 : 2600)));
-        const e = 1 - Math.pow(1 - p, 4);
-        const x = endX * e;
-        strip.style.transform = `translateX(${x}px)`;
-        const idx = Math.floor(-x / itemW);
-        if (idx !== lastTick) { lastTick = idx; Sound.play('tick'); }
-        if (p < 1) setTimeout(() => step(performance.now()), 16); else res();
-      };
-      step(performance.now());
-    });
-    strip.querySelector('.target').classList.add('picked');
+    Sound.play('break', { type: ore });
+    oreBox.classList.add('burst');
+    const fl = document.createElement('div'); fl.className = 'f2-flash'; ov.querySelector('.fin2').appendChild(fl);
+    await w(260);
+    oreBox.hidden = true;
+    ov.querySelector('.f2-title').textContent = `${round.card.name}`;
+    ov.querySelector('.f2-title').classList.remove('small');
+    ov.querySelector('.f2-card').hidden = false;
     Sound.play('big');
-    await w(900);
+    await w(1100);
 
     // 4) 결과 팝업
     ov.onclick = null;
     await new Promise(res => {
-      const m = modal(`<div class="result"><span class="chip" style="background:${g.color}">${g.name}</span>
+      const m = modal(`<div class="result"><div class="r-badge" style="--gc:${g.color}"><span>${g.name}</span></div>
         ${Art.card(item, { cls: 'big' })}<b class="rname">${item.name}</b>
         <div class="rrow"><span>포인트 교환 시</span><b>${fmt(item.value)} pt</b></div>
-        <div class="rbtns"><button id="keep">보관함에 두기</button><button id="sell" class="red">포인트로 바꾸기</button></div></div>`, { title: '결과', noClose: true });
+        <div class="rbtns"><button id="keep">보관함에 두기</button><button id="sell" class="red">포인트로 바꾸기</button></div></div>`, { title: `${g.name} 등급 획득`, noClose: true });
       m.el.querySelector('#keep').onclick = () => { Sound.play('click'); m.close(); toast('보관함에 넣었습니다'); res(); };
       m.el.querySelector('#sell').onclick = () => {
         Sound.play('click');
