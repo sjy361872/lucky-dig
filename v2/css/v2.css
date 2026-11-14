@@ -593,3 +593,26 @@ body:not(.admin) .hd-money .plus { display: none; }
 #app:not(.playing) #leftcol .lantern { animation: lanFlicker 2.4s ease-in-out infinite; }
 @keyframes lanFlicker { 0%, 100% { opacity: 1; } 45% { opacity: .82; } 55% { opacity: .95; } 70% { opacity: .86; } }
 @media (prefers-reduced-motion: reduce) { #gaugeTrack::before, #app:not(.playing) #leftcol .lantern { animation: none; } }
+
+/* =========================================================
+   탐지기·갱도 다듬기 (2026-11-14)
+   1) 탐지기 빈칸: 까만 구멍 → 한 톤 밝은 '홈(소켓)'
+   2) 탐지기 ↔ 갱도 세로 레일 5줄 + 채굴 중 지금 줄 밝히기
+   3) 테두리 이름표 '탐지기' · '갱도'
+   ========================================================= */
+#middle { margin-top: 14px; }
+/* 1) 소켓 칸 */
+#slot::before { background: var(--p-surface); }
+.slot-cell::before, :root[data-ui="pixel"] .slot-cell::before { inset: 4px; border-radius: 0; background: #262a40;
+  box-shadow: inset 3px 3px 0 rgba(0,0,0,.45), inset -2px -2px 0 rgba(255,255,255,.06); }
+/* 2) 레일 */
+.rails { position: absolute; left: 0; top: calc(var(--cell) * 3 - 6px); width: calc(var(--cell) * 5); height: calc(var(--gap) + 12px); z-index: 4; pointer-events: none; }
+.rails i { position: absolute; top: 0; bottom: 0; width: 8px; background: linear-gradient(90deg, #5b5f78 0 2px, #8a8fa8 2px 4px, #5b5f78 4px 6px, #2c3049 6px 8px); border-top: 2px solid var(--p-line); border-bottom: 2px solid var(--p-line); box-sizing: border-box; }
+.lane { position: absolute; top: -8px; bottom: -8px; width: var(--cell); z-index: 3; pointer-events: none;
+  background: linear-gradient(rgba(255,173,59,.16), rgba(255,173,59,.07)); box-shadow: inset 2px 0 0 rgba(255,173,59,.55), inset -2px 0 0 rgba(255,173,59,.55); transition: left .12s ease-out; }
+.lane[hidden] { display: none; }
+/* 3) 이름표 */
+.frame-tag { position: absolute; z-index: 5; padding: 1px 8px; font: 700 11px/1.4 'Galmuri11', 'Noto Sans KR', sans-serif; color: var(--p-muted); background: var(--p-raise); border: 2px solid var(--p-line); pointer-events: none; }
+.slot-tag { left: 6px; top: -18px; }
+.board-tag { right: 6px; top: calc(var(--cell) * 3 + var(--gap) - 18px); }
+.board-tag { top: calc(var(--cell) * 9 + var(--gap) - 4px); right: 6px; }

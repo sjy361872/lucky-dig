@@ -36,7 +36,26 @@
       }
       slotEls.push(row);
     }
+    // 탐지기 ↔ 갱도를 잇는 세로 레일 5줄 + 지금 곡괭이가 내려가는 줄 표시 + 이름표 (2026-11-14)
+    const stage = $('#stage');
+    if (!stage.querySelector('.rails')) {
+      const rails = document.createElement('div');
+      rails.className = 'rails';
+      for (let c = 0; c < C.COLS; c++) {
+        const r = document.createElement('i');
+        r.style.left = (c * CELL + CELL / 2 - 4) + 'px';
+        rails.appendChild(r);
+      }
+      stage.appendChild(rails);
+      const lane = document.createElement('div');
+      lane.className = 'lane'; lane.hidden = true;
+      stage.insertBefore(lane, $('#fx'));
+      const t1 = document.createElement('span'); t1.className = 'frame-tag slot-tag'; t1.textContent = '탐지기';
+      const t2 = document.createElement('span'); t2.className = 'frame-tag board-tag'; t2.textContent = '갱도';
+      stage.appendChild(t1); stage.appendChild(t2);
+    }
   }
+  function showLane(c) { const l = document.querySelector('#stage .lane'); if (!l) return; if (c == null) { l.hidden = true; return; } l.style.left = (c * CELL) + 'px'; l.hidden = false; }
   function setSlotItem(r, c, type, cls = '') {
     const cell = slotEls[r][c];
     cell.innerHTML = type ? `<div class="slot-item ${cls}">${Art.item(type)}${C.PICKS[type] ? `<span class="badge">${C.PICKS[type].power}</span>` : ''}</div>` : '';
@@ -437,6 +456,7 @@
           break;
         }
         case 'pick': {
+          showLane(ev.c);
           setSlotItem(ev.sr, ev.c, null);
           pickEl = document.createElement('div');
           pickEl.className = 'flypick';
@@ -533,6 +553,7 @@
           break;
         }
         case 'pickEnd': {
+          showLane(null);
           if (pickEl) { const el = pickEl; pickEl = null; anim(el, [{ opacity: 1 }, { opacity: 0 }], 200).then(() => el.remove()); }
           await wait(90);
           break;
@@ -542,7 +563,7 @@
           break;
         }
         case 'spinEnd': clearSlot(); await wait(260); break;
-        case 'end': setScore(ev.score, 200); await wait(500); break;
+        case 'end': showLane(null); setScore(ev.score, 200); await wait(500); break;
       }
     }
   }
