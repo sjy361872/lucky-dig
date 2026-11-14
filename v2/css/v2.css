@@ -184,3 +184,15 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 #pointsPill.pill { height: 46px; }
 #giftBadge { bottom: -30px; font-size: 13px; padding: 4px 11px; }
 #goal { margin-top: 32px; }
+
+/* ---------- 버그 수정 (2026-11-14 점검) ---------- */
+/* 1) 어두운 테마에서 팝업(크림색 창) 글자가 밝은색을 물려받아 안 보이던 문제 → 팝업 안은 항상 진한 글자 */
+.modal, .modal button, .modal .closebtn, .zoom .closebtn, .rowbtn { color: #3a2410; }
+.modal .muted, .modal small { color: #8a6a3a; }
+/* 2) 보상표 등급 칩: '다이아'가 두 줄로 꺾이던 문제 */
+.prow .chip, .frow .chip, .dex-row > .chip { width: auto; min-width: 52px; white-space: nowrap; padding: 3px 10px; }
+/* 3) 밝은 테마 시작 화면: 노란 글자·흰 안내 글씨가 크림 배경에 묻힘 */
+:root[data-theme="light"] .title-name { color: #e2541b; text-shadow: 0 5px 0 #6b2a08, 0 0 24px rgba(255,255,255,.7); }
+:root[data-theme="light"] .title-hint { color: #6b3a10; text-shadow: none; }
+:root[data-theme="light"] .who { background: rgba(74,42,10,.75); }
+.pointcard .pc-ico svg { width: 2.6em; height: 2.6em; display: block; margin: 0 auto; }
