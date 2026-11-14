@@ -147,7 +147,7 @@
       <label class="slider"><span>${ico('sound')}효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
       ${Rank.isAdmin() ? `<button class="rowbtn gold" id="btnGrant">${ico('gift')}포인트 지급 (관리자)</button>` : ''}
       <div class="themepick"><span>${ico('spark')}화면 테마</span><div class="seg">${[['light', '밝은 채석장'], ['dark', '밤 갱도'], ['auto', '휴대폰 따라']].map(([k, t]) => `<button data-theme="${k}" class="${Theme.get() === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
-      <div class="themepick"><span>${ico('star')}화면 스타일</span><div class="seg">${[['basic', '기본'], ['pixel', '도트']].map(([k, t]) => `<button data-ui="${k}" class="${(document.documentElement.dataset.ui || 'basic') === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div class="themepick"><span>${ico('star')}화면 스타일</span><div class="seg">${[['basic', '기본'], ['pixel', '도트']].map(([k, t]) => `<button data-ui="${k}" class="${(document.documentElement.dataset.ui || 'pixel') === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
       <button class="rowbtn" id="btnHelp2">${ico('book')}하는 법</button>
       <button class="rowbtn" id="btnDaily">${ico('calendar')}출석 체크</button>
       <button class="rowbtn" id="btnTitle">${ico('home')}타이틀로 (모드 변경: 지금 ${C.MODES[S.mode].name})</button>
