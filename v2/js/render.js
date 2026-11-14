@@ -111,6 +111,8 @@
     });
   }
   let shownGi = -1;
+  let lastGrade = null; try { lastGrade = localStorage.getItem('ld_last_grade'); } catch (e) { /* 무시 */ }   // 지난 판 등급 (저장 데이터와 따로)
+  function setLastGrade(id) { lastGrade = id; try { localStorage.setItem('ld_last_grade', id); } catch (e) { /* 무시 */ } }
   const restart = (el, cls) => { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
   function setGauge(score) {
     const f = gaugeFrac(score);
@@ -126,11 +128,20 @@
       el.classList.toggle('on', gi >= 0 && k === gi);
       el.classList.toggle('got', gi >= 0 && k >= gi);
     });
-    const lan = $('#leftcol .lantern');
-    if (lan) lan.style.filter = `drop-shadow(0 0 ${6 + f * 26}px rgba(255,170,60,${(0.45 + f * 0.55).toFixed(2)})) brightness(${(0.85 + f * 0.45).toFixed(2)})`;
+    // 왼쪽 아래 '지금 등급 엠블럼' (등불 대신, 2026-11-14)
+    //  채굴 중: 아직 G 전이면 회색 그림자 '?', G부터는 그 등급 엠블럼 / 대기 중: 지난 판 등급을 흐리게 + '지난 판'
+    const emb = $('#gradeEmb');
+    if (emb) {
+      const playing = $('#app').classList.contains('playing');
+      const show = gi >= 0 ? C.GRADES[gi].id : (!playing && lastGrade) ? lastGrade : null;
+      emb.classList.toggle('none', !show);
+      emb.classList.toggle('last', !playing && gi < 0 && !!show);
+      emb.querySelector('img').src = `assets/v2/emblems/${show || 'G'}.webp`;
+      emb.querySelector('b').textContent = show ? C.gname(show) : '?';
+    }
     if (gi >= 0 && (shownGi < 0 || gi < shownGi)) {                   // 등급이 올랐을 때만
       restart(document.querySelector(`.gled[data-grade="${C.GRADES[gi].id}"]`), 'pop');
-      restart(lan, 'flare');
+      restart(emb, 'pop');
     }
     shownGi = gi;
     setGoal(score, gi);
@@ -550,7 +561,7 @@
   root.Render = {
     CELL, BOARD_TOP, state, fmt, wait,
     init() { buildSlot(); Art.preload(); },
-    drawBoard, setBet, setScore, setSpins, setGauge, clearSlot, replay, banner,
+    drawBoard, setBet, setScore, setSpins, setGauge, clearSlot, replay, banner, setLastGrade,
     gaugeFrac,
   };
 })(window);

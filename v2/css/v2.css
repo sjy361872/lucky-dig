@@ -824,3 +824,20 @@ body:not(.admin) .hd-money .plus { display: none; }
 .chest { height: 52px; }
 #panel { margin-top: 8px; height: 74px; }
 #tabbar { height: 60px; }
+
+/* =========================================================
+   왼쪽 아래 '지금 등급 엠블럼' (등불 대신, 2026-11-14)
+   none = 회색 그림자 '?' / last = 지난 판 등급(흐리게 + '지난 판') / 채굴 중 = 지금 등급
+   ========================================================= */
+#gradeEmb { position: absolute; left: 50%; bottom: -2px; width: 58px; height: 58px; margin-left: -29px; display: flex; align-items: center; justify-content: center; z-index: 2; }
+#gradeEmb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 0 rgba(0,0,0,.45)); transition: filter .2s, opacity .2s; }
+#gradeEmb b { position: relative; font: 700 22px/1 'Galmuri11', 'Black Han Sans', sans-serif; color: #fff; text-shadow: 2px 2px 0 #08090f, -1px -1px 0 #08090f, 1px -1px 0 #08090f, -1px 1px 0 #08090f; }
+#gradeEmb small { display: none; position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 0 4px;
+  font: 700 9px/1.4 'Galmuri11', 'Noto Sans KR', sans-serif; color: var(--p-text); background: var(--p-line); }
+#gradeEmb.none img { filter: grayscale(1) brightness(.45); opacity: .7; }
+#gradeEmb.none b { color: var(--p-muted); }
+#gradeEmb.last img { opacity: .55; filter: saturate(.6); }
+#gradeEmb.last b { opacity: .8; }
+#gradeEmb.last small { display: block; }
+#gradeEmb.pop { animation: embNowPop .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes embNowPop { 0% { transform: scale(1.7); filter: brightness(1.8); } 100% { transform: none; } }

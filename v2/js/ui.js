@@ -351,6 +351,7 @@
       R.state.skipping = false;
       await R.replay(round.sim);
       await finale(round, item);
+      R.setLastGrade(round.grade);
       if (rec.newBest) setTimeout(() => news(`최고 배율 갱신! ×${(round.payout / round.sim.bet).toFixed(2)}`, 'trophy'), 300);
       else if (newDex) setTimeout(() => news(`도감 등록: ${round.card.name}`, 'book'), 300);
     } catch (e) {
@@ -361,6 +362,7 @@
     } finally {
       R.state.skipping = false;
       $('#app').classList.remove('playing');
+      R.setGauge(0);
       $('#panelIdle').hidden = false; $('#panelPlay').hidden = true;
       showPoints(); showBet();
       busy = false;
