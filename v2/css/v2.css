@@ -246,3 +246,10 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 .glabel .gname { font-size: 17px; line-height: 1; }
 :root[data-ui="pixel"] .glabel .gname { font-size: 16px; }
 .glabel small { padding-left: 14px; }
+.glabel small { padding-left: 4px; flex-basis: auto; font-size: 10px; white-space: nowrap; }
+.glabel { flex-wrap: nowrap; align-items: baseline; }
+.glabel .gem { align-self: center; }
+:root[data-ui="pixel"] .glabel small { padding-left: 3px; }
+/* 미터 점수: 알파벳 아래 줄에 (좁은 칸에서 잘리지 않게) */
+.glabel { flex-wrap: wrap; align-items: center; }
+.glabel small, :root[data-ui="pixel"] .glabel small { flex-basis: 100%; padding-left: 0; margin-top: 1px; font-size: 11px; }

@@ -6,6 +6,8 @@
   const CELL = 56, GAP = 24, BOARD_TOP = C.SLOT_ROWS * CELL + GAP;
   const $ = s => document.querySelector(s);
   const fmt = n => Math.round(n).toLocaleString('ko-KR');
+  // 좁은 칸용 짧은 숫자: 9,999까지 그대로, 그 위는 '3.5만', '350만'
+  const short = n => (n < 10000 ? fmt(n) : (Math.round(n / 1000) / 10).toLocaleString('ko-KR') + '만');
 
   let slotEls = [], blockEls = [], chestEls = [], bet = 1000;
   let shownScore = 0, scoreTween = null;
@@ -98,7 +100,7 @@
       d.className = 'glabel';
       d.dataset.grade = g.id;
       d.style.bottom = `calc(${seg * (i + 1)}% - 10px)`;
-      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small>×${g.need}</small>`;
+      d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname">${g.id}</span><small>${short(g.need * bet)}</small>`;
       box.appendChild(d);
     });
   }
