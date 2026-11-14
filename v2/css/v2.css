@@ -709,3 +709,7 @@ body:not(.admin) .hd-money .plus { display: none; }
 .gband.odd { background: rgba(255,226,170,.07); }
 .gline { left: 34px; height: 3px; background: rgba(255,226,170,.75); box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 -1px 0 rgba(0,0,0,.35); }
 #gaugeLabels { top: 11px; bottom: 11px; }
+/* 게이지 칸 맞춤: 관 눈금 = 이름표 경계선 (같은 선이 관 위를 지나감) */
+#gaugeTrack::after { display: none; }
+.gline { left: 4px; z-index: 3; }
+#gaugeLabels { z-index: 4; }

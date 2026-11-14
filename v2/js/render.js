@@ -80,14 +80,17 @@
   }
 
   // ---------- 등급 게이지 ----------
-  // 9칸: [0~G) [G~F) ... [S~상한]  — 칸마다 같은 높이
+  // 맨 아래 'G 미만' 칸은 얇게(4%), G~S 8칸은 같은 높이(12%씩). 최종 점수는 항상 G 이상이라
+  // 9칸을 똑같이 나누면 맨 아래가 비어 '한 칸 밀린 것처럼' 보였음 (2026-11-14)
+  const G_BASE = 0.04, G_STEP = (1 - G_BASE) / 8;
+  const gPos = i => G_BASE + G_STEP * i;                 // i번째 등급(0 = G … 7 = S)이 시작되는 높이
   function bounds() { return C.GRADES.slice().reverse().map(g => g.need * bet); } // G..S
   function gaugeFrac(score) {
-    const b = bounds(), seg = 1 / (b.length + 1);
-    if (score < b[0]) return (score / b[0]) * seg;
+    const b = bounds();
+    if (score < b[0]) return (score / b[0]) * G_BASE;
     for (let i = 0; i < b.length; i++) {
       const lo = b[i], hi = i + 1 < b.length ? b[i + 1] : C.S_CAP * bet;
-      if (score < hi || i === b.length - 1) return Math.min(1, seg * (i + 1) + seg * Math.min(1, (score - lo) / (hi - lo)));
+      if (score < hi || i === b.length - 1) return Math.min(1, gPos(i) + G_STEP * Math.min(1, (score - lo) / (hi - lo)));
     }
     return 1;
   }
@@ -95,24 +98,24 @@
     const box = $('#gaugeLabels');
     box.innerHTML = '';
     document.querySelectorAll('#gauge .gline, #gauge .gband').forEach(el => el.remove());
-    const seg = 100 / (C.GRADES.length + 1);
+    const inTube = f => `calc(11px + (100% - 22px) * ${f.toFixed(4)})`;   // 관 안쪽 높이 기준 (위아래 11px = 관 여백 8 + 테두리 3)
     C.GRADES.slice().reverse().forEach((g, i) => {
       const d = document.createElement('div');
       d.className = 'glabel';
       d.dataset.grade = g.id;
-      d.style.bottom = `calc(${seg * (i + 1.5)}% - 21px)`;     // 경계선 사이 칸 가운데
+      d.style.bottom = `calc(${((gPos(i) + G_STEP / 2) * 100).toFixed(3)}% - 21px)`;   // 그 등급 칸 가운데
       d.innerHTML = `<i class="gem" style="background:${g.color}"></i><span class="gname" style="--gc:${g.color}">${g.id}</span><small class="${fmt(g.need * bet).length > 7 ? 'long' : ''}">${fmt(g.need * bet)}</small>`;
       box.appendChild(d);
-      // 등급 경계선: 관부터 오른쪽 끝까지 가로선 (등급 사이 구분이 잘 보이게)
+      // 등급 경계선 (관 눈금까지 같은 선으로)
       const ln = document.createElement('i');
       ln.className = 'gline';
-      ln.style.bottom = `calc(11px + (100% - 22px) * ${(seg * (i + 1) / 100).toFixed(4)})`;     // 관·꼬리표와 같은 위아래 8px 여백 안에서
+      ln.style.bottom = inTube(gPos(i));
       $('#gauge').appendChild(ln);
-      // 등급 칸 바탕 (번갈아 칠해서 칸이 나뉘어 보이게)
+      // 등급 칸 바탕 (번갈아)
       const band = document.createElement('i');
       band.className = 'gband' + (i % 2 ? ' odd' : '');
-      band.style.bottom = `calc(11px + (100% - 22px) * ${(seg * (i + 1) / 100).toFixed(4)})`;
-      band.style.height = `calc((100% - 22px) * ${(seg / 100).toFixed(4)})`;
+      band.style.bottom = inTube(gPos(i));
+      band.style.height = `calc((100% - 22px) * ${G_STEP.toFixed(4)})`;
       $('#gauge').appendChild(band);
     });
   }
