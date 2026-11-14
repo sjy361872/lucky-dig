@@ -738,3 +738,27 @@ body:not(.admin) .hd-money .plus { display: none; }
 .gled.pop { animation: ledPop .45s ease-out, ledBlink .6s steps(2) .45s infinite; }
 @keyframes ledPop { 0% { transform: scale(1.18); filter: brightness(1.8); } 100% { transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .gled.on, .gled.pop { animation: none; } }
+
+/* =========================================================
+   아깝다! 연출 (다음 등급까지 칸의 30% 이내일 때만): LED 블록 두 개 확대 + 모자란 점수
+   ========================================================= */
+.nm { gap: 18px; }
+.nm-tower { display: flex; flex-direction: column; gap: 8px; padding: 8px; background: #08090f; border: 4px solid #08090f; box-shadow: 0 0 0 3px #2c3049, 6px 6px 0 rgba(0,0,0,.5); animation: nmZoom .45s cubic-bezier(.2,1.4,.4,1); }
+@keyframes nmZoom { from { transform: scale(.4); opacity: 0; } }
+.nm-led { position: relative; width: 210px; height: 120px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 0 18px;
+  background: color-mix(in srgb, var(--gc) 20%, #0d0e16); border: 3px solid #20222e; }
+.nm-led b { position: relative; font: 700 56px/1 'Galmuri11', 'Black Han Sans', sans-serif; color: var(--gc); text-shadow: 3px 3px 0 rgba(0,0,0,.5); }
+.nm-led small { position: relative; margin-top: 6px; font: 700 18px/1 'Galmuri11', sans-serif; color: color-mix(in srgb, var(--gc) 60%, #f3ead8); }
+.nm-led.next { border-style: dashed; border-color: var(--gc); }
+.nm-led.cur b, .nm-led.cur small { color: #fff; }
+.nm-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--gc); box-shadow: inset 0 4px 0 rgba(255,255,255,.35);
+  transition: height 1.15s cubic-bezier(.25,.9,.3,1); }
+.nm-short { font: 700 52px/1 'Galmuri11', 'Do Hyeon', sans-serif; color: #ff5a4e; text-shadow: 4px 4px 0 #3a0a06; opacity: 0; transform: scale(2); }
+.nm-msg { font: 700 20px/1.3 'Galmuri11', 'Noto Sans KR', sans-serif; color: var(--p-text); opacity: 0; }
+.nm.show .nm-short { opacity: 1; transform: none; animation: nmShortIn .5s cubic-bezier(.2,1.6,.4,1), nmShake .35s .5s 2; }   /* 앱 안 브라우저 함정: forwards 금지, 끝 상태는 style 로 */
+.nm.show .nm-msg { opacity: 1; transition: opacity .3s .2s; }
+.nm.show .nm-led.next { animation: nmNext .5s steps(2) 3; }
+@keyframes nmShortIn { from { opacity: 0; transform: scale(2); } }
+@keyframes nmShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes nmNext { 50% { border-color: #fff3b0; } }
+#overlay:has(.fin) { background: rgba(8,9,15,.9); }

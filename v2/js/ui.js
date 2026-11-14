@@ -351,8 +351,32 @@
     ov.onclick = () => { R.state.skipping = true; };
     const w = ms => R.wait(ms);
 
-    // 1) 랜턴 감정: 랜턴이 등급 색으로 빛나고, 보석 배지에 등급이 '펑' (2026-11-14 우리만의 연출)
     const next = round.gradeIndex > 0 ? C.GRADES[round.gradeIndex - 1] : null;
+    // 0) 아깝다! (다음 등급까지 칸의 30% 이내로 남았을 때만): 지금 등급·다음 등급 LED 블록 두 개를 크게
+    if (next) {
+      const lo = g.need * bet, hi = next.need * bet, short = Math.ceil(hi - score);
+      const ratio = (score - lo) / (hi - lo);
+      if (ratio >= 0.7 && short > 0) {
+        ov.innerHTML = `<div class="fin fin2 nm">
+          <div class="nm-tower">
+            <div class="nm-led next" style="--gc:${next.color}"><b>${next.name}</b><small>${fmt(hi)}</small></div>
+            <div class="nm-led cur" style="--gc:${g.color}"><i class="nm-fill"></i><b>${g.name}</b><small>${fmt(lo)}</small></div>
+          </div>
+          <div class="nm-short">−${fmt(short)}점</div>
+          <div class="nm-msg">아깝다! ${next.name} 등급까지 ${fmt(short)}점</div>
+          <div class="tapskip">탭해서 건너뛰기</div></div>`;
+        const fillEl = ov.querySelector('.nm-fill');
+        await w(250);
+        fillEl.style.height = (Math.min(0.985, ratio) * 100).toFixed(1) + '%';   // 차오르다가 바로 앞에서 멈칫
+        Sound.play('drumroll');
+        await w(1250);
+        ov.querySelector('.nm').classList.add('show');
+        Sound.play('last');
+        await w(1300);
+      }
+    }
+
+    // 1) 랜턴 감정: 랜턴이 등급 색으로 빛나고, 보석 배지에 등급이 '펑' (2026-11-14 우리만의 연출)
     ov.innerHTML = `<div class="fin fin2" style="--gc:${g.color}">
       <div class="f2-rays"></div>
       <img class="f2-lantern" src="assets/v2/lantern.png" alt="">
