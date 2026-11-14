@@ -196,3 +196,49 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 :root[data-theme="light"] .title-hint { color: #6b3a10; text-shadow: none; }
 :root[data-theme="light"] .who { background: rgba(74,42,10,.75); }
 .pointcard .pc-ico svg { width: 2.6em; height: 2.6em; display: block; margin: 0 auto; }
+
+/* =========================================================
+   도트 UI 시험 (html[data-ui="pixel"]) — 그림은 그대로, 글꼴·테두리·버튼만 도트 느낌
+   - 둥근 모서리·흐린 그림자·그라데이션 대신: 각진 모서리 + 3px 진한 테두리 + 딱 떨어지는 그림자
+   - 글꼴: 갈무리 (SIL OFL, 상업 사용 가능)
+   ========================================================= */
+:root[data-ui="pixel"] { --px-line: #2a1608; --px-shadow: 4px 4px 0 rgba(20,10,4,.45); }
+:root[data-ui="pixel"][data-theme="dark"] { --px-line: #08070c; }
+:root[data-ui="pixel"] body, :root[data-ui="pixel"] button, :root[data-ui="pixel"] input { font-family: 'Galmuri11', 'Noto Sans KR', sans-serif; }
+:root[data-ui="pixel"] #logo .lg-name, :root[data-ui="pixel"] .title-name, :root[data-ui="pixel"] #btnPlay small, :root[data-ui="pixel"] #btnStart span,
+:root[data-ui="pixel"] .glabel .gname, :root[data-ui="pixel"] .chip, :root[data-ui="pixel"] .gb-letter, :root[data-ui="pixel"] .gb-ribbon,
+:root[data-ui="pixel"] .modal h2, :root[data-ui="pixel"] .banner span { font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-weight: 700; letter-spacing: 0; }
+:root[data-ui="pixel"] .pt-col b, :root[data-ui="pixel"] #betBox b, :root[data-ui="pixel"] .scorebox b, :root[data-ui="pixel"] #panelPlay .info b,
+:root[data-ui="pixel"] .float, :root[data-ui="pixel"] .fin-score { font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+:root[data-ui="pixel"] .title-name { text-shadow: 4px 4px 0 #6b2a08; font-size: clamp(44px, 14vw, 60px); }
+:root[data-ui="pixel"][data-theme="dark"] .title-name { text-shadow: 4px 4px 0 #3a1a04; }
+/* 상자들: 각지게 + 진한 테두리 + 딱 떨어지는 그림자 */
+:root[data-ui="pixel"] #pointsPill.pill, :root[data-ui="pixel"] .iconbtn, :root[data-ui="pixel"] #goal, :root[data-ui="pixel"] #gauge,
+:root[data-ui="pixel"] #panel, :root[data-ui="pixel"] #tabbar, :root[data-ui="pixel"] .modal, :root[data-ui="pixel"] #btnPlay,
+:root[data-ui="pixel"] .roundbtn, :root[data-ui="pixel"] .speedbtn, :root[data-ui="pixel"] #btnStart, :root[data-ui="pixel"] .mode-btn,
+:root[data-ui="pixel"] .news-item, :root[data-ui="pixel"] #giftBadge, :root[data-ui="pixel"] .who {
+  border-radius: 0 !important; border: 3px solid var(--px-line) !important; box-shadow: var(--px-shadow) !important; }
+:root[data-ui="pixel"] #slot::before, :root[data-ui="pixel"] #board::before { border-radius: 0; border: 3px solid var(--px-line); box-shadow: var(--px-shadow); }
+:root[data-ui="pixel"] .slot-cell::before, :root[data-ui="pixel"] .hole::before { border-radius: 0; }
+:root[data-ui="pixel"] .slot-cell::before { box-shadow: inset 3px 3px 0 rgba(0,0,0,.18); }
+:root[data-ui="pixel"] #gaugeTrack, :root[data-ui="pixel"] #gaugeFill, :root[data-ui="pixel"] .goal-bar, :root[data-ui="pixel"] .goal-bar i { border-radius: 0; }
+:root[data-ui="pixel"] #gaugeTrack { border: 2px solid var(--px-line); }
+:root[data-ui="pixel"] .glabel .gem, :root[data-ui="pixel"] .goal-gem { border-radius: 0; }
+/* 버튼: 그라데이션 대신 평평한 색 + 아래 진한 줄 (누르면 내려감) */
+:root[data-ui="pixel"] #btnPlay, :root[data-ui="pixel"] #btnStart { background: #f06a26; box-shadow: inset 0 -5px 0 #a63a10, var(--px-shadow) !important; }
+:root[data-ui="pixel"] #btnPlay:active, :root[data-ui="pixel"] #btnStart:active { transform: translate(3px, 3px); box-shadow: inset 0 -2px 0 #a63a10 !important; }
+:root[data-ui="pixel"] .roundbtn, :root[data-ui="pixel"] .speedbtn { box-shadow: inset 0 -4px 0 rgba(0,0,0,.25), var(--px-shadow) !important; }
+:root[data-ui="pixel"] .chip, :root[data-ui="pixel"] .card-grade, :root[data-ui="pixel"] #modeBadge, :root[data-ui="pixel"] .medal { border-radius: 0 !important; }
+:root[data-ui="pixel"] .modal button, :root[data-ui="pixel"] .rowbtn, :root[data-ui="pixel"] .closebtn, :root[data-ui="pixel"] .tabs button,
+:root[data-ui="pixel"] .rrow2, :root[data-ui="pixel"] .themepick .seg button, :root[data-ui="pixel"] .rest-note { border-radius: 0 !important; }
+:root[data-ui="pixel"] .closebtn { border: 3px solid var(--px-line); box-shadow: inset 0 -4px 0 #eadbc0; }
+:root[data-ui="pixel"] .divider { background: repeating-linear-gradient(90deg, #c99a55 0 6px, transparent 6px 10px); }
+:root[data-ui="pixel"] .divider span { transform: translateX(-50%); }
+:root[data-ui="pixel"] .lantern, :root[data-ui="pixel"] .title-lantern { filter: drop-shadow(4px 4px 0 rgba(0,0,0,.35)); }
+/* 도트 UI 다듬기: 제목은 굵은 갈무리11, 미터 이름 작게, 잔고 숫자 잘림 방지 */
+:root[data-ui="pixel"] #logo .lg-name, :root[data-ui="pixel"] .title-name, :root[data-ui="pixel"] #btnPlay small, :root[data-ui="pixel"] #btnStart span,
+:root[data-ui="pixel"] .chip, :root[data-ui="pixel"] .gb-letter, :root[data-ui="pixel"] .gb-ribbon, :root[data-ui="pixel"] .modal h2 { font-family: 'Galmuri11', sans-serif; font-weight: 700; }
+:root[data-ui="pixel"] .glabel .gname { font-family: 'Galmuri11', sans-serif; font-weight: 700; font-size: 11px; }
+:root[data-ui="pixel"] .glabel small { font-family: 'Galmuri9', 'Galmuri11', sans-serif; padding-left: 13px; }
+:root[data-ui="pixel"] .pt-col b { font-size: 19px; line-height: 1.1; }
+:root[data-ui="pixel"] #pointsPill.pill { height: 50px; }
