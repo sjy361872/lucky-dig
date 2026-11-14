@@ -12,10 +12,7 @@
   const Theme = {
     get() { try { return localStorage.getItem('ld_theme') || 'auto'; } catch (e) { return 'auto'; } },
     set(v) { try { localStorage.setItem('ld_theme', v); } catch (e) { /* 무시 */ } this.apply(); },
-    apply() {
-      const v = this.get(), dark = v === 'dark' || (v === 'auto' && root.matchMedia && root.matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    },
+    apply() { document.documentElement.dataset.theme = 'dark'; }, // 2026-11-14: 라이트 모드 제거, 밤 갱도 하나로 통일
   };
   Theme.apply();
   try { root.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => Theme.apply()); } catch (e) { /* 무시 */ }
@@ -146,7 +143,6 @@
       <label class="slider"><span>${ico('music')}BGM</span><input type="range" min="0" max="1" step="0.05" id="volBgm" value="${S.settings.bgm}"></label>
       <label class="slider"><span>${ico('sound')}효과음</span><input type="range" min="0" max="1" step="0.05" id="volSfx" value="${S.settings.sfx}"></label>
       ${Rank.isAdmin() ? `<button class="rowbtn gold" id="btnGrant">${ico('gift')}포인트 지급 (관리자)</button>` : ''}
-      <div class="themepick"><span>${ico('spark')}화면 테마</span><div class="seg">${[['light', '밝은 채석장'], ['dark', '밤 갱도'], ['auto', '휴대폰 따라']].map(([k, t]) => `<button data-theme="${k}" class="${Theme.get() === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
       <div class="themepick"><span>${ico('star')}화면 스타일</span><div class="seg">${[['basic', '기본'], ['pixel', '도트']].map(([k, t]) => `<button data-ui="${k}" class="${(document.documentElement.dataset.ui || 'pixel') === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
       <button class="rowbtn" id="btnHelp2">${ico('book')}하는 법</button>
       <button class="rowbtn" id="btnDaily">${ico('calendar')}출석 체크</button>
@@ -155,7 +151,6 @@
     m.el.querySelector('#volBgm').oninput = e => { S.settings.bgm = +e.target.value; Sound.setVolume('bgm', S.settings.bgm); save(); };
     m.el.querySelector('#volSfx').oninput = e => { S.settings.sfx = +e.target.value; Sound.setVolume('sfx', S.settings.sfx); save(); };
     m.el.querySelector('#btnDaily').onclick = () => { m.close(); openDaily(true); };
-    m.el.querySelectorAll('[data-theme]').forEach(bt => { bt.onclick = () => { Theme.set(bt.dataset.theme); m.el.querySelectorAll('[data-theme]').forEach(x => x.classList.toggle('on', x === bt)); }; });
     m.el.querySelectorAll('.seg [data-ui]').forEach(bt => { bt.onclick = () => { try { localStorage.setItem('ld_ui', bt.dataset.ui); } catch (e) { /* 무시 */ } document.documentElement.dataset.ui = bt.dataset.ui; m.el.querySelectorAll('.seg [data-ui]').forEach(x => x.classList.toggle('on', x === bt)); }; });
     m.el.querySelector('#btnHelp2').onclick = () => { m.close(); openHelp(); };
     const gb = m.el.querySelector('#btnGrant'); if (gb) gb.onclick = () => { m.close(); openGrant(); };

@@ -333,3 +333,127 @@ html, body { background: #1a1410; color: var(--ink); font-family: 'Pretendard', 
 :root .glabel.on .gname, :root[data-ui="pixel"] .glabel.on .gname { box-shadow: 0 0 12px var(--gc); transform: scale(1.25); transform-origin: left center; }
 :root .glabel.pop .gname, :root[data-ui="pixel"] .glabel.pop .gname { animation: tagPop .45s ease-out; }
 #leftcol .lantern { width: 64px; }
+
+/* =========================================================
+   통일 팔레트 ① 랜턴 호박빛 (2026-11-14) — 라이트 모드 없음, 밤 갱도 하나
+   색은 이 6가지(+ 파생)만 씀. 등급 색·블록·상자·카드 그림은 정보/그림이라 예외.
+   ========================================================= */
+:root, :root[data-theme="light"], :root[data-theme="dark"] {
+  --p-bg: #141623;        /* 바탕 */
+  --p-surface: #1f2235;   /* 패널 (모든 창·칸) */
+  --p-well: #0f111b;      /* 패널 안 움푹한 칸 */
+  --p-raise: #2c3049;     /* 보조 버튼 */
+  --p-line: #08090f;      /* 테두리·그림자 */
+  --p-text: #f3ead8;      /* 글자 */
+  --p-muted: #a9a3bf;     /* 흐린 글자 */
+  --p-accent: #ffad3b;    /* 강조: 채굴 버튼·중요 숫자·켜진 탭 */
+  --p-accent-d: #d9661c;  /* 강조 그림자 */
+  --p-on-accent: #1a1206; /* 강조 위 글자 */
+  --p-info: #6cc6d9;      /* 보조: MILD·정보·링크 */
+  --bgimg: url("../assets/v2/bg_dark.jpg");
+  --bg-veil: linear-gradient(rgba(20,22,35,.70), rgba(20,22,35,.88));
+  --ink: var(--p-text); --muted: var(--p-muted);
+  --panel: var(--p-surface); --panel-line: var(--p-line); --panel-shadow: 3px 3px 0 rgba(0,0,0,.5);
+  --cellbg: var(--p-well); --cellshadow: inset 2px 2px 0 rgba(0,0,0,.35);
+  --frame: var(--p-well); --frame-line: 0 0 0 0 transparent; --hole: #0b0c14; --track: var(--p-well);
+  --chipbg: var(--p-surface); --chipink: var(--p-text);
+  --accent: var(--p-accent); --accent-ink: var(--p-on-accent); --accent-shadow: inset 0 -5px 0 var(--p-accent-d);
+  --btn2: var(--p-raise); --tab-on: var(--p-accent); --glow: 0 0 12px rgba(255,170,60,.7);
+  --px-line: var(--p-line); --px-shadow: 3px 3px 0 rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+html, body { background: var(--p-bg); color: var(--p-text); }
+
+/* 상단·패널: 모두 같은 패널색 + 진한 테두리 */
+#logo .lg-name, :root[data-theme="dark"] #logo .lg-name { color: var(--p-accent); text-shadow: 0 0 14px rgba(255,170,60,.35); }
+#modeBadge.mild { background: var(--p-info); color: var(--p-bg); } #modeBadge.hard { background: var(--p-accent-d); color: #fff; }
+#pointsPill.pill { background: var(--p-surface); color: var(--p-text); border: 3px solid var(--p-line); }
+.pt-col small { color: var(--p-muted); opacity: 1; }
+#goal, :root[data-theme="dark"] #goal { background: var(--p-surface); color: var(--p-text); border: 3px solid var(--p-line); }
+#goalText b { color: var(--p-accent); }
+.goal-bar { background: var(--p-well); }
+.goal-bar i { background: var(--p-accent); }
+:root[data-ui="pixel"] .goal-bar i { background: repeating-linear-gradient(90deg, var(--p-accent) 0 8px, transparent 8px 11px); }
+#giftBadge, #giftBadge.ready { background: var(--p-raise); color: var(--p-text); border: 3px solid var(--p-line); }
+#giftBadge b, #giftBadge .mico { color: var(--p-accent); }
+#giftBadge.ready { box-shadow: 0 0 12px var(--p-accent); }
+#panel, #tabbar, #gauge, .iconbtn { border: 3px solid var(--p-line); }
+#slot::before { border: 3px solid var(--p-line); }
+#board::before { border: 3px solid var(--p-line); box-shadow: var(--panel-shadow); }
+#gaugeTrack, :root[data-ui="pixel"] #gaugeTrack, :root[data-theme="dark"] #gaugeTrack { border-color: var(--p-line); background: var(--p-well); }
+.scorebox b, .scorebox b.long, :root[data-theme="dark"] .scorebox b { color: var(--p-accent); }
+#btnPlay, :root[data-ui="pixel"] #btnPlay, #btnStart, :root[data-ui="pixel"] #btnStart { background: var(--p-accent); color: var(--p-on-accent); box-shadow: inset 0 -5px 0 var(--p-accent-d), var(--px-shadow) !important; }
+#btnPlay small, #btnStart span, :root[data-theme="light"] #btnStart span { color: var(--p-on-accent); }
+.speedbtn.on { background: var(--p-accent); color: var(--p-on-accent); box-shadow: 0 0 12px var(--p-accent); }
+.maker-game { color: var(--p-muted); }
+
+/* 시작 화면 */
+#title, :root[data-theme="dark"] #title { background: linear-gradient(rgba(20,22,35,.35), rgba(20,22,35,.9) 75%), var(--bgimg) center / cover no-repeat; }
+.title-name, :root[data-theme="light"] .title-name { color: var(--p-accent); text-shadow: 4px 4px 0 #3a1d06, 0 0 24px rgba(255,170,60,.35); }
+.title-hint, :root[data-theme="light"] .title-hint { color: var(--p-muted); text-shadow: none; }
+.mode-btn { background: var(--p-surface); border: 3px solid var(--p-line); color: var(--p-text); }
+.mode-btn small { color: var(--p-muted); }
+.mode-btn[data-mode=mild] b { color: var(--p-info); } .mode-btn[data-mode=hard] b { color: var(--p-accent); }
+.mode-btn .meter { background: var(--p-well); }
+.mode-btn[data-mode=mild] .meter i.lit { background: var(--p-info); } .mode-btn[data-mode=hard] .meter i.lit { background: var(--p-accent); }
+.mode-btn.on[data-mode=mild] { border-color: var(--p-info); box-shadow: 0 0 0 2px var(--p-info), 0 0 16px rgba(108,198,217,.5) !important; }
+.mode-btn.on[data-mode=hard] { border-color: var(--p-accent); box-shadow: 0 0 0 2px var(--p-accent), 0 0 16px rgba(255,173,59,.5) !important; }
+.who, :root[data-theme="light"] .who, #title .maker { background: var(--p-surface); color: var(--p-text); border: 3px solid var(--p-line); }
+#title .maker b { color: var(--p-accent); }
+
+/* 알림·업데이트 */
+.news-item { background: var(--p-surface); color: var(--p-text); border: 3px solid var(--p-accent); box-shadow: 3px 3px 0 rgba(0,0,0,.5); }
+.news-item .mico { color: var(--p-accent); }
+.upd-done { background: var(--p-surface); border: 3px solid var(--p-accent); }
+.upd-done b, .upd-done b .mico { color: var(--p-accent); }
+#toast, body > #toast { background: var(--p-surface); color: var(--p-text); border: 2px solid var(--p-line); }
+
+/* 팝업 (설정·보관함·보상표·랭킹·결과·출석): 크림색 창 → 패널색 창 */
+#overlay { background: rgba(8,9,15,.7); }
+.modal, .modal button, .modal .closebtn, .zoom .closebtn, .rowbtn { color: var(--p-text); }
+.modal { background: var(--p-surface); border: 3px solid var(--p-line); box-shadow: 4px 4px 0 rgba(0,0,0,.55); }
+.modal h2 { color: var(--p-accent); }
+.modal .muted, .modal small, .muted { color: var(--p-muted); }
+.note { color: var(--p-info); }
+.divider { background: linear-gradient(90deg, transparent, var(--p-accent), transparent); }
+:root[data-ui="pixel"] .divider { background: repeating-linear-gradient(90deg, var(--p-accent) 0 6px, transparent 6px 10px); }
+.divider span { background: var(--p-accent); }
+.closebtn, :root[data-ui="pixel"] .closebtn { background: var(--p-raise); border: 3px solid var(--p-line); box-shadow: inset 0 -4px 0 rgba(0,0,0,.3); }
+.rowbtn, .rowbtn.big { background: var(--p-raise); border: 2px solid var(--p-line); }
+.rowbtn.gold { background: var(--p-accent); color: var(--p-on-accent); }
+.mico, .rowbtn .mico { color: var(--p-accent); }
+.rowbtn.gold .mico { color: var(--p-on-accent); }
+.tabs button, .dex-tiers button, .themepick .seg button { background: var(--p-raise); color: var(--p-muted); border: 2px solid var(--p-line); }
+.tabs button.on, .dex-tiers button.on, .themepick .seg button.on { background: var(--p-accent); color: var(--p-on-accent); }
+.dex-tiers button.done { border-color: var(--p-info); }
+.slider input { accent-color: var(--p-accent); }
+.tabbody h4, .steps li b, .steps2 b { color: var(--p-accent); }
+.tbl th { background: var(--p-well); color: var(--p-muted); }
+.tbl td, .itemrow, .rrow, .prow { border-color: var(--p-raise); }
+.icbox .ic { background: var(--p-well); }
+.icbox small { color: var(--p-muted); }
+.plist { background: var(--p-well); border: 2px solid var(--p-line); }
+.prow summary::after { color: var(--p-muted); }
+.pcard small b { color: var(--p-accent); }
+.rlist .rrow2 { background: var(--p-well); border: 2px solid var(--p-line); }
+.rrow2.me { background: var(--p-raise); border-color: var(--p-accent); }
+.rrow2 .rk { color: var(--p-muted); }
+.rrow2 .rs b { color: var(--p-accent); } .rrow2 .rs small { color: var(--p-muted); }
+.rest-note { background: var(--p-well); color: var(--p-muted); border: 2px dashed var(--p-raise); }
+.rest-note b { color: var(--p-accent); }
+.only-me { background: var(--p-raise); color: var(--p-muted); }
+.frow { border-color: var(--p-raise); } .frow small { color: var(--p-muted); }
+.rbtns button { background: var(--p-raise); border: 3px solid var(--p-line); color: var(--p-text); }
+.rbtns button.red { background: var(--p-accent); border-color: var(--p-line); color: var(--p-on-accent); box-shadow: inset 0 -4px 0 var(--p-accent-d); }
+.bagitem button { background: var(--p-accent); color: var(--p-on-accent); }
+.cmp { background: var(--p-well); } .cmp b { color: var(--p-accent); }
+.chargegrid button, .betlist button { background: var(--p-raise); border: 3px solid var(--p-line); color: var(--p-text); }
+.betlist button.on { background: var(--p-accent); color: var(--p-on-accent); }
+.inp { background: var(--p-well); color: var(--p-text); border: 3px solid var(--p-line); }
+.dex-total b { color: var(--p-accent); }
+.dex-total .bar { background: var(--p-well); } .dex-total .bar i { background: var(--p-accent); }
+.dexcard small { color: var(--p-muted); }
+.daily .dday { background: var(--p-well); border-color: var(--p-line); color: var(--p-text); }
+.dday.today { border-color: var(--p-accent); box-shadow: 0 0 10px rgba(255,173,59,.5); }
+.dday small { color: var(--p-muted); }
+.zoom { background: rgba(8,9,15,.85); }
